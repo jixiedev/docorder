@@ -1,3 +1,15 @@
 添加output算子
 算子支持union多个上游算子
 怎么增量source
+
+Q 为什么不支持多个上游算子
+A 文档的合并没有找到太大实际意义，返回会带来极高的复杂度
+
+Q 多个operator协作修改doc的场景呢
+A 可以让第一个operator先生成出doc，然后让op2,...依次在op1的doc上面修改，而不是从0开始让op1,op2...一起修改
+
+Q 如何实现上述顺序
+A 可以设置依赖链 op1 -> op2 -> ... -> child
+
+Q 上述场景
+A 从同一个table名称可以生成common template, time template, field template，它们理应协作生成table documentation。此时可以让后面的prompt直接基于op1的输出添加time，field等信息。
