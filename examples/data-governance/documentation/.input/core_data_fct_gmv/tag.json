@@ -1,0 +1,5 @@
+{
+  "table": "fct_gmv",
+  "database": "core_data",
+  "platform": "hive"
+}

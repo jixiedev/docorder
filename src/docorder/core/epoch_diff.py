@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Protocol
 
 
 class _Census(Protocol):
     def census(self) -> Mapping[str, str]: ...
 
-_HEADERS = ("operator", "added", "modified", "deleted")
-_ALIGN_RIGHT = (False, True, True, True)
+_HEADERS = ("operator", "added", "modified", "rewritten", "deleted")
+_ALIGN_RIGHT = (False, True, True, True, True)
 
 
 class EpochEntityDiff:
@@ -20,13 +20,15 @@ class EpochEntityDiff:
     ``finish`` after ``execute`` returns. The source is whatever ``census``
     reports: epoch entities for a transform, or published result files for
     output. Added names are new, deleted names are gone, and modified names
-    kept the same name but changed their content hash. An entity hash is the
-    body plus the user tag, so a rewrite that only replaces the upstream
-    snapshot is not a modification.
+    kept the same name but changed their content hash. Rewritten names were
+    written again and kept that hash. An entity hash is the body plus the user
+    tag, so a rewrite that only replaces the upstream snapshot is rewritten,
+    not modified. Pass the names this run wrote to ``finish``.
     """
 
     added: frozenset[str]
     modified: frozenset[str]
+    rewritten: frozenset[str]
     deleted: frozenset[str]
 
     def __init__(self, source: _Census) -> None:
@@ -35,34 +37,44 @@ class EpochEntityDiff:
         self._finished = False
         self.added = frozenset()
         self.modified = frozenset()
+        self.rewritten = frozenset()
         self.deleted = frozenset()
 
-    def finish(self) -> None:
-        """Compare the epoch directory with the snapshot taken at construction."""
+    def finish(self, written: Iterable[str] = ()) -> None:
+        """Compare the epoch directory with the snapshot taken at construction.
+
+        ``written`` is the names this run wrote. A name in both snapshots whose
+        hash did not change is rewritten only when it is in that list.
+        """
         after = self._snapshot()
         before_names = set(self._before)
         after_names = set(after)
+        written_names = set(written)
         self.added = frozenset(after_names - before_names)
         self.deleted = frozenset(before_names - after_names)
+        stayed = before_names & after_names
         self.modified = frozenset(
+            name for name in stayed if self._before[name] != after[name]
+        )
+        self.rewritten = frozenset(
             name
-            for name in before_names & after_names
-            if self._before[name] != after[name]
+            for name in stayed & written_names
+            if self._before[name] == after[name]
         )
         self._finished = True
 
-    def counts(self) -> tuple[int, int, int]:
-        """Added, modified, and deleted counts. Requires ``finish``."""
+    def counts(self) -> tuple[int, int, int, int]:
+        """Added, modified, rewritten, and deleted counts. Requires ``finish``."""
         if not self._finished:
             raise RuntimeError("finish the epoch diff before reporting it")
-        return len(self.added), len(self.modified), len(self.deleted)
+        return len(self.added), len(self.modified), len(self.rewritten), len(self.deleted)
 
     def _snapshot(self) -> dict[str, str]:
         return dict(self._source.census())
 
 
 def format_diff_table(epoch: str, rows: Sequence[tuple[str, EpochEntityDiff]]) -> str:
-    """Box table of added, modified, and deleted counts, one operator per row.
+    """Box table of added, modified, rewritten, and deleted counts, one operator per row.
 
     The operator column is left-aligned. Count columns are right-aligned.
     """

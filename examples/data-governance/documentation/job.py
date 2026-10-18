@@ -25,7 +25,7 @@ def main() -> None:
         config={"directory": str(JOB_ROOT / ".output")},
     )
 
-    execute(job, "demo2", start_from_scratch=True)
+    execute(job, "demo", start_from_scratch=True)
 
 
 if __name__ == "__main__":

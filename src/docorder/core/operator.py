@@ -239,9 +239,12 @@ class Operator(ABC):
         return [*todo, *(entity.name for entity in redo)]
 
     @abstractmethod
-    def execute(self, pending: list[str]) -> None:
-        """Write the names returned by ``prepare_before_execute``."""
+    def execute(self, pending: list[str]) -> list[str]:
+        """Write the names returned by ``prepare_before_execute``.
 
+        Return every name this call wrote. The epoch diff counts a name as
+        rewritten when it is in this list and its content hash did not change.
+        """
 
     @abstractmethod
     def build_lineage(self) -> dict[str, list[str]]:
@@ -435,15 +438,16 @@ class SourceOperator(Operator):
             pass
         return pending
 
-    def execute(self, pending: list[str]) -> None:
+    def execute(self, pending: list[str]) -> list[str]:
         """Replace this epoch's entities with what the source function emits.
 
-        Names that are not emitted are deleted.
+        Names that are not emitted are deleted. Returns the names written.
         """
+        del pending
         if not self.run_context.start_from_scratch:
             # 虽然指定不需要重复source，但还是考虑进行检查，比如检查目录非空，source的entity非空
             with progress_bar(self.name, 0):
-                return
+                return []
         produced: set[str] = set()
         # todo 对于source，还是先写到sandbox中，并进行数据校验比较好
         function = self.new_function()
@@ -463,6 +467,7 @@ class SourceOperator(Operator):
             for name in list(self.store.entities):
                 if name not in produced:
                     self.store.discard(name)
+        return sorted(produced)
 
     def _write_record(self, record: SourceRecord) -> None:
         if not isinstance(record.data, str):
@@ -509,14 +514,15 @@ class MapOperator(Operator):
             return {}
         return {name: [name] for name in sorted(store.entities)}
 
-    def execute(self, pending: list[str]) -> None:
+    def execute(self, pending: list[str]) -> list[str]:
         """Map each pending upstream entity through the configured function class.
 
         ``pending`` is the name list from ``prepare_before_execute``. It is split
         into ``parallelism`` slices. A single slice runs here; more than one
-        slice runs one thread each.
+        slice runs one thread each. Returns the names written.
         """
         self._execute_pairs(pending)
+        return list(pending)
 
 
 class ReduceOperator(Operator):
@@ -533,13 +539,13 @@ class ReduceOperator(Operator):
         names = sorted(store.entities) if store is not None else []
         return {self._output_name(): names}
 
-    def execute(self, pending: list[str]) -> None:
+    def execute(self, pending: list[str]) -> list[str]:
         output_name = self._output_name()
         working = output_name in pending
         with progress_bar(self.name, 1) as bar:
             if not working:
                 bar.update(1)
-                return
+                return []
             store = self.upstream_store
             upstream = self.upstream
             if store is None or upstream is None:
@@ -568,6 +574,7 @@ class ReduceOperator(Operator):
 
             call_with_retry(run, self.props.retry, label=f"{self.name}:{output_name}")
             bar.update(1)
+        return [output_name]
 
     def _output_name(self) -> str:
         """Name of the single output entity. ``config["output"]`` overrides ``result``."""
@@ -604,7 +611,7 @@ class OutputOperator(Operator):
                 found[name] = hashlib.sha256(path.read_bytes()).hexdigest()
         return found
 
-    def execute(self, pending: list[str]) -> None:
+    def execute(self, pending: list[str]) -> list[str]:
         del pending
         store = self.upstream_store
         if store is None or self.upstream is None:
@@ -633,6 +640,7 @@ class OutputOperator(Operator):
                 if path.is_file():
                     path.unlink()
             self._save_published(set(planned))
+        return list(planned)
 
     def _result_dir(self) -> Path:
         raw = self.props.others.get("directory")
@@ -733,8 +741,9 @@ class FanoutOperator(Operator):
                 lineage[name] = [source_name]
         return lineage
 
-    def execute(self, pending: list[str]) -> None:
+    def execute(self, pending: list[str]) -> list[str]:
         self._execute_pairs(pending)
+        return list(pending)
 
 
 _OPERATORS: dict[str, type[Operator]] = {

@@ -66,8 +66,8 @@ def _run_operator(operator: Operator) -> tuple[str, EpochEntityDiff]:
     _prepare_output(operator.output_path)
     diff = EpochEntityDiff(operator)
     pending = operator.prepare_before_execute()
-    operator.execute(pending)
-    diff.finish()
+    written = operator.execute(pending)
+    diff.finish(written)
     return operator.name, diff
 
 

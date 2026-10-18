@@ -42,13 +42,14 @@ def test_finish_counts_added_modified_and_deleted_entities(tmp_path: Path) -> No
 
     assert diff.added == frozenset({"fresh"})
     assert diff.modified == frozenset({"edit"})
+    assert diff.rewritten == frozenset()
     assert diff.deleted == frozenset({"drop"})
     assert format_diff_table(EPOCH, [("documentation", diff)]) == _table(
-        "┌───────────────┬───────┬──────────┬─────────┐",
-        "│ operator      │ added │ modified │ deleted │",
-        "├───────────────┼───────┼──────────┼─────────┤",
-        "│ documentation │     1 │        1 │       1 │",
-        "└───────────────┴───────┴──────────┴─────────┘",
+        "┌───────────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator      │ added │ modified │ rewritten │ deleted │",
+        "├───────────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ documentation │     1 │        1 │         0 │       1 │",
+        "└───────────────┴───────┴──────────┴───────────┴─────────┘",
     )
 
 
@@ -71,18 +72,33 @@ def test_upstream_snapshot_alone_does_not_count_as_modified(tmp_path: Path) -> N
         {"k": 1},
         upstream=snapshot("tables", "orders", "new"),
     )
-    diff.finish()
+    diff.finish(["orders"])
 
     assert diff.added == frozenset()
     assert diff.modified == frozenset()
+    assert diff.rewritten == frozenset({"orders"})
     assert diff.deleted == frozenset()
     assert format_diff_table(EPOCH, [("prompt", diff)]) == _table(
-        "┌──────────┬───────┬──────────┬─────────┐",
-        "│ operator │ added │ modified │ deleted │",
-        "├──────────┼───────┼──────────┼─────────┤",
-        "│ prompt   │     0 │        0 │       0 │",
-        "└──────────┴───────┴──────────┴─────────┘",
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ prompt   │     0 │        0 │         1 │       0 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
     )
+
+
+def test_a_write_that_changes_content_is_modified_not_rewritten(tmp_path: Path) -> None:
+    """Rewritten counts only names that were written again and kept the same hash."""
+    store = EpochStore(tmp_path / "prompt", EPOCH)
+    put_entity(store.epoch_dir, "edit", "old")
+    put_entity(store.epoch_dir, "idle", "same")
+    diff = EpochEntityDiff(store)
+
+    put_entity(store.epoch_dir, "edit", "new")
+    diff.finish(["edit"])
+
+    assert diff.modified == frozenset({"edit"})
+    assert diff.rewritten == frozenset()
 
 
 def test_run_reports_entities_added_changed_and_removed(
@@ -113,13 +129,13 @@ def test_run_reports_entities_added_changed_and_removed(
     )
     err = capsys.readouterr().err
     assert _table(
-        "┌──────────┬───────┬──────────┬─────────┐",
-        "│ operator │ added │ modified │ deleted │",
-        "├──────────┼───────┼──────────┼─────────┤",
-        "│ tables   │     2 │        0 │       0 │",
-        "│ prompt   │     2 │        0 │       0 │",
-        "│ result   │     2 │        0 │       0 │",
-        "└──────────┴───────┴──────────┴─────────┘",
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ tables   │     2 │        0 │         0 │       0 │",
+        "│ prompt   │     2 │        0 │         0 │       0 │",
+        "│ result   │     2 │        0 │         0 │       0 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
     ) in err
 
     execute(
@@ -145,13 +161,13 @@ def test_run_reports_entities_added_changed_and_removed(
     )
     err = capsys.readouterr().err
     assert _table(
-        "┌──────────┬───────┬──────────┬─────────┐",
-        "│ operator │ added │ modified │ deleted │",
-        "├──────────┼───────┼──────────┼─────────┤",
-        "│ tables   │     1 │        1 │       1 │",
-        "│ prompt   │     1 │        1 │       1 │",
-        "│ result   │     1 │        1 │       1 │",
-        "└──────────┴───────┴──────────┴─────────┘",
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ tables   │     1 │        1 │         0 │       1 │",
+        "│ prompt   │     1 │        1 │         0 │       1 │",
+        "│ result   │     1 │        1 │         0 │       1 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
     ) in err
 
 
@@ -178,24 +194,24 @@ def test_output_counts_files_written_to_its_directory(
     err = capsys.readouterr().err
     assert (dest / "orders").read_text(encoding="utf-8") == "A"
     assert _table(
-        "┌──────────┬───────┬──────────┬─────────┐",
-        "│ operator │ added │ modified │ deleted │",
-        "├──────────┼───────┼──────────┼─────────┤",
-        "│ tables   │     1 │        0 │       0 │",
-        "│ output   │     1 │        0 │       0 │",
-        "└──────────┴───────┴──────────┴─────────┘",
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ tables   │     1 │        0 │         0 │       0 │",
+        "│ output   │     1 │        0 │         0 │       0 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
     ) in err
     capsys.readouterr()
 
     execute(job, EPOCH, start_from_scratch=False)
     err = capsys.readouterr().err
     assert _table(
-        "┌──────────┬───────┬──────────┬─────────┐",
-        "│ operator │ added │ modified │ deleted │",
-        "├──────────┼───────┼──────────┼─────────┤",
-        "│ tables   │     0 │        0 │       0 │",
-        "│ output   │     0 │        0 │       0 │",
-        "└──────────┴───────┴──────────┴─────────┘",
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ tables   │     0 │        0 │         0 │       0 │",
+        "│ output   │     0 │        0 │         1 │       0 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
     ) in err
 
 
@@ -221,12 +237,41 @@ def test_unchanged_rerun_reports_no_entity_changes(
     execute(job, EPOCH, start_from_scratch=False)
     err = capsys.readouterr().err
     assert _table(
-        "┌──────────┬───────┬──────────┬─────────┐",
-        "│ operator │ added │ modified │ deleted │",
-        "├──────────┼───────┼──────────┼─────────┤",
-        "│ tables   │     0 │        0 │       0 │",
-        "│ prompt   │     0 │        0 │       0 │",
-        "└──────────┴───────┴──────────┴─────────┘",
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ tables   │     0 │        0 │         0 │       0 │",
+        "│ prompt   │     0 │        0 │         0 │       0 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
+    ) in err
+
+
+def test_identical_source_rerun_counts_rewritten_entities(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A source that writes the same records again reports them as rewritten."""
+    root = tmp_path / "runs"
+    job = make_job(
+        root,
+        [
+            {
+                "name": "tables",
+                "home": "fixed",
+                "config": {"records": [{"name": "orders", "data": "A", "tag": {}}]},
+            }
+        ],
+    )
+    execute(job, EPOCH, start_from_scratch=True)
+    capsys.readouterr()
+
+    execute(job, EPOCH, start_from_scratch=True)
+    err = capsys.readouterr().err
+    assert _table(
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ tables   │     0 │        0 │         1 │       0 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
     ) in err
 
 
@@ -271,10 +316,10 @@ def test_downstream_keeps_a_zero_when_only_its_upstream_snapshot_changes(
     )
     err = capsys.readouterr().err
     assert _table(
-        "┌──────────┬───────┬──────────┬─────────┐",
-        "│ operator │ added │ modified │ deleted │",
-        "├──────────┼───────┼──────────┼─────────┤",
-        "│ tables   │     0 │        1 │       0 │",
-        "│ prompt   │     0 │        0 │       0 │",
-        "└──────────┴───────┴──────────┴─────────┘",
+        "┌──────────┬───────┬──────────┬───────────┬─────────┐",
+        "│ operator │ added │ modified │ rewritten │ deleted │",
+        "├──────────┼───────┼──────────┼───────────┼─────────┤",
+        "│ tables   │     0 │        1 │         0 │       0 │",
+        "│ prompt   │     0 │        0 │         1 │       0 │",
+        "└──────────┴───────┴──────────┴───────────┴─────────┘",
     ) in err
