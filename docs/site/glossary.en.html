@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glossary | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.en.html">Docorder</a>
+    <nav>
+      <a href="index.en.html">Docs</a>
+      <a href="guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="readme.en.html">Quick start</a>
+      </details>
+      <details>
+        <summary>The guide</summary>
+        <a class="" href="guide/index.en.html">The guide</a>
+        <a class="" href="guide/document-structure.en.html">Document structure</a>
+        <a class="" href="guide/1-background.en.html">1. Background</a>
+        <a class="" href="guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details open>
+        <summary>Reference</summary>
+        <a class="current" href="glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="contributing.en.html">Contributing</a>
+        <a class="" href="security.en.html">Security</a>
+        <a class="" href="changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>Glossary</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="glossary">Glossary</h1>
+<p><a href="glossary.html">中文</a></p>
+<p>This page fixes the names that the documents and the code keep using. How an entity is stored, how one stage advances, and how each function is configured are all in <a href="guide/index.en.html">docs/guide.en.md</a>.</p>
+<h2 id="entity">Entity</h2>
+<p>An entity is one object of one transform. On disk it is one directory under an epoch directory, and the directory name is the entity name. <code>data</code> is the body, and <code>tag.json</code> holds traits that downstream stages use for filtering and templates. Once an entity with an upstream is finished, the snapshot lives in <code>tag.json</code> as <code>upstream</code>.</p>
+<h2 id="upstream-snapshot">Upstream snapshot</h2>
+<p>The upstream snapshot is the <code>upstream</code> key in <code>tag.json</code>. It records every upstream entity this entity read: the upstream node name, the entity name, the epoch, and the sha256 of the body together with the user tag. One upstream is one record; none or several is a list. It covers the upstream body and user tag, not this operator's configuration. A source does not write this key.</p>
+<h2 id="operator-and-operator-home">Operator and operator home</h2>
+<p>An operator is a reusable transform. Its static files live in an operator home, found through <code>DOCORDER_HOMES</code>, and the home does not record the output path of any one run. <code>type</code> and <code>class</code> in <code>props.json</code> decide the kind and the function to load, and a job cannot change those two. <code>type</code> is one of <code>source</code>, <code>map</code>, <code>reduce</code>, <code>fanout</code>, and <code>apply</code>. An <code>apply</code> node calls the function on each upstream entity. The function returns nothing, and the node writes no entities.</p>
+<h2 id="function">Function</h2>
+<p>A function is the Python class an operator home loads. It reads upstream entities and fills in the body and tag of the target entity. <code>class</code> is written as <code>module:Class</code>, or as <code>primary:Class</code> to load <code>primary.py</code> inside the home. Persisting, snapshots, retry, and parallelism belong to the runner, not to the function.</p>
+<h2 id="job-and-node">Job and node</h2>
+<p>A job is a directed acyclic graph. <code>Job</code> takes a job name and an output root. A point in the graph is a node. It refers to one operator home and has its own name, parameter overrides, and, except for a source, exactly one upstream. A node's output path is its name under the output root.</p>
+<h2 id="epoch">Epoch</h2>
+<p>An epoch is the name of the subdirectory that holds the entities. The caller of <code>execute</code> passes it in. A different epoch is a different set of subdirectories. On another run of the same epoch, the runner uses the upstream snapshots to decide whether each entity is executed, redone, kept, or deleted.</p>
+<h2 id="stage">Stage</h2>
+<p>A stage is one node's whole execution for one epoch. Downstream starts only after that execution has finished.</p>
+<h2 id="expected-names">Expected names</h2>
+<p>The expected names are what a stage computes from the upstream entities when it starts: "output name → the upstream entity names it depends on". The runner compares them with the entities already in this node's directory. Names in the list but missing from the directory are created, entities in the directory but absent from the list are deleted, and entities in both are kept or redone according to their upstream snapshot.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <span class="prev empty"></span>
+        <span class="next empty"></span>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#entity">Entity</a>
+      <a href="#upstream-snapshot">Upstream snapshot</a>
+      <a href="#operator-and-operator-home">Operator and operator home</a>
+      <a href="#function">Function</a>
+      <a href="#job-and-node">Job and node</a>
+      <a href="#epoch">Epoch</a>
+      <a href="#stage">Stage</a>
+      <a href="#expected-names">Expected names</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

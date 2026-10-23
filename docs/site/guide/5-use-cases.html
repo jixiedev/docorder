@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>五、使用场景 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="current" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>五、使用场景</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="五使用场景">五、使用场景</h1>
+<p>docorder 最适合这样一类任务：有一批彼此独立的对象，每个对象都要经过几个步骤的加工，而其中某些步骤比较慢、比较贵，或者容易失败。在这类任务中，docorder 能够保证失败之后只补做失败的部分，输入变化之后只重做受影响的部分。下面介绍几种典型的作业图，它们都只需要使用 docorder 自带的 function，或者编写很少量的代码就能搭建出来。</p>
+<h3 id="批量生成提示词并交给大模型">批量生成提示词并交给大模型</h3>
+<p>这是 docorder 最典型的用法。作业的第一步是一个 source 节点，它读取一个目录，把其中每个符合实体约定的子目录变成一个实体；第二步是一个使用 <code>TemplateToPrompt</code> 的 map 节点，它把每个实体套进模板，生成一段提示词；第三步是一个使用 <code>PromptToLLM</code> 的 map 节点，它把每段提示词交给一个命令行形式的大模型工具，工具在标准输出中打印的内容，或它自己写进目标实体的 <code>data</code>，就成为这一步的正文；最后还可以接一个使用 <code>TemplateToLLM</code> 的 reduce 节点，把所有回答汇总成一份清单。调用大模型的那个节点通常需要配置 <code>retry</code>，以便在接口偶尔出错时自动重试，并用 <code>parallelism</code> 控制同时发出的请求数量。如果有几个对象在多次重试后仍然失败，修复问题后用同一个 epoch 再运行一次，docorder 只会补做这几个对象，其余已经拿到回答的对象不会再次调用大模型。第十章的示例项目就是按这个结构搭建的。</p>
+<h3 id="从结构化数据生成配置文件">从结构化数据生成配置文件</h3>
+<p>如果上游实体的正文是一个 JSON 对象，例如一张表的字段定义或者一个服务的描述，可以先用一个使用 <code>JinjaToJsonnet</code> 的 map 节点，把 JSON 对象中的每个键当作模板变量，渲染出一段 jsonnet 程序；再用一个使用 <code>JsonnetToPrompt</code> 的 map 节点，调用本机安装的 <code>jsonnet</code> 程序编译它，得到最终的 JSON 或文本。jsonnet 是一种专门用来生成 JSON 配置的语言，它支持变量、函数和列表推导等功能，比直接手写 JSON 更灵活。这种组合适合根据一批表定义或服务描述，批量生成格式统一的配置文件。</p>
+<h3 id="为每个实体运行命令行工具">为每个实体运行命令行工具</h3>
+<p>使用 <code>Command</code> 的 map 节点会为每个实体运行一次外部命令。命令的参数里可以引用实体的附加信息、正文和输出目录，命令的结果可以取它在标准输出中打印的内容，也可以取它写到磁盘上的某个文件。这个 function 直接启动命令，不经过 shell，因此参数中的空格和特殊字符不会被 shell 另行解释。它适合批量调用代码格式化工具、格式转换工具或者团队内部的脚本。</p>
+<h3 id="汇总与拆分">汇总与拆分</h3>
+<p>reduce 节点把一批实体合并成一个实体，适合生成索引、目录、统计报告这类需要综合全部对象的结果。内置的 <code>TemplateToLLM</code> 可以把上游整批渲染成一份提示词交给大模型，再把回复写成那一个输出实体。fanout 节点把一个实体拆成多个实体，适合把一篇长文档按段落或章节切开，再交给后续步骤分别处理。fanout 没有内置 function，需要按照第九章的说明自己编写，通常只需要十几行代码。</p>
+<h3 id="不适合的场景">不适合的场景</h3>
+<p>有些任务并不适合使用 docorder。如果某一步需要同时读取两个不同上游节点的结果，并且希望其中任何一个发生变化时都能自动重做，当前版本无法表达这样的依赖关系。如果需要把任务分发到多台机器上执行，或者希望上游刚处理完一个对象、下游就立即开始处理它，docorder 也无法满足。如果对象的内容是图片、音频这类二进制数据，同样不适合，因为正文只能是文本。另外，如果对象的数量很少，每个步骤都很快，而且失败后从头再跑一遍也没有什么代价，那么直接写一个普通的 Python 脚本会更简单。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/4-fingerprints-and-hashes.html">
+          <span class="label">上一篇</span>
+          <span class="name">四、指纹与哈希</span>
+        </a>
+        <a class="next" href="../guide/6-configuration.html">
+          <span class="label">下一篇</span>
+          <span class="name">六、配置</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#批量生成提示词并交给大模型">批量生成提示词并交给大模型</a>
+      <a href="#从结构化数据生成配置文件">从结构化数据生成配置文件</a>
+      <a href="#为每个实体运行命令行工具">为每个实体运行命令行工具</a>
+      <a href="#汇总与拆分">汇总与拆分</a>
+      <a href="#不适合的场景">不适合的场景</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

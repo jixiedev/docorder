@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>一、背景 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="current" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>一、背景</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="一背景">一、背景</h1>
+<h3 id="要解决的问题">要解决的问题</h3>
+<p>很多批处理任务都有相同的形状：手里有一批对象，例如几百张数据表的定义、一批笔记或者一组服务的配置，需要对每个对象依次做几步加工，例如先把表定义渲染成一段提示词，再把提示词交给大模型生成说明文字，最后把所有表的说明汇总成一份清单。这样的任务有两个共同的麻烦。第一个麻烦是每一步都可能很慢，也可能失败：调用外部命令可能超时，大模型接口可能限流或者返回错误，模板里也可能有写错的地方。第二个麻烦是输入会不断变化：今天改了其中一张表的定义，明天又新增了几张表，每次变化之后都需要更新结果。</p>
+<p>如果只写一个普通的脚本，用循环逐个处理这些对象，那么处理到第三百个对象时出了错，修好问题之后往往只能从头再跑一遍，前面已经花掉的时间和大模型调用费用都白白浪费了。为了避免这种情况，很多人会自己记录「哪些对象已经处理完」，但这份记录放在数据库里，就多了一个需要部署和维护的组件；放在内存里，进程一退出记录就丢失了。更难处理的是判断「已经算好的结果还能不能继续用」：修改了某个输入文件之后，到底哪些下游结果需要重新计算，哪些可以保留，普通脚本通常没有可靠的依据，只能全部重算，或者靠人工判断。</p>
+<p>docorder 的做法是把每个对象在每一步的结果都写成磁盘上的一个目录，并在这个目录里记下这一步读取的上游内容的哈希值。哈希值是根据一段内容计算出来的一串固定长度的字符，内容只要有一点变化，哈希值就会完全不同，因此可以用它来判断内容是否被改动过。下次运行时，docorder 只需要把目录里记下的哈希值与上游当前内容的哈希值作比较，就能知道哪些对象还没有处理、哪些对象的结果已经过时需要重做、哪些对象的结果仍然有效可以保留。整个判断过程只依赖磁盘上的文件，不需要数据库，也不依赖上一次运行留在内存里的任何状态。</p>
+<h3 id="一个最小的例子">一个最小的例子</h3>
+<p>下面这个作业读取一个目录中的笔记实体，把每个笔记的正文放进一个模板，生成一段提示词。它只有两个步骤，但已经包含了 docorder 的全部基本组成部分，后面各章会反复用它来解释概念。要实际运行这个例子，需要先按第十章第一步安装 docorder。</p>
+<h4 id="准备文件">准备文件</h4>
+<p>先在任意位置建立下面这样的目录结构。其中 <code>notes/</code> 是输入数据，<code>homes/</code> 存放描述「每一步做什么」的配置，<code>run.py</code> 是启动整个作业的 Python 脚本。</p>
+<pre><code class="language-text">hello-docorder/
+  run.py                    启动脚本
+  notes/
+    hello/
+      data                  输入正文，内容是 hello
+      tag.json              输入附加信息
+  homes/                    存放算子的目录
+    notes_source/
+      props.json
+    prompt/
+      props.json
+      lib/note.jinja        模板文件，内容是 Note: {{ entity.source_data }}
+</code></pre>
+<p>在 docorder 里，作业中的每一种步骤称为一个算子（operator），描述一个算子的那个目录称为算子 home。上面的 <code>homes/notes_source/</code> 和 <code>homes/prompt/</code> 就是两个算子 home：前者描述「从一个目录里读取文件」这个步骤，后者描述「用模板生成提示词」这个步骤。docorder 安装包里不附带任何算子 home，算子 home 总是由使用者自己放在项目里。每个算子 home 里都必须有一份名为 <code>props.json</code> 的 JSON 配置文件，docorder 正是通过它来认出一个目录是算子 home，并了解这个算子该怎么运行。</p>
+<p><code>homes/notes_source/props.json</code> 的内容如下：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:DirectorySource&quot;
+}
+</code></pre>
+<p><code>homes/prompt/props.json</code> 的内容如下：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;template&quot;: &quot;lib/note.jinja&quot;
+}
+</code></pre>
+<p><code>type</code> 说明这个算子属于哪一类。<code>source</code> 类型的算子位于作业的起点，它不读取其它步骤的结果，而是从外部（例如磁盘上的一个目录）产生最初的一批对象；<code>map</code> 类型的算子读取上一步的结果，并对其中的每个对象分别做一次转换，每个输入对象对应一个输出对象。<code>class</code> 指向真正执行转换的 Python 类，写法是「模块路径:类名」，这个类在 docorder 中称为 function。这里用到的两个 function 都是 docorder 自带的：<code>DirectorySource</code> 把一个目录中已经写成实体形状的子目录变成对象，<code>TemplateToPrompt</code> 用一个 Jinja 模板为每个对象渲染出一段文本。Jinja 是 Python 中常用的模板语言，模板里用两对花括号包住的部分，例如 <code>{{ entity.source_data }}</code>，会在渲染时被替换成对应变量的值。<code>props.json</code> 中除 <code>type</code> 和 <code>class</code> 以外的键，都会作为参数交给 function 使用，例如 <code>template</code> 告诉 <code>TemplateToPrompt</code> 使用哪个模板文件，这个路径是相对于算子 home 的。</p>
+<h4 id="配置并运行作业">配置并运行作业</h4>
+<p><code>run.py</code> 的内容如下：</p>
+<pre><code class="language-python">import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+ROOT = Path(__file__).resolve().parent
+
+
+def main() -&gt; None:
+    os.environ[&quot;DOCORDER_HOMES&quot;] = str(ROOT / &quot;homes&quot;)
+
+    job = Job(&quot;hello&quot;, ROOT / &quot;runs&quot;)
+    job.add_operator_node(&quot;notes&quot;, &quot;notes_source&quot;, config={&quot;directory&quot;: str(ROOT / &quot;notes&quot;)})
+    job.add_operator_node(&quot;prompt&quot;, &quot;prompt&quot;, upstream=&quot;notes&quot;)
+
+    execute(job, &quot;demo&quot;, start_from_scratch=True)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p>脚本的第一行实质性代码设置了环境变量 <code>DOCORDER_HOMES</code>，它告诉 docorder 到哪个目录里寻找算子 home。这里把它设为项目里的 <code>homes/</code> 目录，于是后面提到的 <code>notes_source</code> 和 <code>prompt</code> 这两个名字，就会分别对应到 <code>homes/notes_source/</code> 和 <code>homes/prompt/</code>。</p>
+<p><code>Job("hello", ROOT / "runs")</code> 创建一个作业。作业描述的是「这一次要把哪些步骤按什么顺序连起来执行，结果写到哪里」。第一个参数是作业的名字；第二个参数是输出根目录，这个作业所有步骤的结果都会写在这个目录下面。</p>
+<p><code>add_operator_node</code> 向作业中加入一个节点。节点是作业图中的一个点，它表示「在这个作业里使用某个算子执行一个步骤」。第一次调用加入了一个名为 <code>notes</code> 的节点，它使用 <code>notes_source</code> 这个算子 home；<code>config</code> 参数给这个节点补充了一个名为 <code>directory</code> 的参数，指明要读取的输入目录。输入目录的位置属于具体的项目，而不属于「读取目录」这个可以在许多项目中复用的步骤，所以它没有写进 <code>props.json</code>，而是在作业里传入。第二次调用加入了一个名为 <code>prompt</code> 的节点，它使用 <code>prompt</code> 这个算子 home，<code>upstream="notes"</code> 表示这个节点读取 <code>notes</code> 节点的结果作为输入，也就是说 <code>notes</code> 是 <code>prompt</code> 的上游。</p>
+<p><code>execute(job, "demo", start_from_scratch=True)</code> 真正开始执行这个作业。第二个参数 <code>"demo"</code> 称为 epoch，可以把它理解为「这一批结果的名字」，它会成为输出目录中的一层子目录。如果以后用同一个 epoch 再次运行，docorder 会在这批已有结果的基础上继续工作；如果换一个新的 epoch，docorder 就会在一个空目录里从头开始，原来那批结果保持不动。<code>start_from_scratch=True</code> 要求 source 类型的节点重新读取外部输入；如果不传这个参数，source 节点会保留上一次读到的内容，不去重新读取输入目录。</p>
+<p>在已经安装了 docorder 的环境中，进入 <code>hello-docorder/</code> 目录，执行 <code>uv run python run.py</code> 就能运行这个作业。脚本最后的 <code>if __name__ == "__main__":</code> 是普通脚本的写法。并行执行用的是线程，不再另起子进程。</p>
+<h4 id="运行留下的文件">运行留下的文件</h4>
+<p>运行结束后，输出根目录 <code>runs/</code> 中会出现下面这些文件：</p>
+<pre><code class="language-text">runs/
+  notes/
+    demo/                             epoch 目录
+      hello/                          一个实体，名字来自输入目录 hello
+        data                          hello
+        tag.json                      来自输入实体的 tag.json
+  prompt/
+    demo/
+      hello/
+        data                          Note: hello
+        tag.json                      与上游的 tag.json 相同，并含 upstream
+                                      {&quot;operator&quot;: &quot;notes&quot;, &quot;name&quot;: &quot;hello&quot;,
+                                       &quot;epoch&quot;: &quot;demo&quot;, &quot;hash&quot;: &quot;5891b5b5…&quot;}
+</code></pre>
+<p>每个节点在输出根目录下都有一个与节点同名的目录，例如 <code>runs/notes/</code> 和 <code>runs/prompt/</code>；节点目录下是以 epoch 命名的目录，这里是 <code>demo/</code>；epoch 目录下，每个被处理的对象各占一个子目录，docorder 把这样一个目录称为一个实体（entity）。在这个例子里，输入目录中只有 <code>hello</code> 一个实体目录，所以每个节点都只产生了一个名为 <code>hello</code> 的实体。</p>
+<p>实体目录里的 <code>data</code> 文件称为正文，保存的是这一步的主要结果：在 <code>notes</code> 节点里，它是输入实体目录里 <code>data</code> 的原始内容；在 <code>prompt</code> 节点里，它是模板渲染后的文本 <code>Note: hello</code>。<code>tag.json</code> 保存的是正文之外的附加信息，格式是一个 JSON 对象：<code>DirectorySource</code> 把输入目录里的 <code>tag.json</code> 读进来；<code>TemplateToPrompt</code> 不产生新的附加信息，而是把上游实体的 <code>tag.json</code> 原样复制过来，传给下一步使用。</p>
+<p><code>tag.json</code> 里的 <code>upstream</code> 只出现在 <code>prompt</code> 节点的实体里，docorder 称它为上游快照。它记录了这个实体是根据哪个上游实体计算出来的：上游节点是 <code>notes</code>，上游实体是 <code>hello</code>，读取时的 epoch 是 <code>demo</code>，以及当时那份上游实体的正文连同用户 tag 算出的 sha256 哈希值（sha256 是一种常用的哈希算法，结果是 64 个十六进制字符，上图只显示了开头几位）。docorder 判断这个结果是否仍然有效，依靠的就是这份记录。<code>notes</code> 节点是 source 类型，它没有上游，所以它的实体里没有这个键。</p>
+<h4 id="再跑一次">再跑一次</h4>
+<p>如果什么都不修改，再执行一次 <code>run.py</code>，会发生下面的事情：<code>notes</code> 节点重新读取输入目录，<code>hello</code> 的正文和 tag 仍然没有变化；轮到 <code>prompt</code> 节点时，docorder 把 <code>tag.json</code> 里 <code>upstream</code> 记录的哈希值，与 <code>runs/notes/demo/hello</code> 当前正文和用户 tag 的哈希值进行比较，发现两者一致，于是认为已有的结果仍然有效，直接保留它，不再重新渲染模板。</p>
+<p>如果把已经写出的 <code>runs/notes/demo/hello/data</code> 改成 <code>changed</code>，或者改同一目录里的 <code>tag.json</code>，再执行一次且不传 <code>start_from_scratch</code>，<code>notes</code> 节点不会重读输入目录，但 <code>prompt</code> 节点比较时发现哈希不一致，于是删除旧的 <code>hello</code> 实体并重新处理。如果改的是输入目录里的源文件，则必须传入 <code>start_from_scratch=True</code>，<code>notes</code> 才会读到新内容。如果再往输入目录中放入一个 <code>bye</code> 实体目录并从头读取，两个节点都会新建一个名为 <code>bye</code> 的实体，而没有变化的 <code>hello</code> 会继续保持原样。</p>
+<p>需要特别注意相反的情况：如果只修改了模板，而上游实体没有变化，<code>prompt</code> 节点的结果并不会更新，因为 <code>tag.json</code> 里的 <code>upstream</code> 只记录上游实体的正文和用户 tag，并不记录模板的内容。这是当前版本的一个重要边界，下文「本版边界」一节还会再讲。运行中途失败时，道理也是一样的：已经成功写下 <code>upstream</code> 的实体，在下一次运行时会因为比较通过而被保留，只有那些还没有完成的实体会被重新处理。</p>
+<p>这个例子中出现的名词，包括算子、算子 home、<code>props.json</code>、function、作业、节点、epoch、实体、正文、tag 和上游快照，在第二章中都有更完整的定义，后面各章都以它们为基础。</p>
+<h3 id="设计取舍">设计取舍</h3>
+<p>第一个取舍是把处理进度保存在每个实体自己的目录里，而不是保存在一个集中的状态数据库里。在上面的例子中，<code>prompt</code> 节点的 <code>hello</code> 实体是否需要重做，只取决于它 <code>tag.json</code> 里的 <code>upstream</code> 和上游实体当前的正文与用户 tag，docorder 不需要查询任何数据库，也不依赖上一次运行留在内存中的信息。这样做的好处是，即使换了一个进程、甚至换了一份作业脚本，只要输出根目录和 epoch 不变，就能在上一次的进度上继续运行；使用者也可以直接打开 <code>runs/</code> 目录，查看每一步、每个对象的中间结果，排查问题非常方便。相应的代价是，所有状态都必须用文件来表达：docorder 以 <code>tag.json</code> 里的 <code>upstream</code> 作为一个实体处理完成的标志，它随 <code>tag.json</code> 最后写入，如果正文已经写好而 tag 还没来得及写入，进程就退出了，这个实体在下一次运行时会被当作未完成而重新处理。</p>
+<p>第二个取舍是把转换逻辑放在可以复用的算子 home 里，而不是直接写在作业脚本里。在上面的例子中，模板文件和 <code>props.json</code> 都放在 <code>homes/prompt/</code> 中，而 <code>run.py</code> 只负责说明使用哪个算子 home、上游是哪个节点、结果写到哪里。这样，同一个算子 home 可以被许多不同的作业引用，每个作业可以通过节点的 <code>config</code> 参数覆盖其中的部分参数，例子中的输入目录就是用这种方式传进去的。</p>
+<p>第三个取舍是把调度和转换分开。像 <code>TemplateToPrompt</code> 这样的 function 只负责一件事：拿到一个上游实体，计算出目标实体的正文和 tag。至于读写实体目录、比较 <code>tag.json</code> 里的 <code>upstream</code>、清理过时的结果、并行执行和失败重试，都由 docorder 中负责调度的部分完成，这部分称为 runner。由于这种分工，编写一种新的转换时，通常只需要实现一两个方法，而不必关心进度记录、并发和重试这些繁琐的细节。</p>
+<h3 id="本版边界">本版边界</h3>
+<p>在设计作业时，需要了解当前版本的以下几项限制。</p>
+<p>每个节点只能有一个上游节点，因此整张作业图由一棵或几棵以 source 节点为根的树组成，不能让一个节点同时读取两个上游节点的结果。如果某一步确实需要合并两路结果，只能在 function 的代码里自己去读取另一路结果的文件，而这部分读取不会被记进快照，另一路结果发生变化时，docorder 不会因此自动重做这个实体。</p>
+<p>docorder 按节点逐个执行，一个节点的一次完整执行称为一个 stage。一个节点必须处理完本 epoch 中的全部实体，它的下游节点才会开始执行；docorder 不支持「上游刚处理完一个实体，下游就立即开始处理这个实体」这种流水线式的执行方式。</p>
+<p>并行执行只发生在一台机器上，依靠的是 Python 标准库提供的线程池，也就是在当前进程里启动若干个线程分担工作；docorder 不支持把任务分发到多台机器上执行。</p>
+<p>上游快照覆盖上游的正文和用户 tag，但不覆盖模板、参数或代码。如果修改了模板、<code>props.json</code> 中的参数、function 的代码或者它调用的外部工具，而上游实体没有变化，docorder 不会察觉到这些修改，旧的结果会被保留下来。要让这类修改生效，需要手动删除相应的输出目录，或者换一个新的 epoch 运行。</p>
+<p>换一个新的 epoch，意味着所有节点都从空目录开始重新计算。旧 epoch 下的结果既不会被新 epoch 复用，也不会被自动清理，不再需要时要由使用者手动删除。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/document-structure.html">
+          <span class="label">上一篇</span>
+          <span class="name">文档结构</span>
+        </a>
+        <a class="next" href="../guide/2-core-concepts-and-terms.html">
+          <span class="label">下一篇</span>
+          <span class="name">二、核心概念与术语</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#要解决的问题">要解决的问题</a>
+      <a href="#一个最小的例子">一个最小的例子</a>
+      <a href="#准备文件">准备文件</a>
+      <a href="#配置并运行作业">配置并运行作业</a>
+      <a href="#运行留下的文件">运行留下的文件</a>
+      <a href="#再跑一次">再跑一次</a>
+      <a href="#设计取舍">设计取舍</a>
+      <a href="#本版边界">本版边界</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

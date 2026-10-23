@@ -8,7 +8,7 @@
 
 Docorder 是一个 Python 库，用来对一批结构相同的对象做多步转换，例如每张表先渲染提示词、再调用模型。每个对象是磁盘上的一个目录，称为实体。转换沿一张有向无环图逐段执行，一个算子处理完整批实体，下游才开始。运行中断后，用同一个 epoch 再跑一次即可：每个实体的 `tag.json` 里记着它读过的上游，runner 据此只补没做完的、重做上游变了的、删掉多出来的。
 
-作业从 Python 里构造并调用 `execute` 启动。目前没有可用的命令行入口。
+作业从 Python 里构造并调用 `execute` 启动。安装后另有一个命令 `docorder status <输出根目录>`，用来查看输出目录里有哪些 epoch、每个 epoch 的结果是否与上游快照一致，以及每个 stage 有多少实体。
 
 ## 获取代码
 
@@ -44,14 +44,14 @@ uv --version
 uv sync
 ```
 
-这会创建 `.venv`，装上本库和运行时依赖 Jinja2、PyYAML。要跑测试和 Ruff，改用 `uv sync --group dev`。
+这会创建 `.venv`，装上本库和运行时依赖 Jinja2、python-dotenv、PyYAML、tqdm。要跑测试和 Ruff，改用 `uv sync --group dev`。
 
 > [!IMPORTANT]
 > PyPI 上没有 `docorder` 这个项目，`pip install docorder` 不会成功。请从克隆下来的仓库安装。
 
 ## 快速开始
 
-下面的脚本建一个两段作业：source 把目录里的每个文件变成一个实体，map 用 Jinja 模板为每个实体渲染一行文字。它只用到随安装装上的 Jinja2。
+下面的脚本建一个两段作业：source 把目录里的每个实体目录变成一个实体，map 用 Jinja 模板为每个实体渲染一行文字。它只用到随安装装上的 Jinja2。
 
 把内容存为仓库根目录下的 `quickstart.py`：
 
@@ -95,7 +95,7 @@ def main() -> None:
         },
     )
     (homes / "prompt" / "lib").mkdir(parents=True, exist_ok=True)
-    (homes / "prompt" / "lib" / "note.jinja").write_text("Note: {{ data }}", encoding="utf-8")
+    (homes / "prompt" / "lib" / "note.jinja").write_text("Note: {{ entity.source_data }}", encoding="utf-8")
 
     os.environ["DOCORDER_HOMES"] = str(homes)
     job = Job("quickstart", root / "runs")
@@ -128,12 +128,10 @@ Note: hello
 ```text
 quickstart/runs/
   notes/                    source 节点
-    .docorder-output
     demo/hello/
       data                  "hello\n"
       tag.json              来自输入实体的 tag.json
   prompt/                   map 节点
-    .docorder-output
     demo/hello/
       data                  "Note: hello\n"
       tag.json              含 upstream：上游算子 notes、实体 hello、epoch demo、上游正文的 sha256
@@ -160,7 +158,7 @@ quickstart/runs/
 }
 ```
 
-`type` 取 `source`、`map`、`reduce`、`fanout`、`output` 之一。`class` 写成 `模块:类名`；类在 home 自己的 `primary.py` 里时，写成 `primary:类名`。这两项作业不能改。`parallelism` 缺省为 1，`retry` 缺省为只尝试一次。其余键都是 function 的参数，各 function 接受哪些参数见 [docs/functions.md](docs/functions.md)。`output` 把上游正文写成作业根目录下 `.job_result` 里的文件。
+`type` 取 `source`、`map`、`reduce`、`fanout`、`apply` 之一。`class` 写成 `模块:类名`；类在 home 自己的 `primary.py` 里时，写成 `primary:类名`。这两项作业不能改。`parallelism` 缺省为 1，`retry` 缺省为只尝试一次。其余键都是 function 的参数，各 function 接受哪些参数见 [docs/guide.md](docs/guide.md) 第七章。`apply` 对上游每个实体调用 function，不写实体。内置的 `Output` 把上游正文写成作业根目录下 `.staging` 里的文件。文件名缺省是实体名，子类覆盖 `rename` 来改名。
 
 ### 作业
 
@@ -219,18 +217,17 @@ Note: hello
 Note: changed
 ```
 
-第一次调用没有从头生成，source 的实体还是旧正文，`prompt/demo/hello` 的快照与上游一致，于是原样留下。第二次调用让 source 重读文件，上游正文的哈希变了，`prompt` 清空这个实体并重新渲染。runner 只比较上游正文：改了模板或参数、但上游正文没变的实体，不会自动重做。要强制重做，删掉对应的实体目录，或换一个 epoch。完整的判定规则见 [docs/design.md](docs/design.md)。
+第一次调用没有从头生成，source 的实体还是旧正文，`prompt/demo/hello` 的快照与上游一致，于是原样留下。第二次调用让 source 重读文件，上游正文的哈希变了，`prompt` 清空这个实体并重新渲染。runner 只比较上游正文：改了模板或参数、但上游正文没变的实体，不会自动重做。要强制重做，删掉对应的实体目录，或换一个 epoch。完整的判定规则见 [docs/guide.md](docs/guide.md) 第三章。
 
 试完可以删掉 `quickstart/`、`quickstart.py` 和 `rerun.py`。
 
-reduce 和 fanout 没有现成的 function，需要在 home 的 `primary.py` 里自己实现。[docs/functions.md](docs/functions.md) 的最后一章给出两个可以直接运行的例子。
+reduce 和 fanout 没有现成的 function，需要在 home 的 `primary.py` 里自己实现。[docs/guide.md](docs/guide.md) 第九章给出两个可以直接运行的例子。
 
 ## 排错
 
 | 现象 | 原因与处理 |
 | --- | --- |
 | `FileNotFoundError: operator home '…' not found in: …` | `DOCORDER_HOMES` 没有指向含该 home 的目录，或那个目录里没有 `props.json`。环境变量要在 `add_operator_node` 之前设好。 |
-| `FatalError: refuse to use … as an operator output` | 节点的输出目录已有内容，却没有 `.docorder-output` 标记。runner 不会覆盖它。换一个输出根，或换一个节点名。 |
 | `FatalError: directory source path is not a directory` | `directory` 指向的目录不存在。相对路径按算子 home 解析，不按当前目录。 |
 | `FatalError: jsonnet is not on PATH` | 用了 `JsonnetToPrompt`，但本机找不到 `jsonnet`。这类错误不重试。 |
 | `DocorderError: command did not write …` | `Command` 的 `output_file` 是相对路径。docorder 按 Python 进程的当前目录找它，不按 `cwd`。改用绝对路径，或写成 `{entity.output}/文件名`。 |
@@ -251,17 +248,24 @@ uv run ruff check
 uv run pytest
 ```
 
-`ruff check` 检查整个仓库，`pytest` 运行 `tests/`。`make quality` 和 CI 里还引用了 `examples/` 下的脚本，这些脚本目前不在仓库中，在本地跑这两处会失败。
+`ruff check` 检查整个仓库，`pytest` 运行 `tests/`。`make quality` 还会运行 `examples/data-governance/documentation/` 下的示例作业，CI 也跑同一个脚本；`examples/` 下其余示例需要外部的大模型工具或本地路径，不在 CI 中运行。
 
 ## 文档
 
-- [docs/guide.md](docs/guide.md)：使用指南。从背景、概念、工作流程讲到配置、内置 function、模板变量、开发自己的 function，以及在自己的项目中使用 docorder 的完整示例。
-- [docs/functions.md](docs/functions.md)：每个 function 的参数、模板变量，以及如何在 home 里实现 function。
-- [docs/design.md](docs/design.md)：实体、算子和作业各保存什么，一次运行在磁盘上写下什么，同一个 epoch 再跑时怎样判定。
-- [glossary.md](glossary.md)：文档里固定使用的术语。
-- [docs/index.html](docs/index.html)：项目介绍页。
+文档站是生成出来的，源文件是仓库里的 Markdown。
 
-英文版与中文同名，后缀为 `.en`，例如 `README.en.md`、`docs/design.en.md`。
+- [docs/site/index.html](docs/site/index.html)：文档首页。左侧是分组的文档导航，正文介绍 docorder 是什么、核心概念、模型、快速开始与再跑，右侧是本页目录。
+- [docs/guide.md](docs/guide.md)：使用指南的唯一源文件。从背景、概念、工作流程讲到指纹与哈希、配置、内置 function、模板变量、开发自己的 function、在自己的项目中使用 docorder 的完整示例、数据治理案例，以及最佳实践。生成后按章拆成网页，放在 `docs/site/guide/` 下。
+- [glossary.md](glossary.md)：文档里固定使用的术语。
+
+改完 Markdown 后重新生成网页：
+
+```bash
+uv run python scripts/build_figures.py
+uv run python scripts/build_docs.py
+```
+
+生成结果在 `docs/site/` 下，不要手工改那些网页。英文版与中文同名，后缀为 `.en`，例如 `README.en.md`、`docs/guide.en.md`；生成出来的网页同样是英文文件名带 `.en`。
 
 ## 参与贡献
 

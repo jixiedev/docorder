@@ -8,7 +8,7 @@
 
 Docorder is a Python library for running several transform steps over a batch of objects that share one shape, for example rendering a prompt for every table and then calling a model on it. Each object is a directory on disk, called an entity. Transforms run stage by stage along a directed acyclic graph: one operator finishes the whole batch before its downstream starts. When a run is interrupted, run the same epoch again. Each entity's `tag.json` records the upstream it read, and the runner uses it to finish only what is missing, redo what changed upstream, and delete what is no longer expected.
 
-A job is built in Python and started with `execute`. There is no working command-line entry point yet.
+A job is built in Python and started with `execute`. The install also provides one command, `docorder status <output-root>`, which reports which epochs an output root contains, whether each epoch still matches its upstream snapshots, and how many entities each stage has.
 
 ## Getting the code
 
@@ -44,14 +44,14 @@ From the repository root:
 uv sync
 ```
 
-This creates `.venv` and installs the library with its runtime dependencies, Jinja2 and PyYAML. To run the tests and Ruff, use `uv sync --group dev` instead.
+This creates `.venv` and installs the library with its runtime dependencies, Jinja2, python-dotenv, PyYAML, and tqdm. To run the tests and Ruff, use `uv sync --group dev` instead.
 
 > [!IMPORTANT]
 > There is no `docorder` project on PyPI, so `pip install docorder` does not work. Install from the cloned repository.
 
 ## Quick start
 
-The script below builds a two-stage job. A source turns every file in a directory into an entity, and a map renders one line of text for each entity with a Jinja template. It only needs Jinja2, which the install provides.
+The script below builds a two-stage job. A source turns every entity directory in a directory into an entity, and a map renders one line of text for each entity with a Jinja template. It only needs Jinja2, which the install provides.
 
 Save this as `quickstart.py` in the repository root:
 
@@ -95,7 +95,7 @@ def main() -> None:
         },
     )
     (homes / "prompt" / "lib").mkdir(parents=True, exist_ok=True)
-    (homes / "prompt" / "lib" / "note.jinja").write_text("Note: {{ data }}", encoding="utf-8")
+    (homes / "prompt" / "lib" / "note.jinja").write_text("Note: {{ entity.source_data }}", encoding="utf-8")
 
     os.environ["DOCORDER_HOMES"] = str(homes)
     job = Job("quickstart", root / "runs")
@@ -128,12 +128,10 @@ After the run, `quickstart/runs/` looks like this:
 ```text
 quickstart/runs/
   notes/                    source node
-    .docorder-output
     demo/hello/
       data                  "hello\n"
       tag.json              from the input entity's tag.json
   prompt/                   map node
-    .docorder-output
     demo/hello/
       data                  "Note: hello\n"
       tag.json              includes upstream: node notes, entity hello, epoch demo, sha256 of the upstream body
@@ -160,7 +158,7 @@ An operator home is a directory whose `props.json` declares the operator's type,
 }
 ```
 
-`type` is one of `source`, `map`, `reduce`, `fanout`, and `output`. `class` is `module:Class`, or `primary:Class` when the class lives in the home's own `primary.py`. A job cannot change these two. `parallelism` defaults to 1, and `retry` defaults to a single attempt. Every other key is a function parameter. The parameters each function accepts are in [docs/functions.en.md](docs/functions.en.md). An `output` node writes upstream bodies as files under `.job_result` at the job root.
+`type` is one of `source`, `map`, `reduce`, `fanout`, and `apply`. `class` is `module:Class`, or `primary:Class` when the class lives in the home's own `primary.py`. A job cannot change these two. `parallelism` defaults to 1, and `retry` defaults to a single attempt. Every other key is a function parameter. The parameters each function accepts are in chapter 7 of [docs/guide.en.md](docs/guide.en.md). An `apply` node calls the function on each upstream entity and writes no entities. The built-in `Output` writes upstream bodies as files under `.staging` at the job root. The file name defaults to the entity name; a subclass overrides `rename` to choose another name.
 
 ### Jobs
 
@@ -219,18 +217,17 @@ Note: hello
 Note: changed
 ```
 
-The first call does not regenerate from scratch, so the source entity still holds the old body. The snapshot in `prompt/demo/hello` still matches its upstream, and the entity is kept as it is. The second call makes the source reread the file. The upstream body hash changes, so `prompt` clears that entity and renders it again. The runner compares only upstream bodies. An entity whose template or parameters changed while its upstream body stayed the same is not redone automatically. To force a redo, delete that entity directory, or use another epoch. The full rules are in [docs/design.en.md](docs/design.en.md).
+The first call does not regenerate from scratch, so the source entity still holds the old body. The snapshot in `prompt/demo/hello` still matches its upstream, and the entity is kept as it is. The second call makes the source reread the file. The upstream body hash changes, so `prompt` clears that entity and renders it again. The runner compares only upstream bodies. An entity whose template or parameters changed while its upstream body stayed the same is not redone automatically. To force a redo, delete that entity directory, or use another epoch. The full rules are in chapter 3 of [docs/guide.en.md](docs/guide.en.md).
 
 Delete `quickstart/`, `quickstart.py`, and `rerun.py` when you are done.
 
-Reduce and fanout have no ready-made functions. You implement them in a home's `primary.py`. The last chapter of [docs/functions.en.md](docs/functions.en.md) has two examples that run as written.
+Reduce and fanout have no ready-made functions. You implement them in a home's `primary.py`. Chapter 9 of [docs/guide.en.md](docs/guide.en.md) has two examples that run as written.
 
 ## Troubleshooting
 
 | What you see | Cause and fix |
 | --- | --- |
 | `FileNotFoundError: operator home '…' not found in: …` | `DOCORDER_HOMES` does not point at a directory that contains that home, or that directory has no `props.json`. Set the variable before `add_operator_node`. |
-| `FatalError: refuse to use … as an operator output` | The node's output directory already has files and no `.docorder-output` marker. The runner will not overwrite it. Use another output root, or another node name. |
 | `FatalError: directory source path is not a directory` | `directory` points at a directory that does not exist. A relative path is resolved from the operator home, not from the current directory. |
 | `FatalError: jsonnet is not on PATH` | `JsonnetToPrompt` cannot find `jsonnet` on this machine. This kind of error is not retried. |
 | `DocorderError: command did not write …` | `output_file` of `Command` is a relative path. Docorder looks for it from the Python process's current directory, not from `cwd`. Use an absolute path, or `{entity.output}/file-name`. |
@@ -251,16 +248,24 @@ uv run ruff check
 uv run pytest
 ```
 
-`ruff check` lints the whole repository, and `pytest` runs `tests/`. `make quality` and CI also refer to scripts under `examples/`. Those scripts are not in the repository yet, so those two fail when run locally.
+`ruff check` lints the whole repository, and `pytest` runs `tests/`. `make quality` also runs the example job under `examples/data-governance/documentation/`, and CI runs the same script. The other examples under `examples/` need an external model tool or a local path, so CI does not run them.
 
 ## Documentation
 
-- [docs/functions.en.md](docs/functions.en.md): each function's parameters, template variables, and how to implement a function in a home.
-- [docs/design.en.md](docs/design.en.md): what entities, operators, and jobs each hold, what one run writes to disk, and how the same epoch is judged on another run.
-- [glossary.en.md](glossary.en.md): the terms the documents use.
-- [docs/index.en.html](docs/index.en.html): the project introduction page.
+The documentation site is generated. The sources are the Markdown files in this repository.
 
-Chinese pages use the same names without the `.en` suffix, for example `README.md` and `docs/design.md`.
+- [docs/site/index.en.html](docs/site/index.en.html): the documentation home page. The left column is the grouped documentation navigation, the body explains what docorder is, its core concepts, the model, the quick start, and running the same epoch again, and the right column is the table of contents of the page.
+- [docs/guide.en.md](docs/guide.en.md): the only source of the guide. It starts with the background, the concepts, and how a run works, then covers the fingerprints and hashes, configuration, the built-in functions, template variables, writing your own function, a complete example of using docorder in your own project, a data governance case study, and best practices. The build splits it into one page per chapter under `docs/site/guide/`.
+- [glossary.en.md](glossary.en.md): the terms the documents use.
+
+Regenerate the site after changing any Markdown:
+
+```bash
+uv run python scripts/build_figures.py
+uv run python scripts/build_docs.py
+```
+
+The result lands in `docs/site/`. Do not edit those pages by hand. Chinese pages use the same names without the `.en` suffix, for example `README.md` and `docs/guide.md`; the generated English pages carry the same `.en` suffix.
 
 ## Contributing
 

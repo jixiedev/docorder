@@ -1,0 +1,4 @@
+{
+  "type": "apply",
+  "class": "docorder.functions.impl.output:Output"
+}

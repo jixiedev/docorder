@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>十、在自己的项目中使用 docorder | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="current" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>十、在自己的项目中使用 docorder</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="十在自己的项目中使用-docorder">十、在自己的项目中使用 docorder</h1>
+<p>本章用一个完整的例子，说明在自己的项目中使用 docorder 的全部步骤。假设项目名为 <code>my-docs</code>，其中有一批用 JSON 文件描述的数据表定义，我们希望为每张表生成一段提示词，交给命令行形式的大模型工具，让它写出这张表的说明，最后把所有表汇总成一份表清单。这个作业由四个节点组成，依次是 source、map、map 和 reduce，其中用到了两个 docorder 自带的 function 和两个自己编写的 function。本章的所有文件和命令都已经实际运行验证过。</p>
+<h3 id="第一步安装-docorder">第一步：安装 docorder</h3>
+<p>docorder 目前没有发布到 PyPI，所以不能直接用 <code>pip install docorder</code> 安装，需要先从源码仓库构建出安装包。下面的命令会克隆仓库，并用 uv 构建安装包。uv 是一个 Python 的包和项目管理工具，可以在它的官网找到安装方法。</p>
+<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+cd docorder
+uv build
+</code></pre>
+<p>构建完成后，仓库的 <code>dist/</code> 目录下会生成一个名为 <code>docorder-0.1.0-py3-none-any.whl</code> 的文件，这是 Python 的标准安装包格式。接下来创建自己的项目，并把这个安装包安装进去：</p>
+<pre><code class="language-bash">mkdir my-docs &amp;&amp; cd my-docs
+uv init --bare
+uv add /path/to/docorder/dist/docorder-0.1.0-py3-none-any.whl
+</code></pre>
+<p><code>uv init --bare</code> 只在当前目录生成一个最基本的 <code>pyproject.toml</code>，也就是 Python 项目的配置文件；<code>uv add</code> 会创建项目自己的虚拟环境，把 docorder 安装进去，并把这个依赖记录到 <code>pyproject.toml</code> 中。命令中的 <code>/path/to/docorder</code> 要换成你实际克隆仓库的位置。</p>
+<p>如果你在使用 docorder 的同时还会修改 docorder 本身的代码，可以改用 <code>uv add --editable /path/to/docorder</code>，这种方式安装的 docorder 直接指向源码目录，修改源码后立即生效，不需要重新构建和安装。如果不使用 uv，也可以在自己的虚拟环境中执行 <code>pip install /path/to/docorder-0.1.0-py3-none-any.whl</code>。docorder 要求 Python 3.10 或更高的版本，它依赖的 jinja2、python-dotenv、pyyaml 和 tqdm 四个包会在安装时一并装好。</p>
+<h3 id="第二步规划目录">第二步：规划目录</h3>
+<p>在开始编写文件之前，先规划好项目的目录结构。下面是这个示例项目最终的样子：</p>
+<pre><code class="language-text">my-docs/
+  pyproject.toml
+  run.py                          启动脚本：构建作业并执行
+  data/
+    tables/                       输入数据，每张表一个实体目录
+      orders/
+        data                      表定义，正文
+        tag.json                  表的附加信息
+      users/
+        data
+        tag.json
+  homes/                          DOCORDER_HOMES 指向这里
+    sources/
+      table_source/               source 算子：读取 data/tables
+        props.json
+        primary.py                自己编写的 function：TableSource
+    render/
+      table_prompt/               map 算子：渲染提示词
+        props.json
+        lib/table.jinja
+    llm/
+      ask_llm/                    map 算子：调用大模型工具
+        props.json
+        tools/echo.json
+    summary/
+      table_index/                reduce 算子：汇总表清单
+        props.json
+        primary.py                自己编写的 function：TableIndex
+  workspace/                      大模型工具的工作目录，由 run.py 自动创建
+  runs/                           输出根目录，不纳入版本管理
+</code></pre>
+<p>这个结构中的每个部分各有分工。输入数据放在 <code>data/</code> 目录中，它属于项目本身，由 source 节点读取，docorder 不会修改其中的任何文件。算子放在 <code>homes/</code> 目录中，按用途分在几个分类子目录下，每个算子 home 一个目录，自己编写的 function 放在各自算子 home 的 <code>primary.py</code> 文件中。运行结果全部写在 <code>runs/</code> 目录中，它完全由 docorder 管理，可以随时删除后重新生成。<code>run.py</code> 是整个作业唯一的入口，负责设置 <code>DOCORDER_HOMES</code>、构建作业和启动运行。</p>
+<h3 id="第三步准备输入数据">第三步：准备输入数据</h3>
+<p><code>DirectorySource</code> 读取的是已经写成实体形状的子目录：每个子目录是一张表，目录名是实体名，里面要有 <code>data</code> 和 <code>tag.json</code> 两个文件。因此 <code>data/tables/</code> 下的结构是这样的：</p>
+<pre><code class="language-text">data/tables/
+  orders/
+    data                          表定义，正文
+    tag.json                      表的附加信息
+  users/
+    data
+    tag.json
+</code></pre>
+<p><code>data/tables/orders/data</code> 的内容是这张表的定义：</p>
+<pre><code class="language-json">{
+  &quot;table&quot;: &quot;orders&quot;,
+  &quot;description&quot;: &quot;每笔订单一行&quot;,
+  &quot;columns&quot;: [
+    {&quot;name&quot;: &quot;order_id&quot;, &quot;type&quot;: &quot;bigint&quot;, &quot;comment&quot;: &quot;订单号&quot;},
+    {&quot;name&quot;: &quot;user_id&quot;, &quot;type&quot;: &quot;bigint&quot;, &quot;comment&quot;: &quot;下单用户&quot;},
+    {&quot;name&quot;: &quot;amount&quot;, &quot;type&quot;: &quot;decimal(10,2)&quot;, &quot;comment&quot;: &quot;订单金额&quot;}
+  ]
+}
+</code></pre>
+<p><code>data/tables/orders/tag.json</code> 的内容是这张表的附加信息，最少写一个空对象：</p>
+<pre><code class="language-json">{}
+</code></pre>
+<p><code>users</code> 的结构与 <code>orders</code> 相同，只是描述的是用户表，有 <code>user_id</code> 和 <code>city</code> 两个字段。实体名就是目录名本身，因此目录名需要符合实体命名规则：不能为空，不能含 <code>/</code> 或 <code>\</code>，也不能以 <code>.</code> 或 <code>_</code> 开头。这个目录中如果还有普通文件，例如一份说明文档，它们不是实体，不会被读取。</p>
+<h3 id="第四步编写算子-home">第四步：编写算子 home</h3>
+<h4 id="table_source读取表定义">table_source：读取表定义</h4>
+<p>这个算子负责读取 <code>data/tables/</code> 中的实体目录，并把正文里的字段解析出来，放进实体的附加信息中，供下游的模板使用。</p>
+<p><code>homes/sources/table_source/props.json</code> 的内容如下：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;primary:TableSource&quot;,
+  &quot;project&quot;: &quot;订单域&quot;
+}
+</code></pre>
+<p><code>homes/sources/table_source/primary.py</code> 的内容如下：</p>
+<pre><code class="language-python">import json
+
+from docorder.functions.impl.directory_source import FilteredDirectorySource
+from docorder.utils.errors import FatalError
+
+
+class TableSource(FilteredDirectorySource):
+    def extract_tag(self, name, content, tag):
+        tag = dict(tag)
+        try:
+            spec = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise FatalError(f&quot;{name} is not valid JSON: {exc}&quot;) from exc
+        tag[&quot;table&quot;] = spec[&quot;table&quot;]
+        tag[&quot;description&quot;] = spec.get(&quot;description&quot;, &quot;&quot;)
+        tag[&quot;columns&quot;] = spec.get(&quot;columns&quot;, [])
+        tag[&quot;global_prop&quot;] = {&quot;project&quot;: self.environment.operator_props.get(&quot;project&quot;, &quot;&quot;)}
+        return tag
+</code></pre>
+<p><code>TableSource</code> 继承了 <code>FilteredDirectorySource</code>，因此「读取实体目录」的行为直接沿用父类的实现。这个例子没有配置 <code>filter</code>，父类的筛选规则不生效，<code>data/tables/</code> 下的每个实体目录都会被收成记录。它只覆盖了 <code>extract_tag</code> 方法：先拿到输入目录里的 <code>tag.json</code>，再解析 <code>data</code> 的 JSON，把 <code>table</code>、<code>description</code> 和 <code>columns</code> 三个字段加进去；如果正文不是合法的 JSON，就抛出 <code>FatalError</code>，因为这种错误重试也无法解决。最后，它把 <code>props.json</code> 中自定义的参数 <code>project</code> 放进 <code>global_prop</code>，这样项目名称会被 runner 一路传递到最后的汇总节点。你可能注意到 <code>props.json</code> 中没有写 <code>directory</code> 参数，这是因为输入目录属于项目而不属于算子，它会由 <code>run.py</code> 通过节点的 <code>config</code> 传入，这样这个算子 home 就可以原样复制到其它项目中使用。</p>
+<h4 id="table_prompt渲染提示词">table_prompt：渲染提示词</h4>
+<p>这个算子直接使用 docorder 自带的 <code>TemplateToPrompt</code>，不需要编写任何代码，只需要准备 <code>props.json</code> 和模板文件。</p>
+<p><code>homes/render/table_prompt/props.json</code> 的内容如下：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;template&quot;: &quot;lib/table.jinja&quot;,
+  &quot;audience&quot;: &quot;业务分析师&quot;
+}
+</code></pre>
+<p><code>homes/render/table_prompt/lib/table.jinja</code> 的内容如下：</p>
+<pre><code class="language-text">请为{{ operator.audience }}写一段 {{ entity.source_tag.table }} 表的说明。
+
+项目：{{ entity.source_tag.global_prop.project }}
+用途：{{ entity.source_tag.description }}
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+{% for column in entity.source_tag.columns -%}
+| {{ column.name }} | {{ column.type }} | {{ column.comment }} |
+{% endfor %}
+</code></pre>
+<p>模板中用到的变量来自三个不同的地方。<code>entity.source_tag.table</code>、<code>entity.source_tag.description</code> 和 <code>entity.source_tag.columns</code> 来自上游实体的附加信息，也就是 <code>TableSource</code> 解析出来的字段；<code>entity.source_tag.global_prop.project</code> 同样来自上游附加信息中的 <code>global_prop</code>；<code>operator.audience</code> 则来自这个算子 home 的 <code>props.json</code> 中自定义的参数 <code>audience</code>。模板中的 <code>{% for column in entity.source_tag.columns -%}</code> 遍历字段列表，为每个字段输出一行表格，<code>-%}</code> 中的减号用于去掉这个标签之后的换行，使输出的表格行之间不留空行。</p>
+<h4 id="ask_llm调用大模型工具">ask_llm：调用大模型工具</h4>
+<p>这个算子使用 docorder 自带的 <code>PromptToLLM</code>，把上一步生成的提示词交给大模型工具。</p>
+<p><code>homes/llm/ask_llm/props.json</code> 的内容如下：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.prompt_to_llm:PromptToLLM&quot;,
+  &quot;tool&quot;: &quot;echo&quot;,
+  &quot;retry&quot;: { &quot;max_attempts&quot;: 3, &quot;backoff_seconds&quot;: 5 }
+}
+</code></pre>
+<p><code>homes/llm/ask_llm/tools/echo.json</code> 的内容如下：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;echo&quot;,
+  &quot;run&quot;: [&quot;cat&quot;],
+  &quot;prompt&quot;: &quot;stdin&quot;
+}
+</code></pre>
+<p><code>tool</code> 参数的值 <code>echo</code> 会让 <code>PromptToLLM</code> 去读取这个算子 home 中的 <code>tools/echo.json</code>。这个工具定义使用系统命令 <code>cat</code>，把从标准输入收到的提示词原样打印出来，它只是为了让这个示例不依赖任何真实的大模型服务也能完整运行。在实际使用时，你需要在 <code>tools/</code> 目录中另外新建一个工具定义文件，把其中的 <code>run</code> 换成你所用的大模型命令行工具，再把 <code>props.json</code> 中的 <code>tool</code> 改成这个新工具的名字。<code>retry</code> 配置表示每个实体最多尝试三次，这对于偶尔出错的大模型接口很有必要。<code>PromptToLLM</code> 必需的 <code>workspace</code> 参数同样由 <code>run.py</code> 通过节点的 <code>config</code> 传入。</p>
+<h4 id="table_index汇总表清单">table_index：汇总表清单</h4>
+<p>这个算子是一个自己编写的 reduce function，它把所有表的信息汇总成一份 Markdown 格式的表清单。</p>
+<p><code>homes/summary/table_index/props.json</code> 的内容如下：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;reduce&quot;,
+  &quot;class&quot;: &quot;primary:TableIndex&quot;,
+  &quot;output&quot;: &quot;index&quot;,
+  &quot;title&quot;: &quot;表清单&quot;
+}
+</code></pre>
+<p><code>homes/summary/table_index/primary.py</code> 的内容如下：</p>
+<pre><code class="language-python">from docorder.functions.reduce_function import ReduceFunction
+
+
+class TableIndex(ReduceFunction):
+    def transform_data(self, sources, target):
+        lines = [f&quot;# {self.environment.operator_props.get('title', '表清单')}&quot;, &quot;&quot;]
+        for entity in sources:
+            lines.append(f&quot;- {entity.tag.get('table', entity.name)}：{entity.tag.get('description', '')}&quot;)
+        target.staging_data = &quot;\n&quot;.join(lines) + &quot;\n&quot;
+
+    def transform_props(self, sources, target):
+        target.tag = {&quot;tables&quot;: [entity.name for entity in sources]}
+</code></pre>
+<p>这个 reduce 节点的上游是 <code>ask_llm</code> 节点。由于 <code>TemplateToPrompt</code> 和 <code>PromptToLLM</code> 都会把上游的附加信息原样复制给下游，<code>TableSource</code> 最初解析出来的 <code>table</code> 和 <code>description</code> 一直被保留到了这里，所以 <code>TableIndex</code> 可以直接从每个上游实体的 <code>tag</code> 中读取它们。<code>title</code> 是这个 function 自定义的参数，用作清单的标题。输出实体的名字由 <code>output</code> 参数决定，即 <code>index</code>。</p>
+<h3 id="第五步编写启动脚本">第五步：编写启动脚本</h3>
+<p><code>run.py</code> 的内容如下：</p>
+<pre><code class="language-python">import argparse
+import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+ROOT = Path(__file__).resolve().parent
+
+
+def build_job() -&gt; Job:
+    job = Job(&quot;table-docs&quot;, ROOT / &quot;runs&quot;)
+    job.add_operator_node(
+        &quot;tables&quot;,
+        &quot;table_source&quot;,
+        config={&quot;directory&quot;: str(ROOT / &quot;data&quot; / &quot;tables&quot;)},
+    )
+    job.add_operator_node(&quot;prompts&quot;, &quot;table_prompt&quot;, upstream=&quot;tables&quot;, parallelism=2)
+    job.add_operator_node(
+        &quot;answers&quot;,
+        &quot;ask_llm&quot;,
+        upstream=&quot;prompts&quot;,
+        config={&quot;workspace&quot;: str(ROOT / &quot;workspace&quot;)},
+    )
+    job.add_operator_node(&quot;index&quot;, &quot;table_index&quot;, upstream=&quot;answers&quot;)
+    return job
+
+
+def main() -&gt; None:
+    parser = argparse.ArgumentParser(description=&quot;为 data/tables 下的表生成说明&quot;)
+    parser.add_argument(&quot;epoch&quot;, help=&quot;本次运行的 epoch，例如 2026-10-16&quot;)
+    parser.add_argument(&quot;--scratch&quot;, action=&quot;store_true&quot;, help=&quot;让 source 重新读取 data/tables&quot;)
+    args = parser.parse_args()
+
+    homes = [str(ROOT / &quot;homes&quot;), os.environ.get(&quot;DOCORDER_HOMES&quot;, &quot;&quot;)]
+    os.environ[&quot;DOCORDER_HOMES&quot;] = os.pathsep.join(path for path in homes if path)
+    (ROOT / &quot;workspace&quot;).mkdir(exist_ok=True)
+
+    execute(build_job(), args.epoch, start_from_scratch=args.scratch)
+    print((ROOT / &quot;runs&quot; / &quot;index&quot; / args.epoch / &quot;index&quot; / &quot;data&quot;).read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p>这个脚本有几处值得说明。<code>build_job</code> 函数构建了一个包含四个节点的作业：<code>tables</code> 节点使用 <code>table_source</code> 算子，并通过 <code>config</code> 传入输入目录；<code>prompts</code> 节点以 <code>tables</code> 为上游，使用 <code>table_prompt</code> 算子，并设置 <code>parallelism=2</code>，允许最多两个线程同时渲染；<code>answers</code> 节点以 <code>prompts</code> 为上游，使用 <code>ask_llm</code> 算子，并通过 <code>config</code> 传入大模型工具的工作目录；<code>index</code> 节点以 <code>answers</code> 为上游，使用 <code>table_index</code> 算子。</p>
+<p><code>main</code> 函数用 Python 标准库 <code>argparse</code> 解析命令行参数：第一个参数是 epoch，可选的 <code>--scratch</code> 开关决定是否传入 <code>start_from_scratch=True</code>。设置 <code>DOCORDER_HOMES</code> 的代码必须放在调用 <code>build_job()</code> 之前，因为算子 home 是在添加节点时查找的；这里把项目自己的 <code>homes/</code> 放在最前面，使项目中的算子 home 优先于环境中原有的同名算子 home，同时保留环境变量中原有的目录。<code>os.pathsep</code> 是当前系统的路径分隔符，这样写可以同时适用于 macOS、Linux 和 Windows。脚本中的所有路径都从 <code>ROOT</code>，也就是脚本所在的目录出发计算，所以无论从哪个目录执行这个脚本，结果都相同。</p>
+<p>项目特有的路径，也就是输入目录和工作目录，都通过节点的 <code>config</code> 传入，算子 home 中不包含任何与项目有关的路径，因此这些算子 home 可以原样复制到其它项目中使用。<code>prompts</code> 节点的 <code>parallelism=2</code> 会在当前进程里用两个线程同时渲染，不另起子进程。</p>
+<h3 id="第六步运行并查看结果">第六步：运行并查看结果</h3>
+<p>在一个新的 epoch 上第一次运行时，需要加上 <code>--scratch</code>，让 source 节点读取输入数据：</p>
+<pre><code class="language-bash">uv run python run.py 2026-10-16 --scratch
+</code></pre>
+<p>运行结束后，脚本会打印汇总节点的结果：</p>
+<pre><code class="language-text"># 表清单
+
+- orders：每笔订单一行
+- users：注册用户
+</code></pre>
+<p>此时 <code>runs/</code> 目录的结构如下，每个节点都有一个与节点同名的目录，其中的 <code>2026-10-16/</code> 是 epoch 目录：</p>
+<pre><code class="language-text">runs/
+  tables/   2026-10-16/{orders,users}/  data, tag.json
+  prompts/  2026-10-16/{orders,users}/  data, tag.json
+  answers/  2026-10-16/{orders,users}/  data, tag.json
+  index/    2026-10-16/index/           data, tag.json
+</code></pre>
+<p>打开 <code>runs/prompts/2026-10-16/orders/data</code>，可以看到渲染好的提示词，模板中的各个变量都已经被替换成了实际的值：</p>
+<pre><code class="language-text">请为业务分析师写一段 orders 表的说明。
+
+项目：订单域
+用途：每笔订单一行
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| order_id | bigint | 订单号 |
+| user_id | bigint | 下单用户 |
+| amount | decimal(10,2) | 订单金额 |
+</code></pre>
+<p>再打开 <code>runs/index/2026-10-16/index/tag.json</code>，可以看到除了 <code>TableIndex</code> 写入的 <code>tables</code> 之外，还有从 source 节点一路传下来的 <code>global_prop</code>，尽管 <code>TableIndex</code> 并没有主动复制它。runner 另外还写了一个 <code>upstream</code> 键，记录参与这次汇总的每一个上游实体的快照，下面为了简洁没有列出：</p>
+<pre><code class="language-json">{
+  &quot;global_prop&quot;: {
+    &quot;project&quot;: &quot;订单域&quot;
+  },
+  &quot;tables&quot;: [
+    &quot;orders&quot;,
+    &quot;users&quot;
+  ]
+}
+</code></pre>
+<h3 id="第七步修改之后再次运行">第七步：修改之后再次运行</h3>
+<p>项目投入使用之后，输入数据、模板和代码都会不断修改。不同的修改需要用不同的方式再次运行，这些方式都源自第三章「再次运行时的判定」一节中的规则。</p>
+<p>如果运行中途失败了，例如大模型工具在用完全部重试次数后仍然报错，先修复导致失败的问题，然后用同一个 epoch 再运行一次，不需要加 <code>--scratch</code>：<code>uv run python run.py 2026-10-16</code>。已经完成的实体会因为比较通过而被保留，docorder 只会补做失败的实体，以及受它们影响的下游实体。</p>
+<p>如果修改了输入数据，也就是在 <code>data/tables/</code> 中新增、修改或删除了实体目录，再次运行时必须加上 <code>--scratch</code>，source 节点才会重新读取目录。之后，只有正文真正发生变化的表会沿着作业图被重新处理，新增的表会被新建，删除的表会从下游各个节点中被删除，而汇总节点由于上游发生了变化，会重新生成表清单。例如新增一个 <code>payments/</code> 实体目录后加上 <code>--scratch</code> 再运行，表清单中会多出一行 <code>payments</code>；如果忘了加 <code>--scratch</code>，source 节点不会读取新目录，表清单也不会有任何变化。</p>
+<p>如果修改了模板、<code>props.json</code> 中的参数或者 function 的代码，docorder 不会察觉到这些修改，需要先删除受影响节点的 epoch 目录，再运行一次。例如修改了 <code>table.jinja</code> 之后，执行 <code>rm -rf runs/prompts/2026-10-16</code> 删除提示词节点的结果，再执行 <code>uv run python run.py 2026-10-16</code>：<code>prompts</code> 节点会重新渲染所有提示词，由于提示词的内容变了，<code>answers</code> 和 <code>index</code> 两个节点也会随之重新处理。如果只希望个别实体被重新处理，可以只删除对应的实体目录，例如 <code>runs/prompts/2026-10-16/orders</code>。</p>
+<p>如果希望保留当前的全部结果，另外完整地重新运行一遍，可以换一个新的 epoch，例如 <code>uv run python run.py 2026-10-17 --scratch</code>。旧 epoch 的目录不会被自动清理，不再需要时要手动删除。</p>
+<h3 id="纳入版本管理">纳入版本管理</h3>
+<p>项目中的 <code>data/</code>、<code>homes/</code>、<code>run.py</code>、<code>pyproject.toml</code> 和 <code>uv.lock</code>（uv 生成的依赖锁定文件）都应该纳入版本管理。<code>runs/</code> 和 <code>workspace/</code> 是运行时产生的文件，应该写进 <code>.gitignore</code>，避免被提交：</p>
+<pre><code class="language-text">runs/
+workspace/
+</code></pre>
+<p>另外，不要把访问令牌、密码之类的凭据写进 <code>props.json</code> 或工具定义文件，因为这些文件会随项目一起被提交到代码仓库中。大模型工具需要的凭据应该放在环境变量中，由工具自己读取。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/9-writing-your-own-function.html">
+          <span class="label">上一篇</span>
+          <span class="name">九、开发自己的 function</span>
+        </a>
+        <a class="next" href="../guide/11-a-data-governance-case-study.html">
+          <span class="label">下一篇</span>
+          <span class="name">十一、数据治理案例</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#第一步安装-docorder">第一步：安装 docorder</a>
+      <a href="#第二步规划目录">第二步：规划目录</a>
+      <a href="#第三步准备输入数据">第三步：准备输入数据</a>
+      <a href="#第四步编写算子-home">第四步：编写算子 home</a>
+      <a href="#table_source读取表定义">table_source：读取表定义</a>
+      <a href="#table_prompt渲染提示词">table_prompt：渲染提示词</a>
+      <a href="#ask_llm调用大模型工具">ask_llm：调用大模型工具</a>
+      <a href="#table_index汇总表清单">table_index：汇总表清单</a>
+      <a href="#第五步编写启动脚本">第五步：编写启动脚本</a>
+      <a href="#第六步运行并查看结果">第六步：运行并查看结果</a>
+      <a href="#第七步修改之后再次运行">第七步：修改之后再次运行</a>
+      <a href="#纳入版本管理">纳入版本管理</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

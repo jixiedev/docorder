@@ -1,0 +1,14 @@
+{
+  "type": "source",
+  "class": "docorder.functions.impl.directory_source:FileHashSource",
+  "paths": {
+    "sql": "{model_home}/{db}/{table}.sql",
+    "yml": "{model_home}/{db}/{table}.yml"
+  },
+  "fingerprint": {
+    "record": {
+      "{model_home}/{db}/{table}.sql": "",
+      "{model_home}/{db}/{table}.yml": ""
+    }
+  }
+}

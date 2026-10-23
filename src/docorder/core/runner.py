@@ -10,11 +10,8 @@ from docorder.core.epoch_diff import EpochEntityDiff, format_diff_table
 from docorder.core.job import Job
 from docorder.core.operator import Operator
 from docorder.core.storage import EpochStoreFactory
-from docorder.utils.errors import FatalError
 
 log = logging.getLogger(__name__)
-
-OUTPUT_MARKER = ".docorder-output"
 
 
 class RunContext:
@@ -72,11 +69,4 @@ def _run_operator(operator: Operator) -> tuple[str, EpochEntityDiff]:
 
 
 def _prepare_output(path: Path) -> None:
-    marker = path / OUTPUT_MARKER
-    if path.exists() and not marker.is_file() and any(path.iterdir()):
-        raise FatalError(
-            f"refuse to use {path} as an operator output: "
-            "the directory is not empty and has no docorder marker"
-        )
     path.mkdir(parents=True, exist_ok=True)
-    marker.write_text("docorder\n", encoding="utf-8")

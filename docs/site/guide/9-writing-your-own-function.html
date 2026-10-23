@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>九、开发自己的 function | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="current" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>九、开发自己的 function</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="九开发自己的-function">九、开发自己的 function</h1>
+<p>当 docorder 自带的 function 不能满足需要时，可以自己编写 function。编写 function 的基本方式是：定义一个 Python 类，让它继承 docorder 提供的某个基类，并实现基类规定的几个方法；然后在算子 home 的 <code>props.json</code> 中，把 <code>class</code> 指向这个类。本章依次说明应该选择哪个基类、方法中可以使用哪些对象、必须遵守哪些约定、代码文件放在哪里，并给出每种算子类型的完整示例和测试方法。本章的所有示例代码都已经实际运行验证过。</p>
+<h3 id="选择基类">选择基类</h3>
+<p>下表按照「你要做的事情」列出了应该继承的基类，以及必须实现和可以选择覆盖的方法。「必须实现」的方法是基类中的抽象方法，也就是基类只声明了名字、没有提供实现的方法，如果子类没有实现它们，装配阶段会以 <code>OperatorValidationError</code> 错误失败；「可以覆盖」的方法在基类中已经有默认实现，只有需要改变默认行为时才需要重写。</p>
+<table>
+<thead>
+<tr>
+<th>要做的事情</th>
+<th><code>type</code></th>
+<th>继承的基类</th>
+<th>必须实现</th>
+<th>可以覆盖</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>从任意外部数据产生实体</td>
+<td>source</td>
+<td><code>docorder.functions.source_function:SourceFunction</code></td>
+<td><code>emit()</code></td>
+<td>无</td>
+</tr>
+<tr>
+<td>从目录产生实体，但需要修改附加信息或挑选文件</td>
+<td>source</td>
+<td><code>DirectorySource</code> 或 <code>FilteredDirectorySource</code></td>
+<td>无</td>
+<td><code>extract_tag(name, content, tag)</code>、<code>include(path)</code>、<code>generate(directory)</code></td>
+</tr>
+<tr>
+<td>逐个转换实体，正文和附加信息可以分别计算</td>
+<td>map</td>
+<td><code>docorder.functions.map_function:MapFunction</code></td>
+<td><code>transform_data(source, target)</code>、<code>transform_props(source, target)</code></td>
+<td>无</td>
+</tr>
+<tr>
+<td>逐个转换实体，附加信息依赖转换的结果</td>
+<td>map</td>
+<td><code>docorder.functions.rendered_map:RenderedMap</code></td>
+<td><code>apply_render(source, source_entity, environment)</code></td>
+<td><code>read_source</code>、<code>generate_props</code></td>
+</tr>
+<tr>
+<td>在自带的渲染类 function 上增加功能</td>
+<td>map</td>
+<td><code>TemplateToPrompt</code> 等自带的类</td>
+<td>无</td>
+<td><code>apply_render</code>、<code>generate_props</code> 等</td>
+</tr>
+<tr>
+<td>把全部实体合并成一个</td>
+<td>reduce</td>
+<td><code>docorder.functions.reduce_function:ReduceFunction</code></td>
+<td><code>transform_data(sources, target)</code>、<code>transform_props(sources, target)</code></td>
+<td>无</td>
+</tr>
+<tr>
+<td>把一个实体拆成多个</td>
+<td>fanout</td>
+<td><code>docorder.functions.fanout_function:FanoutFunction</code></td>
+<td><code>transform_data(source, target)</code>、<code>transform_props(source, target)</code></td>
+<td><code>output_names(source)</code></td>
+</tr>
+<tr>
+<td>对每个上游实体做一次不产生数据的操作</td>
+<td>apply</td>
+<td><code>docorder.functions.apply_function:ApplyFunction</code></td>
+<td><code>apply(entity)</code>，可选 <code>finish()</code></td>
+<td>无</td>
+</tr>
+</tbody>
+</table>
+<p><code>SourceFunction</code> 的 <code>emit</code> 方法应该写成一个生成器，也就是在方法中用 <code>yield</code> 逐个交出结果，每次交出一个 <code>SourceRecord(name, data, tag)</code> 对象，三个参数分别是实体名、正文和附加信息。<code>SourceRecord</code> 同样定义在 <code>docorder.functions.source_function</code> 中。</p>
+<h3 id="function-中可以使用的对象">function 中可以使用的对象</h3>
+<p>在 function 的方法中，可以通过 <code>self</code> 访问以下属性：</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>self.operator</code></td>
+<td>正在运行的算子。<code>name</code>、<code>props</code>、<code>output_path</code>、<code>operator_home</code>、<code>upstream</code> 都在算子上，不要再经过节点</td>
+</tr>
+<tr>
+<td><code>self.environment</code></td>
+<td>由 operator 构造。<code>operator_props</code> 是 function 参数；<code>template_env</code> 是模板里的 <code>operator</code> / <code>job</code> / <code>entity</code></td>
+</tr>
+<tr>
+<td><code>self.artifact</code></td>
+<td>对算子 home 的只读访问：<code>home</code> 是算子 home 的路径；<code>path(rel)</code> 把一个相对路径解析成算子 home 中的完整路径；<code>exists(rel)</code> 判断算子 home 中的某个文件是否存在；<code>read_text(rel)</code> 读取算子 home 中的某个文件。传入的路径都不能指向算子 home 之外</td>
+</tr>
+<tr>
+<td><code>self.operator_name</code></td>
+<td>当前节点的名字</td>
+</tr>
+<tr>
+<td><code>self.epoch</code></td>
+<td>本次运行的 epoch</td>
+</tr>
+</tbody>
+</table>
+<p>传给方法的上游实体和目标实体都是 <code>Entity</code> 对象，它们提供以下成员：</p>
+<table>
+<thead>
+<tr>
+<th>成员</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>实体的名字</td>
+</tr>
+<tr>
+<td><code>directory</code></td>
+<td>实体目录的路径</td>
+</tr>
+<tr>
+<td><code>read_text()</code></td>
+<td>读取实体的正文；如果没有 <code>data</code> 文件，返回空字符串</td>
+</tr>
+<tr>
+<td><code>tag</code></td>
+<td>实体的附加信息，一个字典</td>
+</tr>
+<tr>
+<td><code>carried_tag()</code></td>
+<td>返回附加信息的一份浅拷贝，用于传给下游</td>
+</tr>
+<tr>
+<td><code>staging_data</code></td>
+<td>目标实体等待写入的正文，function 在 <code>transform_data</code> 中给它赋值</td>
+</tr>
+</tbody>
+</table>
+<h3 id="必须遵守的约定">必须遵守的约定</h3>
+<p><code>transform_data</code> 必须给 <code>target.staging_data</code> 赋一个字符串，<code>transform_props</code> 必须给 <code>target.tag</code> 赋一个字典，否则这个实体会以 <code>FatalError</code> 错误失败。如果目标目录里已经有 <code>data</code> 文件，可以不设 <code>staging_data</code>，runner 会保留该文件，只写 <code>tag.json</code>。如果要在上游附加信息的基础上做修改，应该先调用 <code>carried_tag()</code> 取得一份副本再修改，不要直接修改上游实体的 <code>tag</code>。<code>carried_tag()</code> 返回的是浅拷贝，也就是说只复制了最外层，嵌套在里面的列表和字典仍然与上游共用，所以如果要修改嵌套的内容，应该先自己复制一份。</p>
+<p>function 不需要、也不应该自己写 <code>data</code> 和 <code>tag.json</code>，它们都由 runner 负责写入。function 也不需要自己创建线程池或者实现重试逻辑，并行和重试分别由节点的 <code>parallelism</code> 和 <code>retry</code> 参数控制。</p>
+<p>function 中出现错误时，应该区分两类情况。第一类是重试也无法解决的问题，例如缺少必需的配置、输入的格式不正确，这时应该抛出 <code>docorder.utils.errors.FatalError</code>，让 stage 立即停止，避免白白浪费重试的时间。第二类是可能自行恢复的问题，例如网络错误、外部服务暂时不可用、外部进程偶尔失败，这时应该抛出其它类型的异常，交给 <code>retry</code> 机制自动重试。</p>
+<p>runner 在处理每个实体的每一次尝试时，都会创建一个新的 function 对象，因此不要在对象的属性中保存需要跨实体使用的状态。并行执行时，function 运行在工作线程中，和算子共享同一份内存。</p>
+<p>function 可以在 <code>target.directory</code> 也就是目标实体的目录中写入一些辅助文件，例如 <code>Command</code> 就会把命令的输出文件写在这里。这些辅助文件会在实体被重做或删除时随着实体目录一起被清除。</p>
+<p>function 读取的、不属于上游实体的任何内容，例如算子 home 中的模板、其它节点的结果文件、外部服务返回的数据，都不会被记进上游快照，它们发生变化时，runner 不会自动重做已经完成的实体。</p>
+<h3 id="代码放在哪里">代码放在哪里</h3>
+<p>function 的代码有两种放置方式。</p>
+<p>第一种方式是放在算子 home 自己的 <code>primary.py</code> 文件中，并在 <code>props.json</code> 中写 <code>"class": "primary:类名"</code>。这是最简单的方式，代码和配置、模板一起放在算子 home 里，复制算子 home 时代码也随之带走。一个算子 home 只能有一个 <code>primary.py</code>，但其中可以定义多个类。需要注意的是，<code>primary.py</code> 是按照文件路径直接加载的，算子 home 所在的目录并不在 Python 的模块搜索路径 <code>sys.path</code> 中，所以 <code>primary.py</code> 不能用 <code>import</code> 引入同一个算子 home 中的其它 Python 文件；不过它可以正常引入 docorder 和其它已经安装的包。</p>
+<p>第二种方式是放在你自己项目的 Python 包中，并在 <code>props.json</code> 中写 <code>"class": "包名.模块名:类名"</code>。当多个算子 home 需要共用同一段代码，或者 function 的代码较多、需要拆分成多个模块时，适合使用这种方式。这个包必须能够被 Python 导入，例如已经安装在同一个虚拟环境中，或者与启动脚本位于同一个目录下。并行执行也在同一进程里，用的是同一份导入。</p>
+<h3 id="示例自定义-source">示例：自定义 source</h3>
+<p>下面的 source function 从一个 JSON Lines 文件中产生实体。JSON Lines 是一种每行一个 JSON 对象的文本格式，常用于存放一批记录。这个 function 为文件中的每一行产生一个实体：</p>
+<pre><code class="language-python">import json
+from pathlib import Path
+
+from docorder.functions.source_function import SourceFunction, SourceRecord
+from docorder.utils.errors import FatalError
+
+
+class JsonLinesSource(SourceFunction):
+    def emit(self):
+        raw = self.environment.operator_props.get(&quot;file&quot;)
+        if not raw:
+            raise FatalError(&quot;jsonl source config missing file&quot;)
+        path = Path(raw)
+        if not path.is_absolute():
+            path = self.artifact.home / path
+        for line in path.read_text(encoding=&quot;utf-8&quot;).splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            yield SourceRecord(
+                name=record[&quot;id&quot;],
+                data=json.dumps(record, ensure_ascii=False),
+                tag={&quot;kind&quot;: record.get(&quot;kind&quot;, &quot;&quot;)},
+            )
+</code></pre>
+<p>对应的 <code>props.json</code>：</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;source&quot;, &quot;class&quot;: &quot;primary:JsonLinesSource&quot;, &quot;file&quot;: &quot;items.jsonl&quot; }
+</code></pre>
+<p>这个 function 从参数 <code>file</code> 读取文件路径，相对路径按算子 home 解析；参数缺失时抛出 <code>FatalError</code>，因为这是重试也无法解决的配置问题。<code>items.jsonl</code> 中每一行的 <code>id</code> 字段成为实体的名字，整行 JSON 成为实体的正文，<code>kind</code> 字段被记入附加信息。每行的 <code>id</code> 必须符合实体命名规则，而且彼此不能重复，否则这个 stage 会以 <code>OperatorValidationError</code> 错误失败。</p>
+<h3 id="示例map">示例：map</h3>
+<p>下面的 map function 把上游正文转换成大写，并在附加信息中加上一个标记：</p>
+<pre><code class="language-python">from docorder.functions.map_function import MapFunction
+
+
+class Uppercase(MapFunction):
+    def transform_data(self, source, target):
+        target.staging_data = source.read_text().upper()
+
+    def transform_props(self, source, target):
+        tag = source.carried_tag()
+        tag[&quot;uppercased&quot;] = True
+        target.tag = tag
+</code></pre>
+<p>对应的 <code>props.json</code>：</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;map&quot;, &quot;class&quot;: &quot;primary:Uppercase&quot; }
+</code></pre>
+<p>runner 会先调用 <code>transform_data</code>，再调用 <code>transform_props</code>，两者是分开调用的。如果两个方法都需要用到同一个中间结果，特别是需要一次耗时的外部调用才能得到的结果，就不适合直接继承 <code>MapFunction</code>，因为那样的话这个调用可能要做两次；这时应该改为继承 <code>RenderedMap</code>，它保证每个实体只计算一次。</p>
+<h3 id="示例基于-renderedmap">示例：基于 RenderedMap</h3>
+<p>第八章「用 generate_props 产生新的键」一节中的 <code>WordCount</code>，就是一个完整的 <code>RenderedMap</code> 子类：<code>apply_render</code> 返回输出实体的正文，<code>generate_props</code> 在上游附加信息的副本上加入 <code>words</code> 键作为输出实体的附加信息。如果在转换之前需要先读取其它内容，例如把上游正文解析成 JSON，可以覆盖 <code>read_source</code> 方法，它的返回值会作为第一个参数 <code>source</code> 传给 <code>apply_render</code>。</p>
+<h3 id="示例reduce">示例：reduce</h3>
+<p>下面的 reduce function 把上游全部实体的正文用一个分隔符连接起来，合并成一个实体：</p>
+<pre><code class="language-python">from docorder.functions.reduce_function import ReduceFunction
+
+
+class JoinBodies(ReduceFunction):
+    def transform_data(self, sources, target):
+        separator = self.environment.operator_props.get(&quot;separator&quot;, &quot;\n&quot;)
+        target.staging_data = separator.join(entity.read_text() for entity in sources)
+
+    def transform_props(self, sources, target):
+        target.tag = {&quot;count&quot;: len(sources), &quot;names&quot;: [entity.name for entity in sources]}
+</code></pre>
+<p>对应的 <code>props.json</code>：</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;reduce&quot;, &quot;class&quot;: &quot;primary:JoinBodies&quot;, &quot;output&quot;: &quot;all&quot;, &quot;separator&quot;: &quot;\n---\n&quot; }
+</code></pre>
+<p>输出实体的名字由 <code>output</code> 参数决定，这里是 <code>all</code>；<code>separator</code> 是这个 function 自己定义的参数，通过 <code>self.environment.operator_props</code> 读取。传入的 <code>sources</code> 是按实体名字排序的上游实体列表；如果上游一个实体都没有，<code>sources</code> 是一个空列表，function 仍然会被调用一次，所以代码要能正确处理空列表的情况。</p>
+<h3 id="示例fanout">示例：fanout</h3>
+<p>下面的 fanout function 把上游的每个实体按行拆开，每一行成为一个新的实体：</p>
+<pre><code class="language-python">from docorder.functions.fanout_function import FanoutFunction
+
+
+class SplitLines(FanoutFunction):
+    def output_names(self, source):
+        count = len(source.read_text().splitlines())
+        return [f&quot;{source.name}-{index}&quot; for index in range(count)]
+
+    def transform_data(self, source, target):
+        index = int(target.name.rsplit(&quot;-&quot;, 1)[1])
+        target.staging_data = source.read_text().splitlines()[index]
+
+    def transform_props(self, source, target):
+        target.tag = source.carried_tag()
+</code></pre>
+<p>对应的 <code>props.json</code>：</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;fanout&quot;, &quot;class&quot;: &quot;primary:SplitLines&quot; }
+</code></pre>
+<p>如果上游实体 <code>notes</code> 的正文有三行，这个 function 会产生 <code>notes-0</code>、<code>notes-1</code>、<code>notes-2</code> 三个实体。由于整个 stage 中所有输出实体的名字必须互不相同，这里在名字前面加上了上游实体的名字作为前缀，以免不同上游实体拆出的名字发生冲突。<code>output_names</code> 必须返回一个列表；<code>transform_data</code> 根据目标实体名字中的序号，取出对应的那一行作为正文。</p>
+<h3 id="测试-function">测试 function</h3>
+<p>测试 function 最直接的方法，是在一个临时目录中搭建一个只有几个节点的小作业，运行之后检查输出文件的内容。下面的 pytest 测试用例检查第十章中的 <code>TableIndex</code>：它把项目中的 <code>homes/</code> 目录复制到 pytest 提供的临时目录 <code>tmp_path</code> 中，用 pytest 的 <code>monkeypatch</code> 工具设置 <code>DOCORDER_HOMES</code> 环境变量（测试结束后会自动恢复），写入一个输入文件，然后运行 source 和 reduce 两个节点，最后检查汇总结果中是否包含这张表。</p>
+<pre><code class="language-python">import json
+import shutil
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+PROJECT = Path(__file__).resolve().parents[1]
+
+
+def test_index_lists_every_table(tmp_path, monkeypatch):
+    homes = tmp_path / &quot;homes&quot;
+    shutil.copytree(PROJECT / &quot;homes&quot;, homes)
+    data = tmp_path / &quot;tables&quot;
+    data.mkdir()
+    (data / &quot;orders.json&quot;).write_text(
+        json.dumps({&quot;table&quot;: &quot;orders&quot;, &quot;description&quot;: &quot;订单&quot;, &quot;columns&quot;: []}),
+        encoding=&quot;utf-8&quot;,
+    )
+    monkeypatch.setenv(&quot;DOCORDER_HOMES&quot;, str(homes))
+
+    job = Job(&quot;test&quot;, tmp_path / &quot;runs&quot;)
+    job.add_operator_node(&quot;tables&quot;, &quot;table_source&quot;, config={&quot;directory&quot;: str(data)})
+    job.add_operator_node(&quot;index&quot;, &quot;table_index&quot;, upstream=&quot;tables&quot;)
+    execute(job, &quot;t&quot;, start_from_scratch=True)
+
+    index = (tmp_path / &quot;runs&quot; / &quot;index&quot; / &quot;t&quot; / &quot;index&quot; / &quot;data&quot;).read_text(encoding=&quot;utf-8&quot;)
+    assert &quot;- orders：订单&quot; in index
+</code></pre>
+<p>这个测试中的节点都没有设置 <code>parallelism</code>，所以全部在当前进程中运行，出错时异常信息和调用栈都比较直观，也方便设置断点调试。代码中的 <code>PROJECT</code> 假定这个测试文件位于项目的 <code>tests/</code> 目录下，<code>parents[1]</code> 就是项目的根目录。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/8-rendering-functions-and-template-variables.html">
+          <span class="label">上一篇</span>
+          <span class="name">八、渲染类 function 与模板变量</span>
+        </a>
+        <a class="next" href="../guide/10-using-docorder-in-your-own-project.html">
+          <span class="label">下一篇</span>
+          <span class="name">十、在自己的项目中使用 docorder</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#选择基类">选择基类</a>
+      <a href="#function-中可以使用的对象">function 中可以使用的对象</a>
+      <a href="#必须遵守的约定">必须遵守的约定</a>
+      <a href="#代码放在哪里">代码放在哪里</a>
+      <a href="#示例自定义-source">示例：自定义 source</a>
+      <a href="#示例map">示例：map</a>
+      <a href="#示例基于-renderedmap">示例：基于 RenderedMap</a>
+      <a href="#示例reduce">示例：reduce</a>
+      <a href="#示例fanout">示例：fanout</a>
+      <a href="#测试-function">测试 function</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

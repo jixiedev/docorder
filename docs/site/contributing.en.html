@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contributing | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.en.html">Docorder</a>
+    <nav>
+      <a href="index.en.html">Docs</a>
+      <a href="guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="readme.en.html">Quick start</a>
+      </details>
+      <details>
+        <summary>The guide</summary>
+        <a class="" href="guide/index.en.html">The guide</a>
+        <a class="" href="guide/document-structure.en.html">Document structure</a>
+        <a class="" href="guide/1-background.en.html">1. Background</a>
+        <a class="" href="guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="glossary.en.html">Glossary</a>
+      </details>
+      <details open>
+        <summary>Project</summary>
+        <a class="" href="code-of-conduct.en.html">Code of conduct</a>
+        <a class="current" href="contributing.en.html">Contributing</a>
+        <a class="" href="security.en.html">Security</a>
+        <a class="" href="changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>Contributing</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="contributing">Contributing</h1>
+<p><a href="contributing.html">中文</a></p>
+<h2 id="environment">Environment</h2>
+<p>Python 3.10 or newer and <a href="https://docs.astral.sh/uv/">uv</a> are required. Install a <code>jsonnet</code> executable when you use <code>JsonnetToPrompt</code>.</p>
+<pre><code class="language-bash">uv sync --group dev
+uv run ruff check
+uv run pytest
+</code></pre>
+<p><code>tests/test_contract.py</code> holds the contract tests for scheduling behaviour. When you change how entities, the comparison, clearing, retry, or sources behave, add a case there first. <code>make quality</code> and CI also run the example job under <code>examples/data-governance/documentation/</code>.</p>
+<h2 id="where-to-change-things">Where to change things</h2>
+<p>The runtime is in <code>src/docorder/</code>. <code>core/</code> holds entities, jobs, operators, and stage scheduling. <code>functions/</code> holds the source, map, reduce, fanout, and apply base classes. Built-in implementations are in <code>functions/impl/</code>. <code>utils/</code> holds errors, module loading, home search, and retry.</p>
+<p>Operator homes live in directories listed by <code>DOCORDER_HOMES</code>. They are not installed with the package. The path separator is the same as for <code>PATH</code>, and a directory earlier in the list wins. Prefer an existing function for a new transform. When the existing types cannot express it, implement the function base class that matches <code>type</code> in <code>props.json</code>, put the class in the home's <code>primary.py</code>, and set <code>class</code> to <code>primary:ClassName</code>. The runner owns retry and the thread pool. Do not build another copy inside the function. Chapter 9 of <a href="guide/index.en.html">docs/guide.en.md</a> shows how.</p>
+<h2 id="changing-the-documents">Changing the documents</h2>
+<p>The sources of the documents are the Markdown files in this repository. <code>docs/guide.md</code> is the only source of the guide. <code>README.md</code>, <code>glossary.md</code>, <code>CONTRIBUTING.md</code>, <code>SECURITY.md</code>, and <code>CHANGELOG.md</code> each become one page.</p>
+<p>Regenerate the site after changing any Markdown:</p>
+<pre><code class="language-bash">uv run python scripts/build_figures.py
+uv run python scripts/build_docs.py
+</code></pre>
+<p>The result lands in <code>docs/site/</code>, including the pages the guide is split into. Do not edit the generated pages by hand; change the source and run the script again. The body of the home page is a hand-written fragment under <code>scripts/templates/</code>, and the script wraps it in the same page shell as the other pages.</p>
+<p>To add a chapter, add a second-level heading to both <code>docs/guide.md</code> and <code>docs/guide.en.md</code>. The two headings are paired by position, and the script builds one page per language from them. The per-chapter summaries live in the numbered list of the "Document structure" chapter, and the script reads them from there.</p>
+<p>The diagrams in the guide are generated by <code>scripts/build_figures.py</code> and written straight into <code>docs/guide.md</code> and <code>docs/guide.en.md</code>. The script replaces each diagram in place between a pair of comments, so it can be run again and again:</p>
+<pre><code class="language-text">&lt;!-- figure:slug:start --&gt;
+&lt;!-- figure:slug:end --&gt;
+</code></pre>
+<p>To change a diagram, change the matching function in <code>scripts/build_figures.py</code> and run the script again; do not edit the content between the comments by hand.</p>
+<p>When a document changes, change the Chinese file and the <code>.en</code> file of the same name together. Run the commands and example code in a document on your machine before you submit it.</p>
+<h2 id="submitting">Submitting</h2>
+<p>Contributions are released under the <a href="../../LICENSE">MIT license</a>. State the reason in the commit message. Do not commit secrets, access tokens, <code>runs/</code>, or real business data.</p>
+<p>Record behavior changes in the Unreleased section of <code>CHANGELOG.md</code>. When a document changes, change the Chinese file and the <code>.en</code> file of the same name together. Run the commands and example code in a document on your machine before you submit it.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="code-of-conduct.en.html">
+          <span class="label">Previous</span>
+          <span class="name">Code of conduct</span>
+        </a>
+        <a class="next" href="security.en.html">
+          <span class="label">Next</span>
+          <span class="name">Security</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#environment">Environment</a>
+      <a href="#where-to-change-things">Where to change things</a>
+      <a href="#changing-the-documents">Changing the documents</a>
+      <a href="#submitting">Submitting</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

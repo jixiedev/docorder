@@ -1,0 +1,9 @@
+{
+  "type": "fanout",
+  "class": "primary:ExtractRoot",
+  "fingerprint": {
+    "depend": {
+      "{staging}/final_root.csv": ""
+    }
+  }
+}

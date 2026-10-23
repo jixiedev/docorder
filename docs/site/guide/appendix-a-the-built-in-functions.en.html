@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appendix A: The built-in functions | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="current" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>Appendix A: The built-in functions</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="appendix-a-the-built-in-functions">Appendix A: The built-in functions</h1>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>How to write <code>class</code></th>
+<th><code>type</code></th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DirectorySource</code></td>
+<td><code>docorder.functions.impl.directory_source:DirectorySource</code></td>
+<td>source</td>
+<td><code>directory</code></td>
+</tr>
+<tr>
+<td><code>FilteredDirectorySource</code></td>
+<td><code>docorder.functions.impl.directory_source:FilteredDirectorySource</code></td>
+<td>source</td>
+<td><code>directory</code>, <code>filter</code></td>
+</tr>
+<tr>
+<td><code>FileHashSource</code></td>
+<td><code>docorder.functions.impl.directory_source:FileHashSource</code></td>
+<td>source</td>
+<td><code>directory</code>, <code>paths</code>, <code>fingerprint</code></td>
+</tr>
+<tr>
+<td><code>TemplateToPrompt</code></td>
+<td><code>docorder.functions.impl.template_to_prompt:TemplateToPrompt</code></td>
+<td>map</td>
+<td><code>template</code></td>
+</tr>
+<tr>
+<td><code>JinjaToJsonnet</code></td>
+<td><code>docorder.functions.impl.jinja_to_jsonnet:JinjaToJsonnet</code></td>
+<td>map</td>
+<td><code>template</code>, <code>variables</code></td>
+</tr>
+<tr>
+<td><code>JsonnetToPrompt</code></td>
+<td><code>docorder.functions.impl.jsonnet_to_prompt:JsonnetToPrompt</code></td>
+<td>map</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>Command</code></td>
+<td><code>docorder.functions.impl.command:Command</code></td>
+<td>map</td>
+<td><code>argv</code>, <code>cwd</code>, <code>output_file</code>, <code>capture</code></td>
+</tr>
+<tr>
+<td><code>PromptToLLM</code></td>
+<td><code>docorder.functions.impl.prompt_to_llm:PromptToLLM</code></td>
+<td>map</td>
+<td><code>workspace</code>, <code>tool</code></td>
+</tr>
+<tr>
+<td><code>EntityTemplateToLLM</code></td>
+<td><code>docorder.functions.impl.template_to_llm:EntityTemplateToLLM</code></td>
+<td>map</td>
+<td><code>template</code>, <code>workspace</code>, <code>tool</code>, <code>header</code>, <code>tag_template</code></td>
+</tr>
+<tr>
+<td><code>TemplateToLLM</code></td>
+<td><code>docorder.functions.impl.template_to_llm:TemplateToLLM</code></td>
+<td>reduce</td>
+<td><code>template</code>, <code>workspace</code>, <code>tool</code>, <code>header</code>, <code>tag_template</code>, <code>min_sources</code>, <code>max_sources</code></td>
+</tr>
+<tr>
+<td><code>Output</code></td>
+<td><code>docorder.functions.impl.output:Output</code></td>
+<td>apply</td>
+<td><code>directory</code>, <code>filename</code></td>
+</tr>
+</tbody>
+</table>
+<p>The base classes and the helper classes used when writing a function are defined in the following modules: <code>SourceFunction</code> and <code>SourceRecord</code> are in <code>docorder.functions.source_function</code>, <code>MapFunction</code> is in <code>docorder.functions.map_function</code>, <code>RenderedMap</code> is in <code>docorder.functions.rendered_map</code>, <code>ReduceFunction</code> is in <code>docorder.functions.reduce_function</code>, <code>FanoutFunction</code> is in <code>docorder.functions.fanout_function</code>, and <code>ApplyFunction</code> is in <code>docorder.functions.apply_function</code>. <code>Artifact</code> is in <code>docorder.core.artifact</code>, and <code>Environment</code> is in <code>docorder.core.environment</code>. The exception classes <code>DocorderError</code>, <code>JobValidationError</code>, <code>OperatorValidationError</code>, and <code>FatalError</code> are all in <code>docorder.utils.errors</code>, and the retry policy <code>RetryPolicy</code> is in <code>docorder.utils.retry</code>.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/12-best-practices.en.html">
+          <span class="label">Previous</span>
+          <span class="name">12. Best practices</span>
+        </a>
+        <a class="next" href="../guide/appendix-b-implementation-index.en.html">
+          <span class="label">Next</span>
+          <span class="name">Appendix B: Implementation index</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

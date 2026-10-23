@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>八、渲染类 function 与模板变量 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="current" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>八、渲染类 function 与模板变量</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="八渲染类-function-与模板变量">八、渲染类 function 与模板变量</h1>
+<p>本章说明 docorder 自带的 map function 在渲染模板或替换命令参数时，可以使用哪些数据，以及当这些内置数据不够用时，如何加入新的模板变量。</p>
+<h3 id="renderedmap-的三个步骤">RenderedMap 的三个步骤</h3>
+<p><code>RenderedMap</code> 的完整写法是 <code>docorder.functions.rendered_map:RenderedMap</code>，它是 <code>MapFunction</code> 的子类，把处理一个实体的过程拆成三个先后进行的步骤。第一步是 <code>read_source</code>，读取上游实体，默认返回上游实体的正文；第二步是 <code>apply_render</code>，把第一步读到的内容转换成输出实体的正文，这是一个抽象方法，每个子类都必须实现它，例如 <code>TemplateToPrompt</code> 在这里渲染模板，<code>Command</code> 在这里运行命令；第三步是 <code>generate_props</code>，根据第二步的结果生成输出实体的附加信息，默认是上游实体附加信息的一份副本。这三个步骤都会收到同一个名为 <code>Environment</code> 的对象，称为渲染环境，它汇集了渲染时可以使用的全部数据。</p>
+<p>普通的 <code>MapFunction</code> 需要分别实现 <code>transform_data</code> 和 <code>transform_props</code> 两个方法，runner 会先后调用它们。<code>RenderedMap</code> 已经替子类实现了这两个方法，并且保证对同一个上游实体和目标实体，上述三个步骤只执行一次，正文和附加信息都来自同一次执行的结果。因此，像外部命令或大模型这样耗时较长的调用，每个实体只会发生一次。</p>
+<h3 id="渲染环境">渲染环境</h3>
+<p>渲染环境是 <code>environment.template_env</code>，一份嵌套字典，模板和命令都读它。</p>
+<pre><code class="language-text">template_env
+  operator                        function 参数，外加本次运行的 name、home
+  job                             name、epoch
+  entity                          正在渲染的实体
+    source_name, source_data, source_tag, source_data_path
+    target_name, target_data_path, output
+</code></pre>
+<p><code>TemplateToPrompt</code> 把这份字典交给 Jinja。<code>Command</code> 按 <code>{operator.home}</code>、<code>{entity.output}</code> 这种点路径替换。<code>JinjaToJsonnet</code> 也用它，并另外把 <code>home</code> 放到最外层。实体的附加信息在 <code>entity.source_tag</code> 里，不再提升到最外层。</p>
+<h3 id="内置模板变量">内置模板变量</h3>
+<p>下表列出了 <code>TemplateToPrompt</code> 的模板和 <code>Command</code> 的占位符可以使用的变量。Jinja 写成 <code>{{ operator.name }}</code>，<code>Command</code> 写成 <code>{operator.home}</code>。</p>
+<!-- figure:variables:start -->
+<figure class="figure" id="fig-variables">
+<svg role="img" aria-labelledby="variables-title variables-desc" viewBox="0 0 900 560" width="100%" style="max-width:900px">
+  <title id="variables-title">内置模板变量</title>
+  <desc>template_env 的顶层只有 operator、job、entity 三个名字；operator 是被 config 覆盖过的函数参数再加上 runner 填入的几项，job 是作业名和本次 epoch，entity 分成上游实体与正在写出的实体两组。</desc>
+  <defs>
+    <marker id="variables-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="variables-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="variables-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="560" fill="#f6f1e8"/>
+  <path d="M 450 104 L 450 128 L 173 128 Q 165 128 165 136 L 165 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 450 104 L 450 128 L 418 128 Q 410 128 410 136 L 410 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 450 104 L 450 128 L 687 128 Q 695 128 695 136 L 695 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 165.0 332 L 165.0 396" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 410.0 332 L 410.0 396" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 695.0 332 L 695.0 396" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <rect x="280" y="40" width="340" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="40" width="340" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="70" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">template_env</text>
+  <text x="450" y="87" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">模板读 {{…}}，Command 读 {…}</text>
+  <rect x="30" y="156" width="270" height="176" rx="6" fill="#f6f1e8"/>
+  <rect x="30" y="156" width="270" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="44" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">operator</text>
+  <text x="44" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name   home   function_class</text>
+  <text x="44" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">type   operator_home</text>
+  <text x="44" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">函数参数：props.json 去掉保留键，</text>
+  <text x="44" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">再被节点的 config 覆盖</text>
+  <text x="44" y="281" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">例：template · directory</text>
+  <rect x="320" y="156" width="180" height="176" rx="6" fill="#f6f1e8"/>
+  <rect x="320" y="156" width="180" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="334" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">job</text>
+  <text x="334" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name</text>
+  <text x="334" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">epoch</text>
+  <text x="334" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">作业的名字，和这次</text>
+  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">运行使用的 epoch</text>
+  <rect x="520" y="156" width="350" height="176" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="156" width="350" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="534" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity</text>
+  <text x="534" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_name    source_data</text>
+  <text x="534" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_tag     source_data_path</text>
+  <text x="534" y="237" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">target_name    target_data_path</text>
+  <text x="534" y="255" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">output</text>
+  <text x="534" y="281" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">前四个是上游实体，后三个是</text>
+  <text x="534" y="299" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">正在写出的那个实体</text>
+  <rect x="30" y="396" width="270" height="84" rx="6" fill="#f6f1e8"/>
+  <rect x="30" y="396" width="270" height="84" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="44" y="419" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">参数来源</text>
+  <text x="44" y="441" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">props.json + 节点 config</text>
+  <text x="44" y="459" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">runner 再补上 name / home / type</text>
+  <rect x="320" y="396" width="180" height="84" rx="6" fill="#f6f1e8"/>
+  <rect x="320" y="396" width="180" height="84" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="334" y="419" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">作业来源</text>
+  <text x="334" y="441" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">execute(job, epoch)</text>
+  <text x="334" y="459" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">调用时给的两个参数</text>
+  <rect x="520" y="396" width="350" height="84" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="396" width="350" height="84" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="534" y="419" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">实体来源</text>
+  <text x="534" y="441" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">上游实体 + 正在写出的实体</text>
+  <text x="534" y="459" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity.source_tag 是上游的 tag.json</text>
+  <text x="40" y="516" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">JinjaToJsonnet 的最外层不同：上游 JSON 的各个键 + variables 参数 + operator / job / entity / home。</text>
+</svg>
+<figcaption><span class="fig-label">图 6</span> 内置模板变量：顶层只有 operator、job、entity 三个名字，每一组都有各自的来源。</figcaption>
+</figure>
+<!-- figure:variables:end -->
+
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>operator.name</code></td>
+<td>当前节点的名字</td>
+</tr>
+<tr>
+<td><code>operator.home</code></td>
+<td>当前算子 home 的绝对路径</td>
+</tr>
+<tr>
+<td><code>operator.&lt;参数名&gt;</code></td>
+<td>function 的参数，例如 <code>operator.template</code></td>
+</tr>
+<tr>
+<td><code>job.name</code>、<code>job.epoch</code></td>
+<td>作业名和本次 epoch</td>
+</tr>
+<tr>
+<td><code>entity.source_name</code>、<code>entity.source_data</code>、<code>entity.source_tag</code>、<code>entity.source_data_path</code></td>
+<td>上游实体</td>
+</tr>
+<tr>
+<td><code>entity.target_name</code>、<code>entity.target_data_path</code>、<code>entity.output</code></td>
+<td>正在写出的实体</td>
+</tr>
+</tbody>
+</table>
+<p>不同的渲染类 function 使用这些变量的方式有所不同，下面分别说明。</p>
+<p><code>TemplateToPrompt</code> 使用 Jinja 渲染模板，因此可以使用 Jinja 的全部语法，例如用 <code>{% for column in entity.source_tag.columns %} ... {% endfor %}</code> 遍历一个列表，用 <code>{{ entity.source_name | upper }}</code> 把文本转换成大写。正如第七章所说，它使用严格模式，引用不存在的变量会导致失败。</p>
+<p><code>Command</code> 不使用 Jinja，它只识别 <code>{名字}</code> 形式的占位符。名字中可以用点号逐层访问嵌套的对象，例如 <code>{entity.source_tag.global_prop.project}</code> 表示上游附加信息中 <code>global_prop</code> 对象里的 <code>project</code>。占位符的名字只能由字母、数字、下划线和点号组成，它解析的字典和模板一样，就是 <code>template_env</code>，所以顶层只有 <code>operator</code>、<code>job</code>、<code>entity</code> 这三个名字可用。<code>Command</code> 会替换 <code>argv</code> 中的每一项和 <code>output_file</code>，但不会替换 <code>cwd</code>。如果占位符引用的名字不存在，会以 <code>FatalError</code> 错误失败。</p>
+<p><code>JinjaToJsonnet</code> 也使用 Jinja，但最外层的变量不同：最外层是上游正文这个 JSON 对象中的各个键和 <code>variables</code> 参数中的各个键，再加上 <code>operator</code>、<code>job</code>、<code>entity</code> 和 <code>home</code> 四个键，其中 <code>home</code> 就是 <code>operator.home</code>。上游附加信息中的键不在最外层，需要写成 <code>entity.source_tag.&lt;键&gt;</code> 来访问。如果上游 JSON 中恰好有名为 <code>operator</code>、<code>job</code>、<code>entity</code> 或 <code>home</code> 的键，它们会被这四个内置的键覆盖。此外，它还额外提供了 <code>jsonnet</code> 过滤器。</p>
+<p><code>JsonnetToPrompt</code> 不渲染任何模板。<code>PromptToLLM</code> 也不渲染提示词，它只在工具定义的 <code>run</code> 中替换 <code>{workspace}</code> 这一个占位符。</p>
+<h3 id="增加模板变量">增加模板变量</h3>
+<p>当内置的变量不能满足需要时，可以用下面六种方法加入新的变量。它们按照所需改动从小到大的顺序排列，通常应该优先考虑排在前面的方法。</p>
+<h4 id="在-propsjson-或节点-config-中加入参数">在 props.json 或节点 config 中加入参数</h4>
+<p>function 参数中任何不属于保留键的键，都会出现在 <code>operator</code> 中。例如在 <code>props.json</code> 中写入 <code>"audience": "业务分析师"</code>，模板中就可以用 <code>{{ operator.audience }}</code> 引用它，<code>Command</code> 中可以用 <code>{operator.audience}</code> 引用它。同一个键也可以在添加节点时通过 <code>config</code> 指定，或者覆盖 <code>props.json</code> 中的默认值，例如 <code>config={"audience": "数据工程师"}</code>，模板读到的就是 <code>数据工程师</code>。这种方法适合放置固定不变的数据：写在 <code>props.json</code> 中，适合「同一个模板，在不同的算子 home 中取不同的值」；写在节点的 <code>config</code> 中，适合「同一个算子 home，在不同的作业或节点中取不同的值」。</p>
+<h4 id="让上游把数据写进-tagjson">让上游把数据写进 tag.json</h4>
+<p>上游实体附加信息中的每个键，都会出现在下游模板的 <code>entity.source_tag</code> 下，因此可以让上游步骤把需要的数据写进它的 <code>tag.json</code>。如果上游是一个 source 节点，可以编写 <code>DirectorySource</code> 的子类并覆盖 <code>extract_tag</code> 方法，把从文件内容中解析出来的字段放进附加信息，下游的模板就能引用这些字段。例如第十章的 <code>TableSource</code> 把 JSON 格式的表定义解析成 <code>table</code>、<code>description</code>、<code>columns</code> 三个键，于是下游的模板中可以直接写 <code>{% for column in entity.source_tag.columns %}</code>。</p>
+<h4 id="用-generate_props-产生新的键">用 generate_props 产生新的键</h4>
+<p>如果上游本身是一个渲染类的 map 节点，可以覆盖它的 <code>generate_props</code> 方法，在上游附加信息的副本上添加新的键，这样它的下游模板就能读到这些新键。下面的例子统计上游正文中的单词数，把这个数字作为正文，同时把它记录在附加信息的 <code>words</code> 键中：</p>
+<pre><code class="language-python">from docorder.functions.rendered_map import RenderedMap
+
+
+class WordCount(RenderedMap):
+    def apply_render(self, source, source_entity, environment):
+        return str(len(source.split()))
+
+    def generate_props(self, rendered, source, source_entity, environment):
+        props = source_entity.carried_tag()
+        props[&quot;words&quot;] = int(rendered)
+        return props
+</code></pre>
+<p>在这个节点的下游，模板中就可以写 <code>{{ entity.source_tag.words }}</code> 了。这里的 <code>carried_tag()</code> 返回上游附加信息的一份副本，在副本上修改不会影响上游实体本身。</p>
+<h4 id="用-global_prop-跨越多个步骤传递数据">用 global_prop 跨越多个步骤传递数据</h4>
+<p>附加信息中的 <code>global_prop</code> 对象会被 runner 自动合并到每一个下游实体中，即使中间某个 function 产生的附加信息没有包含它，例如 <code>JinjaToJsonnet</code> 产生的附加信息是一个空对象，它也不会丢失。这种方法适合放置「从作业起点开始，后面每一步都可能用到」的数据，例如项目名称或批次编号。在 source 节点的附加信息中写入 <code>"global_prop": {"project": "订单域"}</code>，之后任何一个下游节点的模板都可以用 <code>{{ entity.source_tag.global_prop.project }}</code> 引用它，<code>Command</code> 中则写成 <code>{entity.source_tag.global_prop.project}</code>。</p>
+<h4 id="利用-jinjatojsonnet-的上游-json-和-variables-参数">利用 JinjaToJsonnet 的上游 JSON 和 variables 参数</h4>
+<p>对于 <code>JinjaToJsonnet</code>，上游正文这个 JSON 对象中的每个键都是最外层的变量，<code>variables</code> 参数为这些变量提供默认值。因此，要为它加入新的变量，可以让上游在 JSON 中多写一个键，也可以在 <code>props.json</code> 或节点的 <code>config</code> 中往 <code>variables</code> 里加一项。<code>variables</code> 是一个普通的 function 参数，所以节点的 <code>config</code> 可以覆盖它。</p>
+<h4 id="继承渲染类并覆盖-apply_render">继承渲染类并覆盖 apply_render</h4>
+<p>如果需要的值必须在渲染时才能计算出来，例如当天的日期、正文的行数，或者需要从其它地方查询得到的数据，可以编写 <code>TemplateToPrompt</code> 的子类并覆盖 <code>apply_render</code> 方法：先调用 <code>environment.template_env</code> 取得全部内置变量，再往里面加入新的键，然后交给父类提供的 <code>render</code> 方法完成渲染。</p>
+<pre><code class="language-python">from datetime import date
+
+from docorder.functions.impl.template_to_prompt import TemplateToPrompt
+
+
+class DatedPrompt(TemplateToPrompt):
+    def apply_render(self, source, source_entity, environment):
+        values = environment.template_env
+        values[&quot;today&quot;] = date.today().isoformat()
+        values[&quot;line_count&quot;] = len(source.splitlines())
+        template = self.artifact.read_text(self.environment.operator_props[&quot;template&quot;])
+        return self.render(template, values, source_entity.name)
+</code></pre>
+<p>把这个类放进算子 home 的 <code>primary.py</code> 文件，在 <code>props.json</code> 中写上 <code>"class": "primary:DatedPrompt"</code> 和 <code>"template": "lib/p.jinja"</code>，模板中就可以使用 <code>{{ today }}</code> 和 <code>{{ line_count }}</code>，原有的内置变量也照样可以使用。方法中的 <code>source</code> 是 <code>read_source</code> 返回的上游正文，<code>self.artifact.read_text</code> 用于读取算子 home 中的文件，第九章会介绍它。需要注意的是，这些在渲染时注入的值不会被记进上游快照，例如日期变了，已经完成的实体并不会因此被重新处理。</p>
+<p>对于 <code>JinjaToJsonnet</code>，做法与此类似：编写它的子类并覆盖 <code>read_source</code> 方法，在它返回的字典中加入新的键即可，因为这个字典中的键就是模板最外层的变量。</p>
+<h3 id="变量同名时以谁为准">变量同名时以谁为准</h3>
+<p>当不同来源的变量重名时，按照以下规则决定最终生效的值。在 <code>entity</code> 中，<code>source_name</code>、<code>source_data</code>、<code>source_tag</code>、<code>source_data_path</code>、<code>target_name</code>、<code>target_data_path</code> 和 <code>output</code> 这几个名字是固定的，上游附加信息中的同名键不会出现在这里，只在 <code>entity.source_tag</code> 中。在 <code>operator</code> 中，节点 <code>config</code> 里的参数先覆盖 <code>props.json</code> 中的同名参数，然后 runner 再填入 <code>name</code>、<code>home</code>、<code>function_class</code>、<code>type</code> 和 <code>operator_home</code>，这几个键会覆盖前面的同名键。<code>class</code>、<code>parallelism</code>、<code>retry</code>、<code>type</code> 和 <code>home</code> 是 <code>props.json</code> 的保留键，不会作为 function 参数传下去。在 <code>JinjaToJsonnet</code> 中，上游 JSON 中的键会覆盖 <code>variables</code> 中的同名键，而 <code>operator</code>、<code>job</code>、<code>entity</code> 和 <code>home</code> 这四个内置的键又会覆盖上游 JSON 中的同名键。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/7-operator-types-and-the-built-in-functions.html">
+          <span class="label">上一篇</span>
+          <span class="name">七、算子分类与内置 function</span>
+        </a>
+        <a class="next" href="../guide/9-writing-your-own-function.html">
+          <span class="label">下一篇</span>
+          <span class="name">九、开发自己的 function</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#renderedmap-的三个步骤">RenderedMap 的三个步骤</a>
+      <a href="#渲染环境">渲染环境</a>
+      <a href="#内置模板变量">内置模板变量</a>
+      <a href="#增加模板变量">增加模板变量</a>
+      <a href="#在-propsjson-或节点-config-中加入参数">在 props.json 或节点 config 中加入参数</a>
+      <a href="#让上游把数据写进-tagjson">让上游把数据写进 tag.json</a>
+      <a href="#用-generate_props-产生新的键">用 generate_props 产生新的键</a>
+      <a href="#用-global_prop-跨越多个步骤传递数据">用 global_prop 跨越多个步骤传递数据</a>
+      <a href="#利用-jinjatojsonnet-的上游-json-和-variables-参数">利用 JinjaToJsonnet 的上游 JSON 和 variables 参数</a>
+      <a href="#继承渲染类并覆盖-apply_render">继承渲染类并覆盖 apply_render</a>
+      <a href="#变量同名时以谁为准">变量同名时以谁为准</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

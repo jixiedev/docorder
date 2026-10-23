@@ -1,0 +1,10 @@
+{
+  "type": "reduce",
+  "class": "docorder.functions.impl.template_to_llm:TemplateToLLM",
+  "output": "raw_root",
+  "template": "lib/prompt.jinja",
+  "header": "root_id|root_zh|kind|definition|not_a|aliases",
+  "min_sources": 1,
+  "tag_template": "{\"count\": {{ sources|length }}}",
+  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+}

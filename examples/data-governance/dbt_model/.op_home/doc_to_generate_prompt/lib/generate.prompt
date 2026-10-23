@@ -1,0 +1,16 @@
+You are a dbt Semantic Layer author.
+
+Read the table documentation. It is the source of truth for grain, fields, and metrics. Do not invent business logic that the document does not state.
+
+- Database: {{ entity.source_tag.database }}
+- Table: {{ entity.source_tag.table }}
+- Documentation: {{ entity.source_tag.documentation }}
+
+Create or update these two files. Write both files before you finish.
+
+- SQL: {{ operator.staging }}/{{ entity.source_name }}.sql
+- YAML: {{ operator.staging }}/{{ entity.source_name }}.yml
+
+The SQL is a thin view over source('{{ entity.source_tag.database }}', '{{ entity.source_tag.table }}'). List columns explicitly. Do not select star.
+
+The YAML is a dbt model file. Nest the semantic model under the model, and follow dbt Semantic Layer YAML spec v2.

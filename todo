@@ -2,8 +2,13 @@
 算子支持union多个上游算子
 怎么增量source
 
+apply算子怎么处理上游删除的entity
+复杂的需求可以用多个job处理，但这样会丢失血缘和hash指纹
+
+没有在tag.json中放入自己的hash的原因是支持手动修改
+
 Q 为什么不支持多个上游算子
-A 文档的合并没有找到太大实际意义，返回会带来极高的复杂度
+A 文档的合并没有找到太大实际意义，反而会带来极高的复杂度
 
 Q 多个operator协作修改doc的场景呢
 A 可以让第一个operator先生成出doc，然后让op2,...依次在op1的doc上面修改，而不是从0开始让op1,op2...一起修改
@@ -13,3 +18,7 @@ A 可以设置依赖链 op1 -> op2 -> ... -> child
 
 Q 上述场景
 A 从同一个table名称可以生成common template, time template, field template，它们理应协作生成table documentation。此时可以让后面的prompt直接基于op1的输出添加time，field等信息。
+
+
+以后考虑增量更新。比如llm的场景，上游只有微小改动，尽量让llm基于已有的生成数据进行修改，而不是重新生成。重新生成的结果可能和原来
+差异很大

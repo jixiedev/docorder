@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>附录 B：实现索引 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="current" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>附录 B：实现索引</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="附录-b实现索引">附录 B：实现索引</h1>
+<table>
+<thead>
+<tr>
+<th>路径</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/docorder/core/artifact.py</code></td>
+<td>算子 home 的只读文件入口</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/entity.py</code></td>
+<td>检查实体名字，读写实体目录，计算和比较上游快照</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/storage.py</code></td>
+<td>管理一个 epoch 目录中的实体，负责新建、清理和删除</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/operator.py</code></td>
+<td>解读 <code>props.json</code>，表示节点，列出应得名单，执行五种算子并切分并行任务</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/job.py</code></td>
+<td>作业图的构建、检查和拓扑排序</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/runner.py</code></td>
+<td>装配作业，逐个执行 stage，管理输出目录标记</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/epoch_diff.py</code></td>
+<td>比较两次运行的实体差异，给出新增、修改、删除的数量</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/external_hash.py</code></td>
+<td><code>fingerprint</code> 的 <code>record</code> 与 <code>depend</code>：渲染路径模板、计算文件哈希</td>
+</tr>
+<tr>
+<td><code>src/docorder/core/environment.py</code></td>
+<td>渲染环境：<code>operator_props</code> 与 <code>template_env</code></td>
+</tr>
+<tr>
+<td><code>src/docorder/functions/</code></td>
+<td>function 基类；内置实现在 <code>functions/impl/</code></td>
+</tr>
+<tr>
+<td><code>src/docorder/utils/paths.py</code></td>
+<td>解析 <code>DOCORDER_HOMES</code>，查找算子 home</td>
+</tr>
+<tr>
+<td><code>src/docorder/utils/modules.py</code></td>
+<td>加载 <code>primary:类名</code> 和 <code>模块:类名</code> 形式的 function 类</td>
+</tr>
+<tr>
+<td><code>src/docorder/utils/llm_tool.py</code></td>
+<td>大模型工具：读取 home 里的工具预设，启动外部进程</td>
+</tr>
+<tr>
+<td><code>src/docorder/utils/retry.py</code></td>
+<td>重试策略，以及它如何作用到一次实体调用</td>
+</tr>
+<tr>
+<td><code>src/docorder/utils/progress.py</code></td>
+<td>一个 stage 的进度显示</td>
+</tr>
+<tr>
+<td><code>src/docorder/utils/errors.py</code></td>
+<td><code>DocorderError</code> 及其子类</td>
+</tr>
+<tr>
+<td><code>src/docorder/cli/</code></td>
+<td><code>docorder status</code> 命令：查看输出目录里的 epoch</td>
+</tr>
+<tr>
+<td><code>tests/test_contract.py</code></td>
+<td>以上各项行为的契约测试</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/appendix-a-the-built-in-functions.html">
+          <span class="label">上一篇</span>
+          <span class="name">附录 A：内置 function 一览</span>
+        </a>
+        <a class="next" href="../guide/appendix-c-related-documents.html">
+          <span class="label">下一篇</span>
+          <span class="name">附录 C：相关文档</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

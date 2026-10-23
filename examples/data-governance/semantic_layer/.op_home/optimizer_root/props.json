@@ -1,0 +1,15 @@
+{
+  "type": "map",
+  "class": "docorder.functions.impl.template_to_llm:EntityTemplateToLLM",
+  "template": "lib/prompt.jinja",
+  "fingerprint": {
+    "record": {
+      "{staging}/raw_root_patch_log.csv": ""
+    },
+    "depend": {
+      "{staging}/raw_root.csv": ""
+    }
+  },
+  "parallelism": 1,
+  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+}

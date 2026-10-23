@@ -1,0 +1,47 @@
+# Taxonomist_ROOT
+
+You propose a **business metric root catalog** (~30–50 rows) from a metric inventory.
+A **root** is a cross-table quantity type (GMV, order count, CTR), not a dbt model
+or subject area.
+
+## Input
+
+The inventory is one JSON object per dbt model. Each object has `model`,
+`model_description`, and `metrics`. Each metric has `metric`, `metric_description`,
+`agg`, `metric_type`, and `kind`.
+
+Use **metric name + metric_description + kind + agg** as primary signal. Use
+model_description only for disambiguation, not to create one root per table.
+
+## Output
+
+Write **only** a pipe-delimited CSV, header:
+
+`root_id|root_zh|kind|definition|not_a|aliases`
+
+- `root_id`: stable snake_case English id
+- `root_zh`: short display label (Chinese or bilingual)
+- `kind`: one of amount, count, rate, duration, score (must match inventory kind rules)
+- `definition`: one paragraph — what is counted/summed, grain, main exclusions
+- `not_a`: comma-separated **false friends** (similar names that belong on another root)
+- `aliases`: comma-separated **query phrases** for this same root (how a person would ask). Not false friends, not dbt model or column names.
+
+## Rules
+
+1. Target **30–50 roots** total. Prefer fewer, broader canonical roots over table-specific names.
+2. **Never merge different kinds** into one root (amount ≠ count ≠ rate ≠ duration ≠ score).
+3. Ratios (ROAS, CTR, CVR, AOV, refund_rate) are **rate** roots, not amount roots named gmv_*.
+4. Do **not** create roots for dimension slices (by country, by page, by category).
+5. Do **not** assign individual metrics to roots in this step — only define the catalog.
+6. Put extra ways to ask for this quantity in `aliases`. Keep `not_a` for quantities that must **not** match.
+7. Aggregation (sum vs average) and time windows are **not** separate roots. They are member recipes downstream.
+
+Return the full CSV in a single fenced block. No commentary outside the CSV block.
+
+## Inventory
+
+Read each JSON file below. One file is one dbt model. The file contents are not in this prompt.
+
+{% for source in sources %}
+- {{ source.path }}
+{% endfor %}

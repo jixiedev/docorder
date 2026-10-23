@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,15 +10,22 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import jinja2
-
 from docorder.core.artifact import Artifact
 from docorder.core.entity import Entity, EntityStatus, require_entity_name
+from docorder.core.external_hash import (
+    DEPEND,
+    FINGERPRINT_KEY,
+    RECORD,
+    file_hashes,
+    matches,
+    placeholder_values,
+    spec,
+)
 from docorder.core.storage import EpochStore, EpochStoreFactory
+from docorder.functions.apply_function import ApplyFunction
 from docorder.functions.fanout_function import FanoutFunction
 from docorder.functions.function import Function
 from docorder.functions.map_function import MapFunction
-from docorder.functions.output_function import OutputFunction
 from docorder.functions.reduce_function import ReduceFunction
 from docorder.functions.source_function import SourceFunction, SourceRecord
 from docorder.utils.errors import FatalError, JobValidationError, OperatorValidationError
@@ -32,7 +38,7 @@ if TYPE_CHECKING:
     from docorder.core.runner import RunContext
 
 
-OPERATOR_TYPES = ("source", "map", "reduce", "fanout", "output")
+OPERATOR_TYPES = ("source", "map", "reduce", "fanout", "apply")
 _PROPS_FIELDS = frozenset({"class", "parallelism", "retry", "type", "home"})
 
 _FUNCTION_BASES: dict[str, type] = {
@@ -40,7 +46,7 @@ _FUNCTION_BASES: dict[str, type] = {
     "map": MapFunction,
     "reduce": ReduceFunction,
     "fanout": FanoutFunction,
-    "output": OutputFunction,
+    "apply": ApplyFunction,
 }
 
 
@@ -131,6 +137,8 @@ class WorkProfile:
                 entity.status = EntityStatus.UPSTREAM_ENTITY_MISSING
             else:
                 entity.check_with_upstream(found, upstream, epoch)
+            if entity.status == EntityStatus.NORMAL and not self.operator._depend_matches(entity):
+                entity.status = EntityStatus.EXTERNAL_HASH_MISMATCH
         invalid = {
             entity.name: entity
             for entity in self.exist_entities.values()
@@ -235,8 +243,11 @@ class Operator(ABC):
         self.work_profile = WorkProfile(self)
 
         todo, redo, removed = self.work_profile.analyze_workload()
+        pending = [*todo, *(entity.name for entity in redo)]
+        for name in pending:
+            self._depend_hashes(name)
         self.store.handle(todo, redo, removed)
-        return [*todo, *(entity.name for entity in redo)]
+        return pending
 
     @abstractmethod
     def execute(self, pending: list[str]) -> list[str]:
@@ -261,11 +272,78 @@ class Operator(ABC):
     def epoch_dir(self) -> Path:
         return self.store.epoch_dir
 
+    def _depend_matches(self, entity: Entity) -> bool:
+        """True when stored ``fingerprint.depend`` matches the files now.
+
+        ``record`` is not compared. A missing dependency file or an unknown
+        placeholder fails the stage: another attempt would miss the same input.
+        """
+        stored = entity.tag.get(FINGERPRINT_KEY)
+        recorded = stored.get(DEPEND) if isinstance(stored, dict) else None
+        return matches(recorded, self._depend_hashes(entity.name))
+
+    def _assign_fingerprint(self, target: Entity) -> None:
+        """Write ``record`` and ``depend`` hashes onto ``target`` before it is persisted."""
+        recorded = self._record_hashes(target)
+        depended = self._depend_hashes(target.name)
+        if not recorded and not depended:
+            return
+        target.tag = dict(target.tag)
+        fingerprint: dict[str, dict[str, str]] = {}
+        if recorded:
+            fingerprint[RECORD] = recorded
+        if depended:
+            fingerprint[DEPEND] = depended
+        target.tag[FINGERPRINT_KEY] = fingerprint
+
+    def _fill_empty_body(self, target: Entity) -> None:
+        """Give a record-only entity a non-empty body so its content hash can match.
+
+        An empty body digests as empty and never matches. The fingerprint stays
+        in the tag. A body the function already set is left as it is.
+        """
+        if target.staging_data:
+            return
+        if not spec(self.props.others, self.name).record:
+            return
+        target.staging_data = "\n"
+
+    def _depend_hashes(self, entity_name: str) -> dict[str, str]:
+        declared = spec(self.props.others, self.name).depend
+        if not declared:
+            return {}
+        return self._hash_templates(declared, entity_name, tag=None)
+
+    def _record_hashes(self, entity: Entity) -> dict[str, str]:
+        declared = spec(self.props.others, self.name).record
+        if not declared:
+            return {}
+        return self._hash_templates(declared, entity.name, tag=entity.tag)
+
+    def _hash_templates(
+        self,
+        declared: tuple[str, ...],
+        entity_name: str,
+        tag: dict | None,
+    ) -> dict[str, str]:
+        values = placeholder_values(
+            entity_name,
+            str(self.run_context.job.staging_path),
+            self.props.others,
+            tag,
+        )
+        return file_hashes(
+            declared,
+            values,
+            self.run_context.job.root_path,
+            f"{self.name}:{entity_name}",
+        )
+
     def census(self) -> dict[str, str]:
         """Names and content hashes this operator contributes to the epoch diff.
 
-        Entity operators report the epoch directory. An output operator reports
-        the result files it has published.
+        The census is the epoch directory. An apply operator writes no entities,
+        so its census stays empty.
         """
         return self.store.census()
 
@@ -380,13 +458,16 @@ class Operator(ABC):
         target = output.get(output_name)
         if target is None:
             raise FatalError(f"{shard.operator.name}:{output_name} is not in the output store")
+        shard.operator._depend_hashes(output_name)
         target.tag = {}
         target.staging_data = None
         function = shard.new_function(function_cls)
         function.transform_data(source, target)
         function.transform_props(source, target)
+        shard.operator._fill_empty_body(target)
         Operator._require_filled(target, shard.operator.name)
         Operator._assign_global_prop([source], target)
+        shard.operator._assign_fingerprint(target)
         target.stamp_lineage(
             shard.operator.name,
             shard.epoch,
@@ -477,6 +558,8 @@ class SourceOperator(Operator):
         target = Entity(self.store.epoch_dir / record.name, record.name)
         target.staging_data = record.data
         target.tag = dict(record.tag)
+        self._fill_empty_body(target)
+        self._assign_fingerprint(target)
         target.stamp_lineage(self.name, self.run_context.epoch)
         self.store.write(target)
 
@@ -562,13 +645,16 @@ class ReduceOperator(Operator):
                 target = self.store.get(output_name)
                 if target is None:
                     raise FatalError(f"{self.name}: {output_name} is not in the output store")
+                self._depend_hashes(output_name)
                 target.tag = {}
                 target.staging_data = None
                 function = self.new_function()
                 function.transform_data(sources, target)
                 function.transform_props(sources, target)
+                self._fill_empty_body(target)
                 self._require_filled(target, self.name)
                 self._assign_global_prop(sources, target)
+                self._assign_fingerprint(target)
                 target.stamp_lineage(self.name, epoch, sources, upstream)
                 self.store.write(target)
 
@@ -583,134 +669,54 @@ class ReduceOperator(Operator):
         )
 
 
-class OutputOperator(Operator):
-    """Write the upstream epoch's entity data into the job result directory.
+class ApplyOperator(Operator):
+    """Call the configured function on each upstream entity.
 
-    Each upstream entity becomes one file under ``directory`` when that config
-    is set, otherwise under ``job.result_path``. The file name is the entity
-    name, or ``name_template`` rendered with the entity tag. The file body is
-    the entity data. Files this operator wrote in an earlier run and no longer
-    produced are removed.
+    The function returns nothing. This operator writes no entities, and a job
+    cannot place another node downstream of it. ``finish`` runs once after
+    every entity, including when the upstream epoch is empty.
     """
 
-    _PUBLISHED_FILE = ".job_result-files"
-
     def build_lineage(self) -> dict[str, list[str]]:
-        """Output publishes files, not entities. Lineage stays empty."""
+        """Apply writes no entities. Lineage stays empty."""
         return {}
-
-    def census(self) -> dict[str, str]:
-        """Hashes of the result files this operator last published."""
-        directory = self._result_dir()
-        if not directory.is_dir():
-            return {}
-        found: dict[str, str] = {}
-        for name in self._load_published():
-            path = directory / name
-            if path.is_file():
-                found[name] = hashlib.sha256(path.read_bytes()).hexdigest()
-        return found
 
     def execute(self, pending: list[str]) -> list[str]:
         del pending
         store = self.upstream_store
         if store is None or self.upstream is None:
             raise OperatorValidationError(f"{self.name} needs an upstream")
+        if self.props.parallelism < 1:
+            raise OperatorValidationError(f"{self.name}: parallelism must be >= 1")
         store.reload()
-        template = self.props.others.get("name_template")
-        planned: dict[str, Entity] = {}
-        for entity in store.entities.values():
-            name = self._result_name(entity, template)
-            if name in planned:
-                raise FatalError(f"{self.name}: duplicate job result name {name!r}")
-            planned[name] = entity
-        result_dir = self._result_dir()
-        previous = self._load_published()
-        result_dir.mkdir(parents=True, exist_ok=True)
-        with progress_bar(self.name, len(planned)) as bar:
-            for name, entity in planned.items():
+        names = sorted(store.entities)
+        with progress_bar(self.name, len(names)) as bar:
+            for name in names:
+                entity = store.get(name)
+                if entity is None:
+                    raise FatalError(f"upstream entity {name} has no data")
                 call_with_retry(
-                    partial(self._write_result, result_dir / name, entity.read_text()),
+                    partial(self._apply_one, entity),
                     self.props.retry,
                     label=f"{self.name}:{name}",
                 )
                 bar.update(1)
-            for name in previous - planned.keys():
-                path = result_dir / name
-                if path.is_file():
-                    path.unlink()
-            self._save_published(set(planned))
-        return list(planned)
+            call_with_retry(self._finish, self.props.retry, label=f"{self.name}:finish")
+        return []
 
-    def _result_dir(self) -> Path:
-        raw = self.props.others.get("directory")
-        if raw is None:
-            return self.run_context.job.result_path
-        if not isinstance(raw, str) or not raw:
-            raise FatalError(f"{self.name}: directory must be a non-empty string")
-        path = Path(raw)
-        if not path.is_absolute():
-            path = self.operator_home / path
-        return path.resolve()
+    def _apply_one(self, entity: Entity) -> None:
+        if not entity.data_path.is_file():
+            raise FatalError(f"upstream entity {entity.name} has no data")
+        function = self.new_function()
+        result = function.apply(entity)
+        if result is not None:
+            raise FatalError(f"{self.name}:{entity.name}: apply must return nothing")
 
-    def _result_name(self, entity: Entity, template: object) -> str:
-        if template is None or template == "":
-            name = entity.name
-        else:
-            if not isinstance(template, str):
-                raise FatalError(f"{self.name}: name_template must be a string")
-            name = self._render_name(entity, template)
-        if not _job_result_name_ok(name):
-            raise FatalError(
-                f"{self.name}:{entity.name}: job result name must be one file name, got {name!r}"
-            )
-        return name
-
-    def _render_name(self, entity: Entity, template: str) -> str:
-        jinja_env = jinja2.Environment(undefined=jinja2.StrictUndefined, autoescape=False)
-        try:
-            rendered = jinja_env.from_string(template).render(entity.tag)
-        except jinja2.TemplateError as exc:
-            raise FatalError(
-                f"{self.name}:{entity.name}: name_template failed: {exc}"
-            ) from exc
-        return rendered.strip()
-
-    def _published_path(self) -> Path:
-        return self.output_path / self._PUBLISHED_FILE
-
-    def _load_published(self) -> set[str]:
-        path = self._published_path()
-        if not path.is_file():
-            return set()
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return set()
-        if not isinstance(payload, list) or not all(isinstance(item, str) for item in payload):
-            return set()
-        return set(payload)
-
-    def _save_published(self, names: set[str]) -> None:
-        path = self._published_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(sorted(names), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-    @staticmethod
-    def _write_result(path: Path, text: str) -> None:
-        Entity._atomic_text(path, text)
-
-
-def _job_result_name_ok(name: object) -> bool:
-    """True when ``name`` is one file name under the job result directory."""
-    return (
-        isinstance(name, str)
-        and bool(name)
-        and name == name.strip()
-        and "/" not in name
-        and "\\" not in name
-        and name not in {".", ".."}
-    )
+    def _finish(self) -> None:
+        function = self.new_function()
+        result = function.finish()
+        if result is not None:
+            raise FatalError(f"{self.name}: finish must return nothing")
 
 
 class FanoutOperator(Operator):
@@ -751,7 +757,7 @@ _OPERATORS: dict[str, type[Operator]] = {
     "map": MapOperator,
     "reduce": ReduceOperator,
     "fanout": FanoutOperator,
-    "output": OutputOperator,
+    "apply": ApplyOperator,
 }
 
 

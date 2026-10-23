@@ -1,0 +1,19 @@
+# Assigner
+
+## Assign
+
+Assign every metric in this model to exactly one `root_id` from `final_root.csv`, or the literal `unassigned`.
+
+Return one JSON object and nothing else:
+
+```json
+{"metrics": [{"metric": "name", "root_id": "root_or_unassigned", "confidence": "high", "evidence": "one short sentence"}]}
+```
+
+`confidence` is `high`, `med`, or `low`. Do not add roots. If the metric kind does not match the root kind, use `unassigned` or `low`. Use `unassigned` when no root fits.
+
+Read these files. Their contents are not in this prompt.
+
+model: {{ source.tag.table }}
+- {{ source.tag.yml }}
+- {{ staging('final_root.csv') }}

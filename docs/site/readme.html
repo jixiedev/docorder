@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>快速开始 | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.html">Docorder</a>
+    <nav>
+      <a href="index.html">文档</a>
+      <a href="guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="index.html">概览</a>
+      </details>
+      <details open>
+        <summary>开始</summary>
+        <a class="current" href="readme.html">快速开始</a>
+      </details>
+      <details>
+        <summary>使用指南</summary>
+        <a class="" href="guide/index.html">使用指南</a>
+        <a class="" href="guide/document-structure.html">文档结构</a>
+        <a class="" href="guide/1-background.html">一、背景</a>
+        <a class="" href="guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="guide/6-configuration.html">六、配置</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="code-of-conduct.html">行为准则</a>
+        <a class="" href="contributing.html">参与贡献</a>
+        <a class="" href="security.html">安全</a>
+        <a class="" href="changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>快速开始</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="page-快速开始">快速开始</h1>
+<p><a href="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml/badge.svg" /></a>
+<a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
+<a href="../../pyproject.toml"><img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-blue.svg" /></a></p>
+<p><a href="readme.en.html">English</a></p>
+<p>Docorder 是一个 Python 库，用来对一批结构相同的对象做多步转换，例如每张表先渲染提示词、再调用模型。每个对象是磁盘上的一个目录，称为实体。转换沿一张有向无环图逐段执行，一个算子处理完整批实体，下游才开始。运行中断后，用同一个 epoch 再跑一次即可：每个实体的 <code>tag.json</code> 里记着它读过的上游，runner 据此只补没做完的、重做上游变了的、删掉多出来的。</p>
+<p>作业从 Python 里构造并调用 <code>execute</code> 启动。安装后另有一个命令 <code>docorder status &lt;输出根目录&gt;</code>，用来查看输出目录里有哪些 epoch、每个 epoch 的结果是否与上游快照一致，以及每个 stage 有多少实体。</p>
+<h2 id="获取代码">获取代码</h2>
+<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+cd docorder
+</code></pre>
+<p>仓库没有子模块，也不用 Git LFS。</p>
+<h2 id="环境要求">环境要求</h2>
+<ul>
+<li><a href="https://www.python.org/downloads/">Python</a> 3.10 或更高版本。<code>pyproject.toml</code> 要求 <code>&gt;=3.10</code>，CI 在 3.10 和 3.12 上运行。</li>
+<li><a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a>。安装、测试和 lint 都通过它执行。本文的命令在 uv 0.8.14 上验证过。</li>
+</ul>
+<p>确认两者可用：</p>
+<pre><code class="language-bash">python3 --version
+uv --version
+</code></pre>
+<p>下面的外部程序只在用到对应 function 时才需要：</p>
+<ul>
+<li><code>JsonnetToPrompt</code> 调用 <code>PATH</code> 上的 <code>jsonnet</code>。CI 在 Ubuntu 上用 <code>sudo apt-get install -y jsonnet</code> 安装。</li>
+<li><code>Command</code> 和 <code>PromptToLLM</code> 运行你在配置里写的命令，需要这些命令在本机可用。包里不附带任何模型工具预设。</li>
+</ul>
+<h2 id="安装">安装</h2>
+<p>在仓库根目录执行：</p>
+<pre><code class="language-bash">uv sync
+</code></pre>
+<p>这会创建 <code>.venv</code>，装上本库和运行时依赖 Jinja2、python-dotenv、PyYAML、tqdm。要跑测试和 Ruff，改用 <code>uv sync --group dev</code>。</p>
+<blockquote>
+<p>[!IMPORTANT]
+PyPI 上没有 <code>docorder</code> 这个项目，<code>pip install docorder</code> 不会成功。请从克隆下来的仓库安装。</p>
+</blockquote>
+<h2 id="快速开始">快速开始</h2>
+<p>下面的脚本建一个两段作业：source 把目录里的每个实体目录变成一个实体，map 用 Jinja 模板为每个实体渲染一行文字。它只用到随安装装上的 Jinja2。</p>
+<p>把内容存为仓库根目录下的 <code>quickstart.py</code>：</p>
+<pre><code class="language-python">import json
+import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+
+def write_json(path: Path, value: dict) -&gt; None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + &quot;\n&quot;, encoding=&quot;utf-8&quot;)
+
+
+def main() -&gt; None:
+    root = Path(&quot;quickstart&quot;).resolve()
+    notes = root / &quot;notes&quot;
+    hello = notes / &quot;hello&quot;
+    hello.mkdir(parents=True, exist_ok=True)
+    (hello / &quot;data&quot;).write_text(&quot;hello\n&quot;, encoding=&quot;utf-8&quot;)
+    (hello / &quot;tag.json&quot;).write_text(&quot;{}\n&quot;, encoding=&quot;utf-8&quot;)
+
+    homes = root / &quot;homes&quot;
+    write_json(
+        homes / &quot;notes_source&quot; / &quot;props.json&quot;,
+        {
+            &quot;type&quot;: &quot;source&quot;,
+            &quot;class&quot;: &quot;docorder.functions.impl.directory_source:DirectorySource&quot;,
+            &quot;directory&quot;: str(notes),
+        },
+    )
+    write_json(
+        homes / &quot;prompt&quot; / &quot;props.json&quot;,
+        {
+            &quot;type&quot;: &quot;map&quot;,
+            &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+            &quot;template&quot;: &quot;lib/note.jinja&quot;,
+        },
+    )
+    (homes / &quot;prompt&quot; / &quot;lib&quot;).mkdir(parents=True, exist_ok=True)
+    (homes / &quot;prompt&quot; / &quot;lib&quot; / &quot;note.jinja&quot;).write_text(&quot;Note: {{ entity.source_data }}&quot;, encoding=&quot;utf-8&quot;)
+
+    os.environ[&quot;DOCORDER_HOMES&quot;] = str(homes)
+    job = Job(&quot;quickstart&quot;, root / &quot;runs&quot;)
+    job.add_operator_node(&quot;notes&quot;, &quot;notes_source&quot;)
+    job.add_operator_node(&quot;prompt&quot;, &quot;prompt&quot;, upstream=&quot;notes&quot;)
+    execute(job, &quot;demo&quot;, start_from_scratch=True)
+
+    output = root / &quot;runs&quot; / &quot;prompt&quot; / &quot;demo&quot; / &quot;hello&quot; / &quot;data&quot;
+    print(output.read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p>运行：</p>
+<pre><code class="language-bash">uv run python quickstart.py
+</code></pre>
+<p>成功时输出：</p>
+<pre><code class="language-text">Note: hello
+</code></pre>
+<p>运行结束后，<code>quickstart/runs/</code> 下是这样：</p>
+<pre><code class="language-text">quickstart/runs/
+  notes/                    source 节点
+    demo/hello/
+      data                  &quot;hello\n&quot;
+      tag.json              来自输入实体的 tag.json
+  prompt/                   map 节点
+    demo/hello/
+      data                  &quot;Note: hello\n&quot;
+      tag.json              含 upstream：上游算子 notes、实体 hello、epoch demo、上游正文的 sha256
+</code></pre>
+<p>实体名 <code>hello</code> 是输入目录 <code>notes/hello</code> 的目录名。<code>demo</code> 是这次运行的 epoch，也是实体所在的那层目录名。</p>
+<blockquote>
+<p>[!NOTE]
+脚本把工作放在 <code>main()</code> 里，并用 <code>if __name__ == "__main__":</code> 调用。这是普通脚本的写法。<code>parallelism</code> 大于 1 时，runner 在当前进程里用线程分片，不再另起子进程。</p>
+</blockquote>
+<h2 id="配置">配置</h2>
+<h3 id="算子-home">算子 home</h3>
+<p>算子 home 是一个目录，里面的 <code>props.json</code> 声明这个算子用哪种类型、哪个 function 类，以及参数。home 不随包分发。运行前把 home 所在的目录写进环境变量 <code>DOCORDER_HOMES</code>。多个目录用系统的路径分隔符隔开，和 <code>PATH</code> 一样，靠前的同名 home 优先。home 可以直接放在列出的目录下，也可以再放进一层分类目录。</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;parallelism&quot;: 4,
+  &quot;retry&quot;: { &quot;max_attempts&quot;: 3, &quot;backoff_seconds&quot;: 5 },
+  &quot;template&quot;: &quot;lib/prompt.jinja&quot;
+}
+</code></pre>
+<p><code>type</code> 取 <code>source</code>、<code>map</code>、<code>reduce</code>、<code>fanout</code>、<code>apply</code> 之一。<code>class</code> 写成 <code>模块:类名</code>；类在 home 自己的 <code>primary.py</code> 里时，写成 <code>primary:类名</code>。这两项作业不能改。<code>parallelism</code> 缺省为 1，<code>retry</code> 缺省为只尝试一次。其余键都是 function 的参数，各 function 接受哪些参数见 <a href="guide/index.html">docs/guide.md</a> 第七章。<code>apply</code> 对上游每个实体调用 function，不写实体。内置的 <code>Output</code> 把上游正文写成作业根目录下 <code>.staging</code> 里的文件。文件名缺省是实体名，子类覆盖 <code>rename</code> 来改名。</p>
+<h3 id="作业">作业</h3>
+<p><code>Job(name, root)</code> 的第二个参数是输出根目录。<code>add_operator_node(节点名, home名, upstream=..., config=..., parallelism=..., retry=...)</code> 加入一个节点。节点的输出写到 <code>输出根/节点名/epoch/实体名/</code>。除 source 以外，每个节点用一个字符串声明唯一的上游。</p>
+<p><code>config</code> 覆盖 home 里同名的 function 参数。调度字段要用 <code>parallelism=</code>、<code>retry=</code> 两个参数覆盖；写进 <code>config</code> 的同名键只会成为 function 参数，不改变调度。<code>retry=</code> 接收 <code>docorder.utils.retry.RetryPolicy(max_attempts=..., backoff_seconds=...)</code>。同一个节点名再次添加，会替换掉先前的节点，不会报错。</p>
+<h3 id="运行">运行</h3>
+<p><code>execute(job, epoch, start_from_scratch=False)</code> 按拓扑顺序跑完整张图。<code>epoch</code> 会直接拼进路径，应写成一层目录名，例如日期。只有 <code>start_from_scratch=True</code> 时，source 才会重新读取输入；否则 source 不改动自己的输出，下游读取该 epoch 里已有的实体。每个 stage 在标准错误输出上打印一条以节点名为标题的进度条。</p>
+<table>
+<thead>
+<tr>
+<th>环境变量</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCORDER_HOMES</code></td>
+<td>查找算子 home 的目录列表，在 <code>add_operator_node</code> 之前就要设好</td>
+</tr>
+<tr>
+<td><code>DOCORDER_LLM</code></td>
+<td><code>PromptToLLM</code> 没有配置 <code>tool</code> 时使用的工具，取 home 里的预设名或一份 JSON 文件路径</td>
+</tr>
+</tbody>
+</table>
+<h2 id="示例同一个-epoch-再跑">示例：同一个 epoch 再跑</h2>
+<p>在快速开始之后，存一个 <code>rerun.py</code>。它沿用 <code>quickstart/</code> 里的 home 和输出，先改源文件，再跑两次同一个 epoch：</p>
+<pre><code class="language-python">import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+
+def main() -&gt; None:
+    root = Path(&quot;quickstart&quot;).resolve()
+    os.environ[&quot;DOCORDER_HOMES&quot;] = str(root / &quot;homes&quot;)
+    job = Job(&quot;quickstart&quot;, root / &quot;runs&quot;)
+    job.add_operator_node(&quot;notes&quot;, &quot;notes_source&quot;)
+    job.add_operator_node(&quot;prompt&quot;, &quot;prompt&quot;, upstream=&quot;notes&quot;)
+    output = root / &quot;runs&quot; / &quot;prompt&quot; / &quot;demo&quot; / &quot;hello&quot; / &quot;data&quot;
+
+    (root / &quot;notes&quot; / &quot;hello&quot; / &quot;data&quot;).write_text(&quot;changed\n&quot;, encoding=&quot;utf-8&quot;)
+    execute(job, &quot;demo&quot;)
+    print(output.read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+    execute(job, &quot;demo&quot;, start_from_scratch=True)
+    print(output.read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<pre><code class="language-bash">uv run python rerun.py
+</code></pre>
+<p>输出：</p>
+<pre><code class="language-text">Note: hello
+Note: changed
+</code></pre>
+<p>第一次调用没有从头生成，source 的实体还是旧正文，<code>prompt/demo/hello</code> 的快照与上游一致，于是原样留下。第二次调用让 source 重读文件，上游正文的哈希变了，<code>prompt</code> 清空这个实体并重新渲染。runner 只比较上游正文：改了模板或参数、但上游正文没变的实体，不会自动重做。要强制重做，删掉对应的实体目录，或换一个 epoch。完整的判定规则见 <a href="guide/index.html">docs/guide.md</a> 第三章。</p>
+<p>试完可以删掉 <code>quickstart/</code>、<code>quickstart.py</code> 和 <code>rerun.py</code>。</p>
+<p>reduce 和 fanout 没有现成的 function，需要在 home 的 <code>primary.py</code> 里自己实现。<a href="guide/index.html">docs/guide.md</a> 第九章给出两个可以直接运行的例子。</p>
+<h2 id="排错">排错</h2>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>原因与处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FileNotFoundError: operator home '…' not found in: …</code></td>
+<td><code>DOCORDER_HOMES</code> 没有指向含该 home 的目录，或那个目录里没有 <code>props.json</code>。环境变量要在 <code>add_operator_node</code> 之前设好。</td>
+</tr>
+<tr>
+<td><code>FatalError: directory source path is not a directory</code></td>
+<td><code>directory</code> 指向的目录不存在。相对路径按算子 home 解析，不按当前目录。</td>
+</tr>
+<tr>
+<td><code>FatalError: jsonnet is not on PATH</code></td>
+<td>用了 <code>JsonnetToPrompt</code>，但本机找不到 <code>jsonnet</code>。这类错误不重试。</td>
+</tr>
+<tr>
+<td><code>DocorderError: command did not write …</code></td>
+<td><code>Command</code> 的 <code>output_file</code> 是相对路径。docorder 按 Python 进程的当前目录找它，不按 <code>cwd</code>。改用绝对路径，或写成 <code>{entity.output}/文件名</code>。</td>
+</tr>
+<tr>
+<td>改了源文件，下游没变</td>
+<td>这次 <code>execute</code> 没有传 <code>start_from_scratch=True</code>，source 没有重读输入。</td>
+</tr>
+<tr>
+<td>改了模板，旧结果没变</td>
+<td>上游正文没变，快照仍然吻合。删掉该节点的 <code>&lt;epoch&gt;/</code> 目录或其中的实体目录，或换一个 epoch。</td>
+</tr>
+<tr>
+<td>某个实体每次都重做</td>
+<td>它的上游正文是空字符串。空正文的哈希记为空，比较总不通过。</td>
+</tr>
+<tr>
+<td>想看输出根目录里有哪些 epoch</td>
+<td><code>docorder status &lt;输出根目录&gt;</code>。它列出每个 epoch 是否与上游快照一致，以及每个 stage 的实体数。目录不存在时命令以状态码 1 退出。</td>
+</tr>
+</tbody>
+</table>
+<p><code>FatalError</code> 表示配置或输入有问题，不会重试，例如缺参数、模板变量不存在、找不到可执行文件。其它异常按 <code>retry</code> 重试当前实体。重试用尽后运行停在当前算子，已经写好 <code>tag.json</code> 里 <code>upstream</code> 的实体留在磁盘上，下次用同一个 epoch 运行会从剩下的实体继续。<code>JobValidationError</code> 在任何算子执行前抛出，表示作业图本身有问题，例如有环、上游不在图中，或节点依赖自己。</p>
+<h2 id="测试">测试</h2>
+<p>本仓库没有单独的构建或部署步骤。开发时运行：</p>
+<pre><code class="language-bash">uv sync --group dev
+uv run ruff check
+uv run pytest
+</code></pre>
+<p><code>ruff check</code> 检查整个仓库，<code>pytest</code> 运行 <code>tests/</code>。<code>make quality</code> 还会运行 <code>examples/data-governance/documentation/</code> 下的示例作业，CI 也跑同一个脚本；<code>examples/</code> 下其余示例需要外部的大模型工具或本地路径，不在 CI 中运行。</p>
+<h2 id="文档">文档</h2>
+<p>文档站是生成出来的，源文件是仓库里的 Markdown。</p>
+<ul>
+<li><a href="index.html">docs/site/index.html</a>：文档首页。左侧是分组的文档导航，正文介绍 docorder 是什么、核心概念、模型、快速开始与再跑，右侧是本页目录。</li>
+<li><a href="guide/index.html">docs/guide.md</a>：使用指南的唯一源文件。从背景、概念、工作流程讲到指纹与哈希、配置、内置 function、模板变量、开发自己的 function、在自己的项目中使用 docorder 的完整示例、数据治理案例，以及最佳实践。生成后按章拆成网页，放在 <code>docs/site/guide/</code> 下。</li>
+<li><a href="glossary.html">glossary.md</a>：文档里固定使用的术语。</li>
+</ul>
+<p>改完 Markdown 后重新生成网页：</p>
+<pre><code class="language-bash">uv run python scripts/build_figures.py
+uv run python scripts/build_docs.py
+</code></pre>
+<p>生成结果在 <code>docs/site/</code> 下，不要手工改那些网页。英文版与中文同名，后缀为 <code>.en</code>，例如 <code>README.en.md</code>、<code>docs/guide.en.md</code>；生成出来的网页同样是英文文件名带 <code>.en</code>。</p>
+<h2 id="参与贡献">参与贡献</h2>
+<p>问题和需求在 <a href="https://github.com/jixie-wish/docorder/issues">GitHub Issues</a> 提交，仓库带有 bug 和 feature 模板。安全问题不要公开提交，做法见 <a href="security.html">SECURITY.md</a>。开发约定见 <a href="contributing.html">CONTRIBUTING.md</a>，行为准则见 <a href="code-of-conduct.html">CODE_OF_CONDUCT.md</a>。<code>0.x</code> 期间接口可能调整，变更记在 <a href="changelog.html">CHANGELOG.md</a>。</p>
+<blockquote>
+<p>[!WARNING]
+<code>JsonnetToPrompt</code>、<code>Command</code> 和 <code>PromptToLLM</code> 会在本机执行作业配置和实体正文里的内容。只对受信任的目录运行作业。</p>
+</blockquote>
+<h2 id="许可证">许可证</h2>
+<p><a href="../../LICENSE">MIT</a>。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <span class="prev empty"></span>
+        <span class="next empty"></span>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#获取代码">获取代码</a>
+      <a href="#环境要求">环境要求</a>
+      <a href="#安装">安装</a>
+      <a href="#快速开始">快速开始</a>
+      <a href="#配置">配置</a>
+      <a href="#算子-home">算子 home</a>
+      <a href="#作业">作业</a>
+      <a href="#运行">运行</a>
+      <a href="#示例同一个-epoch-再跑">示例：同一个 epoch 再跑</a>
+      <a href="#排错">排错</a>
+      <a href="#测试">测试</a>
+      <a href="#文档">文档</a>
+      <a href="#参与贡献">参与贡献</a>
+      <a href="#许可证">许可证</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

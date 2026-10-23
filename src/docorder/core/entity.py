@@ -79,6 +79,7 @@ class EntityStatus(Enum):
     INVALID = "invalid"
     UPSTREAM_ENTITY_MISSING = "upstream_entity_missing"
     UPSTREAM_ENTITY_INCONSISTENT = "upstream_entity_inconsistent"
+    EXTERNAL_HASH_MISMATCH = "external_hash_mismatch"
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,22 @@
+# Optimizer_ROOT
+
+Review one dbt model against the root catalog in `raw_root.csv`. Write changes to that catalog into `raw_root_patch_log.csv`. That file lists changes to `raw_root.csv`. It is not a copy of the catalog.
+
+`raw_root_patch_log.csv` is in the same directory as `raw_root.csv`.
+
+- If `raw_root_patch_log.csv` does not exist, create it.
+- If it exists, edit it in place. Do not replace the file, and do not rewrite lines that do not need a change.
+
+Only record a change when this model's metrics cannot be classified without a new or revised root. If the catalog already fits a metric, do not add a row for it, and leave any existing line for it unchanged.
+
+When you do edit:
+
+- Change only rows for this model.
+- Leave every other line as it is, including order and spacing.
+- Do not re-sort or reformat the rest of the file.
+
+Read these files. Their contents are not in this prompt.
+
+model: {{ source.tag.table }}
+- {{ source.tag.yml }}
+- {{ staging('raw_root.csv') }}

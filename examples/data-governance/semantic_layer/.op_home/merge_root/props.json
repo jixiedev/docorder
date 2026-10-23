@@ -1,0 +1,14 @@
+{
+  "type": "reduce",
+  "class": "docorder.functions.impl.template_to_llm:TemplateToLLM",
+  "output": "final_root",
+  "template": "lib/prompt.jinja",
+  "fingerprint": {
+    "depend": {
+      "{staging}/raw_root.csv": "",
+      "{staging}/raw_root_patch_log.csv": ""
+    }
+  },
+  "tag_template": "{\"models\": {{ sources|length }}}",
+  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+}

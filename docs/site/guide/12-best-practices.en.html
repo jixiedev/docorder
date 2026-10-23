@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>12. Best practices | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="current" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>12. Best practices</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="12-best-practices">12. Best practices</h1>
+<p>This chapter is not about the mechanisms of docorder but about how to use it so that it stays reliable. The earlier chapters explain "what it does"; this chapter explains "how you should organize your project and your jobs". These conventions are not enforced, but each of them corresponds to a pitfall that has actually been hit.</p>
+<h3 id="decide-first-whether-the-task-suits-docorder">Decide first whether the task suits docorder</h3>
+<p>The core assumption of docorder is that the objects being processed share one shape, can be put on disk, can be processed again, and that processing one of them costs more than reading it from disk. It is therefore good at things like "generate a description for each of a batch of tables", "cut a summary out of each of a batch of documents", and "render one artifact for each of a batch of configurations".</p>
+<p>If your task does not have that shape, do not force it. Typical counterexamples:</p>
+<ul>
+<li>A one-off task, where a script that runs once is enough. Building a whole set of directories and operators so that you can resume it later is extra cost.</li>
+<li>There are few objects but every step of each one is heavy. The directories, snapshots, and comparisons of docorder bring a fixed amount of complexity.</li>
+<li>A one-off aggregation that needs a global view. A reduce can do it, but it can only hand the whole upstream batch to one call, and when the input is too large it is better to write a script.</li>
+</ul>
+<p>Check it against the "Use cases" in chapter 5 first, and then decide whether to use it.</p>
+<h3 id="directories-and-naming">Directories and naming</h3>
+<p><strong>Prepare the input directories in the shape of entities.</strong> <code>DirectorySource</code> only recognizes the shape of "a subdirectory that holds <code>data</code> or <code>tag.json</code>". When the input is a scatter of ordinary files, write a source that organizes them into entity directories instead of changing the way <code>DirectorySource</code> reads.</p>
+<p><strong>Keep entity names well behaved.</strong> Non-empty, no <code>/</code> and no <code>\</code>, and not starting with <code>.</code> or <code>_</code>. The name becomes a directory name directly, and it also ends up in templates and in command line arguments. Names with spaces, Chinese characters, or shell special characters do work, but they make troubleshooting painful, so stick to lower case letters, digits, and underscores.</p>
+<p><strong>Use a single directory level for the epoch.</strong> The epoch is joined into the path directly, and <code>2026/10</code> creates two directory levels. Use a single-level name such as <code>2026-10-16</code> or <code>v3</code>. It is a version marker, not a time path.</p>
+<p><strong>Keep the output root stable.</strong> A job always writes to one output root, so that an interrupted run can pick up the progress when it is run again. A temporary directory or a path with a random number in it makes resuming impossible.</p>
+<p><strong>Do not commit the output directory.</strong> It holds the progress and the artifacts, not the source. Add the output root (<code>runs/</code> and the like) to <code>.gitignore</code>. If the input data of a job comes from real business data, do not commit that either.</p>
+<h3 id="incremental-runs-and-idempotence">Incremental runs and idempotence</h3>
+<p>This is where docorder is easiest to get wrong.</p>
+<p><strong>Use the same epoch for the same piece of work.</strong> Resuming means running the same epoch once more. Changing the epoch means starting over, and everything computed before is wasted. An epoch means "a version of this batch of data", not "the identifier of one run".</p>
+<p><strong>Explicitly invalidate old results when you change the logic.</strong> When the template, the parameters, the function code, or an external tool changes while the upstream entities stay the same, the upstream snapshot still matches and the old result is kept as it is. Then either delete the epoch directory of that node, or delete only the entity directories that have to be redone, or use another epoch. docorder does not judge for you that "the code changed".</p>
+<p><strong>Pass <code>--scratch</code> when you change the input.</strong> The <code>start_from_scratch=True</code> of a source node is the switch through which the input data enters the job. Without it, a change to the source files does not reach the entities of the source, and the downstream naturally does not see it either.</p>
+<p><strong>Do not edit upstream entity directories by hand.</strong> Editing an already written <code>data</code> or <code>tag.json</code> directly makes the downstream that depends on it redo, which is useful while debugging, but treating it as the normal workflow makes "who is upstream" untraceable. Change the source instead.</p>
+<p><strong>Do not let the body be empty.</strong> When the upstream body is an empty string, its hash is empty every time and never matches the snapshot, so the entities that depend on it are redone on every run. A model call is not cheap, so that means paying for it again on every run. When you really cannot get any content, write a placeholder.</p>
+<p><strong>Make the job script repeatable.</strong> Running the same epoch twice should give the same result, not an error or an accumulation. Pass the epoch into the script as an argument instead of hard-coding it.</p>
+<h3 id="organizing-the-operator-homes">Organizing the operator homes</h3>
+<p><strong>Name a home after its role, not after the project.</strong> Names like <code>table_source</code>, <code>ask_llm</code>, and <code>render_prompt</code> can be reused across projects; <code>my_project_table_source</code> can only be used by one project. The differences between projects are passed in through the node's <code>config</code>.</p>
+<p><strong>Keep the static files in the home and the code in <code>primary.py</code>.</strong> Pure files such as templates and tool definitions go straight into the home directory; when you need code, use <code>class: "primary:ClassName"</code> and put the code in the <code>primary.py</code> of the home.</p>
+<p><strong>Pass the differences with <code>config</code>, the common parts with the home.</strong> The custom keys of <code>props.json</code> are the default parameters of this home, and the node's <code>config</code> overrides the keys of the same name. When one home serves several projects, every project-specific value should go through <code>config</code>.</p>
+<p><strong>The order of <code>DOCORDER_HOMES</code> is the priority.</strong> The earlier directories are searched first, and a home of the same name in an earlier directory wins. This is very handy while debugging locally: put your own home directory first, and a broken home there does not affect anyone else.</p>
+<p><strong>Set the environment variables before you build the job.</strong> The lookup of a home happens at the moment <code>add_operator_node</code> is called.</p>
+<h3 id="error-handling">Error handling</h3>
+<p><strong>Use <code>FatalError</code> for configuration errors.</strong> A missing parameter, a wrong template, a wrong input format, and problems like these give the same result however often you retry, so they should fail at once. Raising an ordinary exception in a function triggers a retry and wastes time on a call that is bound to fail.</p>
+<p><strong>Use an ordinary exception for the failure of an external process.</strong> A model API that times out or an external command that returns a non-zero status is worth retrying. Functions such as <code>PromptToLLM</code> already make this distinction; you only have to keep the same judgement when you wrap your own function.</p>
+<p><strong>Give the node that calls the model a <code>retry</code> and a <code>parallelism</code>.</strong> The default degree of parallelism is often too aggressive for an external API, and it easily triggers rate limiting. Get it working with a small degree of parallelism first, and then raise it to the quota of the API.</p>
+<p><strong>A failed entity leaves the scene behind.</strong> A failed entity leaves a directory that holds only an empty <code>tag.json</code> and no <code>data</code>, with no <code>upstream</code> snapshot. After you fix the problem and run the same epoch again, it is redone, and the entities that succeeded before are not done again. So while troubleshooting you can go straight to that directory.</p>
+<h3 id="calling-a-model">Calling a model</h3>
+<p><strong>Pick the right function.</strong> One result per object in a batch, use <code>EntityTemplateToLLM</code> (map); one summary for the whole batch, use <code>TemplateToLLM</code> (reduce); the upstream is already a prompt, use <code>PromptToLLM</code> directly.</p>
+<p><strong>Prefer to put the call on a map.</strong> The granularity of a map is one entity, so a failure affects one object and the cost of resuming is the lowest. The granularity of a reduce is the whole batch, so one failure means the whole batch starts over.</p>
+<p><strong>Use <code>tag_template</code> to keep the metadata.</strong> Besides the body that the model returns, let the function write the structured result into the tag as well, and the later steps do not have to parse the body again.</p>
+<p><strong>Use <code>header</code> to constrain the output format.</strong> Give <code>PromptToLLM</code> a <code>header</code>, and the table in the reply of the model can be cut out reliably and used as the body, so the downstream does not have to deal with the small talk the model may have added.</p>
+<p><strong>Write the input of the model as a path, not as content.</strong> The templates of <code>EntityTemplateToLLM</code> and <code>TemplateToLLM</code> can get the path of the upstream <code>data</code> file; letting the model read it itself saves tokens compared to stuffing a large piece of content into the prompt, and is also less likely to overflow.</p>
+<p><strong>Use <code>fingerprint.depend</code> to track external files.</strong> When a result depends on a file that is not in the upstream entity, for example the <code>.sql</code> next to a table definition, declare it with <code>depend</code>, and the matching entities are only redone when the file changes.</p>
+<h3 id="common-anti-patterns">Common anti-patterns</h3>
+<table>
+<thead>
+<tr>
+<th>Anti-pattern</th>
+<th>Problem</th>
+<th>Better approach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One subprocess per object, each processed on its own</td>
+<td>You lose the batching, the retry, and the ability to resume</td>
+<td>Use a map operator and let the runner schedule it</td>
+</tr>
+<tr>
+<td>Writing your own retry or thread pool inside a function</td>
+<td>It duplicates the mechanisms of the runner and the failure semantics differ</td>
+<td>Raise an ordinary exception and let the runner retry, and control the concurrency with <code>parallelism</code></td>
+</tr>
+<tr>
+<td>Creating a job or calling <code>execute</code> inside a function</td>
+<td>There is nowhere to keep the progress, and resuming stops working</td>
+<td>A function handles one entity; the job is built by the script</td>
+</tr>
+<tr>
+<td>Putting large blocks of data into the tag</td>
+<td>The hash of the snapshot grows with the data and the comparison gets slower</td>
+<td>Keep only identifiers and paths in the tag; the body goes into a file</td>
+</tr>
+<tr>
+<td>Using a new epoch for every run</td>
+<td>Everything is computed from scratch every time</td>
+<td>Fix the epoch, and control the scope of the redo with directory cleanup</td>
+</tr>
+<tr>
+<td>Changing the template without cleaning up the old results</td>
+<td>The old results are kept as they are and it looks like "it did not take effect"</td>
+<td>Delete the epoch directory of that node, or use another epoch</td>
+</tr>
+<tr>
+<td>Putting unrelated entities in one epoch</td>
+<td>One failing entity drags the whole batch down, and several jobs interfere with each other</td>
+<td>One output root per job, one batch of data per epoch</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/11-a-data-governance-case-study.en.html">
+          <span class="label">Previous</span>
+          <span class="name">11. A data governance case study</span>
+        </a>
+        <a class="next" href="../guide/appendix-a-the-built-in-functions.en.html">
+          <span class="label">Next</span>
+          <span class="name">Appendix A: The built-in functions</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#decide-first-whether-the-task-suits-docorder">Decide first whether the task suits docorder</a>
+      <a href="#directories-and-naming">Directories and naming</a>
+      <a href="#incremental-runs-and-idempotence">Incremental runs and idempotence</a>
+      <a href="#organizing-the-operator-homes">Organizing the operator homes</a>
+      <a href="#error-handling">Error handling</a>
+      <a href="#calling-a-model">Calling a model</a>
+      <a href="#common-anti-patterns">Common anti-patterns</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

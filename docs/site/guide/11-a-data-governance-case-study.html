@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>十一、数据治理案例 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="current" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>十一、数据治理案例</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="十一数据治理案例">十一、数据治理案例</h1>
+<h3 id="案例在仓库里的位置">案例在仓库里的位置</h3>
+<p><code>examples/data-governance/</code> 下有三个可运行的作业，都是真实的数据治理任务：</p>
+<table>
+<thead>
+<tr>
+<th>目录</th>
+<th>作业做什么</th>
+<th>规模</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>documentation/</code></td>
+<td>把表定义渲染成提示词，交给大模型写说明</td>
+<td>最小，<code>make quality</code> 跑的就是它</td>
+</tr>
+<tr>
+<td><code>dbt_model/</code></td>
+<td>按表文档生成 dbt 模型（sql 与 yaml）</td>
+<td>中等，需要外部的大模型工具</td>
+</tr>
+<tr>
+<td><code>semantic_layer/</code></td>
+<td>建词根表、给模型分配词根、补成员属性</td>
+<td>最完整，本章讲它</td>
+</tr>
+</tbody>
+</table>
+<p>三个作业的代码都在各自的 <code>job.py</code> 里，算子 home 放在 <code>.op_home/</code> 下。第十章讲过怎么从零搭一个作业，这里讲一个已经搭好、而且比教程复杂得多的作业。</p>
+<h3 id="业务问题">业务问题</h3>
+<p>数仓里有几百张 Hive 表，每张表由一个 dbt 模型描述。模型的 yml 里写着它的指标：指标名、描述、聚合方式。一个叫 <code>fct_refund</code> 的模型有 <code>refund_amount</code> 这样的指标，另一个模型可能有 <code>gmv_refunded</code>。</p>
+<p>数据治理要回答的问题是：这些指标说的是不是同一件事。如果是，就要让它们共用一个名字、一份定义、一组别名，这样分析师写 SQL 时不用猜「退款金额」在下游到底叫什么。</p>
+<p>这件事手工做要读几百份 yml，维护一张词根表，再给每个模型的每个指标填一个归属。工作量大，而且模型一改就得重来。</p>
+<p>这个案例用四个作业接力完成，每个作业的产物交给下一个作业：</p>
+<!-- figure:pipeline:start -->
+<figure class="figure" id="fig-pipeline">
+<svg role="img" aria-labelledby="pipeline-title pipeline-desc" viewBox="0 0 900 500" width="100%" style="max-width:900px">
+  <title id="pipeline-title">数据治理案例的四个作业</title>
+  <desc>四个作业接力：建词根表、修词根表、给模型分配词根、补成员属性，每个作业的产物写进 .staging，交给下一个作业读取。</desc>
+  <defs>
+    <marker id="pipeline-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="pipeline-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="pipeline-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="500" fill="#f6f1e8"/>
+  <path d="M 540 92 L 600 92" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 540 200 L 600 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 540 308 L 600 308" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 540 416 L 600 416" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 730 136 L 730 144 L 296 144 Q 290 144 290 150 L 290 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 730 244 L 730 252 L 296 252 Q 290 252 290 258 L 290 264" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 730 352 L 730 360 L 296 360 Q 290 360 290 366 L 290 372" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <rect x="555" y="68" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="80" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">写出</text>
+  <rect x="555" y="176" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="188" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">写出</text>
+  <rect x="555" y="284" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="296" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">写出</text>
+  <rect x="555" y="392" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="404" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">写出</text>
+  <rect x="40" y="48" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="48" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="71" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">raw_root 作业：建词根表</text>
+  <text x="54" y="93" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source → librarian → taxonomist_root → publish</text>
+  <rect x="40" y="156" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="156" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">refine_root 作业：修词根表</text>
+  <text x="54" y="201" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source → optimizer_root → merge_root → publish_final</text>
+  <rect x="40" y="264" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="264" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="287" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">root_assigner 作业：给模型分配词根</text>
+  <text x="54" y="309" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_assign → root_assigner → reduce_assigner → publish_assigner</text>
+  <text x="54" y="327" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">→ extract_root → taxonomist_member → combine_root_member → publish_root_member</text>
+  <rect x="40" y="372" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="372" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="395" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">member_attribute 作业：补成员属性</text>
+  <text x="54" y="417" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_member → assign_member → combine_assign_member → publish_assign_member</text>
+  <rect x="600" y="48" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="48" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="71" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">raw_root.csv</text>
+  <text x="614" y="93" fill="#5e584e" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">词根表初稿</text>
+  <rect x="600" y="156" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="156" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="179" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">final_root.csv</text>
+  <text x="614" y="201" fill="#5e584e" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">词根表定稿</text>
+  <rect x="600" y="264" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="264" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="287" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">root_assign.json</text>
+  <text x="614" y="309" fill="#5e584e" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">归属表</text>
+  <text x="614" y="327" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">root_member.csv</text>
+  <rect x="600" y="372" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="372" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="395" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">成员属性</text>
+  <text x="614" y="417" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">root_member_assign.json</text>
+</svg>
+<figcaption><span class="fig-label">图 8</span> 案例的四个作业：产物写在 .staging 里，后一个作业读前一个的产出。</figcaption>
+</figure>
+<!-- figure:pipeline:end -->
+
+<h3 id="第一个作业建词根表">第一个作业：建词根表</h3>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>类型</th>
+<th>做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td>source</td>
+<td>读 <code>.input/</code> 下每个模型一份的输入，产出实体</td>
+</tr>
+<tr>
+<td><code>librarian</code></td>
+<td>map</td>
+<td>读模型的 yml，抽出指标清单，写成一份 JSON</td>
+</tr>
+<tr>
+<td><code>taxonomist_root</code></td>
+<td>reduce</td>
+<td>把全部模型的 JSON 合成一份提示词，交给大模型一次，得到词根表</td>
+</tr>
+<tr>
+<td><code>publish</code></td>
+<td>apply</td>
+<td>把词根表写成 <code>.staging/raw_root.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>source</code> 用的是内置的 <code>FileHashSource</code>。<code>.input/</code> 里每个子目录是一个实体，<code>tag.json</code> 里写着库名和表名：</p>
+<pre><code class="language-json">{
+  &quot;db&quot;: &quot;core_data&quot;,
+  &quot;table&quot;: &quot;fct_refund&quot;
+}
+</code></pre>
+<p><code>FileHashSource</code> 的 <code>paths</code> 把这两个字段拼成模型文件的绝对路径，写进实体的 tag：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:FileHashSource&quot;,
+  &quot;paths&quot;: {
+    &quot;sql&quot;: &quot;{model_home}/{db}/{table}.sql&quot;,
+    &quot;yml&quot;: &quot;{model_home}/{db}/{table}.yml&quot;
+  },
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+      &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p><code>{model_home}</code> 是算子的一个字符串参数，指向模型文件所在的目录。<code>librarian</code> 拿这个绝对路径去读 yml，解析出指标清单。它是普通的 map function，只依赖 <code>MapFunction</code> 基类，不调用大模型，因此很快。</p>
+<p><code>taxonomist_root</code> 是个 reduce，把上游全部实体的 JSON 合成一份提示词，一次调用大模型。返回值是一张 CSV，第一行是表头：</p>
+<pre><code class="language-text">root_id|root_zh|kind|definition|not_a|aliases
+product_click_count|商品点击次数|count|Count of product click events, one per user, ...|已归因点击次数, 未归因点击次数|how many product clicks, ...
+</code></pre>
+<p>每一行是一个词根：英文 ID、中文名、类别（<code>count</code>、<code>rate</code>、<code>amount</code>、<code>score</code>、<code>duration</code>）、定义、明确不是什么的说明、别名。</p>
+<p><code>publish</code> 是 apply，用内置的 <code>Output</code> 把这个实体写成 <code>.staging/raw_root.csv</code>。apply 不写实体，只调用 function，所以它没有下游。</p>
+<h3 id="第二个作业修词根表">第二个作业：修词根表</h3>
+<p>初稿里的词根往往不完美：定义写得不准、别名漏了、两个词根其实是一回事。这个作业让大模型按初稿逐个模型地提修改意见，再把意见合进词根表。</p>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>类型</th>
+<th>做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td>source</td>
+<td>与第一个作业共用同一个节点</td>
+</tr>
+<tr>
+<td><code>optimizer_root</code></td>
+<td>map</td>
+<td>每个模型一次大模型调用，只在词根表盖不住时改 <code>raw_root_patch_log.csv</code></td>
+</tr>
+<tr>
+<td><code>merge_root</code></td>
+<td>reduce</td>
+<td>一次大模型调用，把这份文件合进词根表</td>
+</tr>
+<tr>
+<td><code>publish_final</code></td>
+<td>apply</td>
+<td>写出 <code>.staging/final_root.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>optimizer_root</code> 的算子 home 声明了两段指纹：</p>
+<pre><code class="language-json">{
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{staging}/raw_root_patch_log.csv&quot;: &quot;&quot;
+    },
+    &quot;depend&quot;: {
+      &quot;{staging}/raw_root.csv&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p><code>depend</code> 指的就是 <code>.staging/raw_root.csv</code>，也就是第一个作业的产出。词根表改了，这个算子的每个实体重做；模型定义没变、词根表也没变，就一个都不重做，模型的钱一分不花。</p>
+<p><code>record</code> 记的是 <code>.staging/raw_root_patch_log.csv</code>。提示词要求大模型对照 <code>raw_root.csv</code> 改这份文件：文件不存在就创建，存在就原地修改，词根已经够用的行不要动。</p>
+<p><code>merge_root</code> 直接读这两份文件，不经过中间实体。它的 <code>depend</code> 同时记下 <code>.staging/raw_root.csv</code> 和 <code>.staging/raw_root_patch_log.csv</code>，所以任一份变了都会重跑。</p>
+<h3 id="第三个作业给模型分配词根">第三个作业：给模型分配词根</h3>
+<p>有了定稿的词根表，下一步是给每个模型的每个指标找到它的词根。</p>
+<table>
+<thead>
+<tr>
+<th>节点</th>
+<th>类型</th>
+<th>做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source_assign</code></td>
+<td>source</td>
+<td>单独的 source，节点名与第一个作业的 <code>source</code> 不同</td>
+</tr>
+<tr>
+<td><code>root_assigner</code></td>
+<td>map</td>
+<td>每个模型一次大模型调用，决定这个模型的指标属于哪些词根</td>
+</tr>
+<tr>
+<td><code>reduce_assigner</code></td>
+<td>reduce</td>
+<td>把所有模型的归属合成一份 JSON</td>
+</tr>
+<tr>
+<td><code>publish_assigner</code></td>
+<td>apply</td>
+<td>写出 <code>.staging/root_assign.json</code></td>
+</tr>
+<tr>
+<td><code>extract_root</code></td>
+<td>fanout</td>
+<td>按词根把归属 JSON 拆开，一个词根一个实体</td>
+</tr>
+<tr>
+<td><code>taxonomist_member</code></td>
+<td>map</td>
+<td>每个词根一次大模型调用，写这个词根的成员表</td>
+</tr>
+<tr>
+<td><code>combine_root_member</code></td>
+<td>reduce</td>
+<td>把所有词根的成员表拼成一份 CSV</td>
+</tr>
+<tr>
+<td><code>publish_root_member</code></td>
+<td>apply</td>
+<td>写出 <code>.staging/root_member.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>source_assign</code> 声明了 <code>record</code>，把模型文件和词根表都记下来：</p>
+<pre><code class="language-python">job.add_operator_node(
+    &quot;source_assign&quot;,
+    &quot;source&quot;,
+    config={
+        &quot;directory&quot;: incoming,
+        &quot;model_home&quot;: model_home,
+        &quot;catalog&quot;: str(catalog),
+        &quot;fingerprint&quot;: {
+            &quot;record&quot;: {
+                &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+                &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;,
+                &quot;{catalog}&quot;: &quot;&quot;,
+            }
+        },
+    },
+)
+</code></pre>
+<p>这里的 <code>catalog</code> 指向 <code>.staging/final_root.csv</code>，所以词根表一变，这个 source 的实体就带着新的哈希，下游跟着重做。</p>
+<p>注意节点 <code>config</code> 里的 <code>fingerprint</code> 是整份覆盖算子 home 的，所以上面把 home 里那两条也一起写了。第四章「指纹与哈希」讲了这个覆盖规则。</p>
+<p><code>extract_root</code> 是这个案例里唯一的 fanout。它的 <code>output_names</code> 从归属 JSON 里读出所有用到的词根 ID，跳过 <code>unassigned</code>：</p>
+<pre><code class="language-python">class ExtractRoot(FanoutFunction):
+    def output_names(self, source_entity):
+        payload = _document(source_entity.read_text(), self.operator_name, source_entity.name)
+        names: set[str] = set()
+        for model in payload[&quot;models&quot;]:
+            for metric in model[&quot;metrics&quot;]:
+                root_id = metric.get(&quot;root_id&quot;)
+                if isinstance(root_id, str) and root_id and root_id != &quot;unassigned&quot;:
+                    names.add(root_id)
+        return sorted(names)
+</code></pre>
+<p>上游只有一份归属 JSON，输出却是每个词根一个实体。fanout 的输出实体数量和上游实体数量无关，这正是它存在的理由。仓库里这份输入跑出来是十四个词根实体。</p>
+<h3 id="第四个作业补成员属性">第四个作业：补成员属性</h3>
+<p>最后一个作业给每个词根的成员补充描述。它的结构最简单：<code>source_member</code>、<code>assign_member</code>、<code>combine_assign_member</code>、<code>publish_assign_member</code> 四个节点，依次是 source、map、reduce、apply。</p>
+<h3 id="这个案例用到的机制">这个案例用到的机制</h3>
+<table>
+<thead>
+<tr>
+<th>机制</th>
+<th>在案例里用在哪</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>五种算子</td>
+<td>source、map、reduce、fanout、apply 全用上了</td>
+</tr>
+<tr>
+<td><code>fingerprint.record</code></td>
+<td>记下模型文件、词根表和中间产物</td>
+</tr>
+<tr>
+<td><code>fingerprint.depend</code></td>
+<td>让词根表的变化传到下游</td>
+</tr>
+<tr>
+<td><code>.staging</code></td>
+<td>四个作业之间传数据</td>
+</tr>
+<tr>
+<td><code>retry</code></td>
+<td>大模型调用失败时重试</td>
+</tr>
+</tbody>
+</table>
+<h3 id="怎么跑">怎么跑</h3>
+<pre><code class="language-bash">cd examples/data-governance/semantic_layer
+uv run python job.py                   # 建词根表
+uv run python job.py refine            # 修词根表
+uv run python job.py assign            # 给模型分配词根
+uv run python job.py member_attribute  # 补成员属性
+</code></pre>
+<p><code>.env</code> 里只有 <code>DOCORDER_HOMES</code> 一项，指向本目录的 <code>.op_home</code>。模型文件的位置用环境变量 <code>SEMANTIC_LAYER_MODELS</code> 指定，输入目录用 <code>SEMANTIC_LAYER_INPUT</code>。大模型工具用 <code>DOCORDER_LLM</code> 指定，没写就用脚本里配好的默认工具。</p>
+<p>这几个作业需要本机装好大模型工具、并且有模型文件可读，因此不在 CI 中运行；CI 跑的是 <code>documentation/</code> 那个最小作业。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/10-using-docorder-in-your-own-project.html">
+          <span class="label">上一篇</span>
+          <span class="name">十、在自己的项目中使用 docorder</span>
+        </a>
+        <a class="next" href="../guide/12-best-practices.html">
+          <span class="label">下一篇</span>
+          <span class="name">十二、最佳实践</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#案例在仓库里的位置">案例在仓库里的位置</a>
+      <a href="#业务问题">业务问题</a>
+      <a href="#第一个作业建词根表">第一个作业：建词根表</a>
+      <a href="#第二个作业修词根表">第二个作业：修词根表</a>
+      <a href="#第三个作业给模型分配词根">第三个作业：给模型分配词根</a>
+      <a href="#第四个作业补成员属性">第四个作业：补成员属性</a>
+      <a href="#这个案例用到的机制">这个案例用到的机制</a>
+      <a href="#怎么跑">怎么跑</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

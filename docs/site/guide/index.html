@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>使用指南 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="current" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>使用指南</span>
+      </nav>
+
+      <article class="overview">
+      <div class="chapter-list">
+      <a class="read" href="document-structure.html">
+        <strong>文档结构</strong>
+        <p>这份手册每一章讲什么，以及文中几张结构示意图的位置。</p>
+      </a>
+      <a class="read" href="1-background.html">
+        <strong>一、背景</strong>
+        <p>docorder 要解决的问题，一个两步作业的最小例子，docorder 在设计上做了哪些取舍，以及当前版本有哪些能力边界。</p>
+      </a>
+      <a class="read" href="2-core-concepts-and-terms.html">
+        <strong>二、核心概念与术语</strong>
+        <p>实体、上游快照、算子与算子 home、function、作业与节点、epoch 与 stage、runner 与应得名单，每个概念都说明它是什么、由谁创建、保存在哪里。</p>
+      </a>
+      <a class="read" href="3-how-a-run-works.html">
+        <strong>三、工作流程</strong>
+        <p>一次运行从检查作业图开始，到逐个节点执行结束，中间每一步做了什么；还包括并行执行、失败重试、source 节点的特殊处理，以及再次运行时 docorder 如何决定每个结果的去留。</p>
+      </a>
+      <a class="read" href="4-fingerprints-and-hashes.html">
+        <strong>四、指纹与哈希</strong>
+        <p>docorder 里的三种哈希各算什么，怎么用 `fingerprint` 声明对外部文件的依赖，`record` 与 `depend` 的分工，路径模板怎么写，以及怎么排查一个每次运行都重做的实体。</p>
+      </a>
+      <a class="read" href="5-use-cases.html">
+        <strong>五、使用场景</strong>
+        <p>几种典型的作业图分别适合什么任务，以及哪些任务不适合用 docorder。</p>
+      </a>
+      <a class="read" href="6-configuration.html">
+        <strong>六、配置</strong>
+        <p>docorder 如何找到算子、`props.json` 里每个键的含义、作业和节点的参数、运行函数 `execute` 的参数、转换代码和模板分别读到哪些配置，以及相关的环境变量。</p>
+      </a>
+      <a class="read" href="7-operator-types-and-the-built-in-functions.html">
+        <strong>七、算子分类与内置 function</strong>
+        <p>五种算子的区别，每种算子可以搭配哪些 docorder 自带的转换类，每个转换类有哪些配置项、产生什么结果、在什么情况下失败。</p>
+      </a>
+      <a class="read" href="8-rendering-functions-and-template-variables.html">
+        <strong>八、渲染类 function 与模板变量</strong>
+        <p>模板里可以直接使用的全部变量，以及在内置变量不够用时，六种增加模板变量的方法。</p>
+      </a>
+      <a class="read" href="9-writing-your-own-function.html">
+        <strong>九、开发自己的 function</strong>
+        <p>应该继承哪个基类、需要实现哪些方法、在方法里可以使用哪些对象、必须遵守哪些约定、代码文件放在哪里，以及如何为它编写测试。</p>
+      </a>
+      <a class="read" href="10-using-docorder-in-your-own-project.html">
+        <strong>十、在自己的项目中使用 docorder</strong>
+        <p>从安装、规划目录、准备输入数据、编写算子、编写启动脚本，到运行、查看结果和修改后再次运行的完整步骤。</p>
+      </a>
+      <a class="read" href="11-a-data-governance-case-study.html">
+        <strong>十一、数据治理案例</strong>
+        <p>`examples/data-governance/` 下的真实作业，从 dbt 模型的指标清单到词根表、归属表和成员表，四个作业怎么接力。</p>
+      </a>
+      <a class="read" href="12-best-practices.html">
+        <strong>十二、最佳实践</strong>
+        <p>把 docorder 用稳的几条约定，覆盖目录与命名、增量与幂等、算子 home 的组织、错误处理、大模型调用成本、失败恢复和常见反模式。</p>
+      </a>
+      <a class="read" href="appendix-a-the-built-in-functions.html">
+        <strong>附录 A：内置 function 一览</strong>
+        <p>一张表列出每个内置 function：它属于哪种算子、接受什么、写出什么。</p>
+      </a>
+      <a class="read" href="appendix-b-implementation-index.html">
+        <strong>附录 B：实现索引</strong>
+        <p>docorder 的每一部分在哪里：模块、基类和它们用到的辅助类。</p>
+      </a>
+      <a class="read" href="appendix-c-related-documents.html">
+        <strong>附录 C：相关文档</strong>
+        <p>README、术语表、贡献指南，以及与本手册配套的其它文档。</p>
+      </a>
+      </div>
+
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../readme.html">
+          <span class="label">上一篇</span>
+          <span class="name">快速开始</span>
+        </a>
+        <a class="next" href="../guide/document-structure.html">
+          <span class="label">下一篇</span>
+          <span class="name">文档结构</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

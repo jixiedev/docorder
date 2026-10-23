@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4. Fingerprints and hashes | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="current" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>4. Fingerprints and hashes</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="4-fingerprints-and-hashes">4. Fingerprints and hashes</h1>
+<h3 id="the-three-kinds-of-hash-in-docorder">The three kinds of hash in docorder</h3>
+<p>Deciding whether a result can still be used comes down to comparing hashes. There are three kinds of hash in docorder, and each one answers a different question:</p>
+<table>
+<thead>
+<tr>
+<th>Hash</th>
+<th>What it hashes</th>
+<th>Where it is kept</th>
+<th>What it decides</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The hash inside the upstream snapshot</td>
+<td>The body of the upstream entity together with its user tag</td>
+<td>In the <code>upstream</code> of the downstream entity's <code>tag.json</code></td>
+<td>Whether the upstream result changed</td>
+</tr>
+<tr>
+<td><code>fingerprint.depend</code></td>
+<td>The external files the operator reads that the upstream entity does not carry</td>
+<td>In the <code>fingerprint</code> of this entity's <code>tag.json</code></td>
+<td>Whether those external files changed</td>
+</tr>
+<tr>
+<td><code>fingerprint.record</code></td>
+<td>The external files the operator writes itself</td>
+<td>In the <code>fingerprint</code> of this entity's <code>tag.json</code></td>
+<td>Nothing; it is bookkeeping only</td>
+</tr>
+</tbody>
+</table>
+<p>The first one is chapter 3. This chapter covers the other two and how the three make one decision.</p>
+<h3 id="the-hash-inside-the-upstream-snapshot">The hash inside the upstream snapshot</h3>
+<p>Chapter 2 said that <code>upstream</code> records a snapshot of the direct upstream entity. A record has four fields: <code>operator</code> is the upstream node name, <code>name</code> is the upstream entity name, <code>epoch</code> is the epoch of this run, and <code>hash</code> is the sha256 of the body of the upstream entity together with its user tag.</p>
+<p>The algorithm is simple: the body of the upstream entity and its user tag are put into one JSON object, and the sha256 of that JSON is taken. Two details are worth remembering.</p>
+<p>First, what goes into the hash is the "user tag", that is, the <code>tag.json</code> with the <code>upstream</code> and <code>current</code> keys removed. <code>upstream</code> has to be excluded, otherwise the hash would contain itself and would never settle; <code>current</code> is a leftover key from an earlier version and is excluded as well. Every other key of the user tag takes part, so every field the function writes into the tag is counted.</p>
+<p>Second, an empty body hashes to an empty string. An empty body means the content of that entity was never written, so it cannot match any earlier result. When the runner sees an empty hash, it judges the entity as not matching.</p>
+<h3 id="declaring-a-fingerprint">Declaring a fingerprint</h3>
+<p>The upstream snapshot only covers "the body and user tag of the upstream entity". Some operators read other files: the <code>.sql</code> file next to a table definition, a list of root words, an intermediate file an upstream step wrote. The content of those files is not in the upstream entity, so the upstream snapshot cannot see them change.</p>
+<p>The <code>fingerprint</code> object in <code>props.json</code> is there for that case. It is an object with at most two sections:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;primary:RenderWithSchema&quot;,
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{staging}/{name}.out&quot;: &quot;&quot;
+    },
+    &quot;depend&quot;: {
+      &quot;{schema_home}/{name}.sql&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p><code>record</code> and <code>depend</code> are both objects. Their keys are path templates, and the values do not matter at all: docorder only reads the keys, and the value is only there as a placeholder.</p>
+<p>The two sections have fixed roles:</p>
+<ul>
+<li><code>record</code> lists the files this operator writes itself, or the files a source points at. After the entity is written, the runner hashes those files and records the result in this entity's <code>tag.json</code>.</li>
+<li><code>depend</code> lists the files this operator reads that the upstream entity does not carry. During the comparison the runner hashes those files and compares them with the values recorded in the entity.</li>
+</ul>
+<p><code>record</code> is bookkeeping only and takes no part in the "does it have to be redone" decision. Changing a file listed in <code>record</code> does not make this operator redo itself; it only records the state of the file as it was seen, for downstream steps and for troubleshooting. What actually decides a redo is <code>depend</code>.</p>
+<h3 id="how-the-two-checks-make-one-decision">How the two checks make one decision</h3>
+<p>For an entity of a non-source node to stay, two things have to hold at the same time: the upstream snapshot matches the current state of the upstream, and the hash of every file listed in <code>depend</code> matches the one recorded before. If either fails, the entity is redone. When both hold, the entity is kept as it is and the function is not called.</p>
+<!-- figure:hashes:start -->
+<figure class="figure" id="fig-hashes">
+<svg role="img" aria-labelledby="hashes-title hashes-desc" viewBox="0 0 900 640" width="100%" style="max-width:900px">
+  <title id="hashes-title">How the two hashes decide an entity</title>
+  <desc>An entity stays when the upstream snapshot matches the current upstream and every file declared in depend has the hash recorded before; if either check fails the entity is redone. record is bookkeeping and takes no part in the decision.</desc>
+  <defs>
+    <marker id="hashes-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="hashes-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="hashes-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="640" fill="#f6f1e8"/>
+  <path d="M 210 112 L 210 148" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 210 192 L 210 228" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 690 112 L 690 148" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 690 192 L 690 228" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 210 296 L 210 320 L 322 320 Q 330 320 330 328 L 330 344" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 690 296 L 690 320 L 578 320 Q 570 320 570 328 L 570 344" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 390 404 L 390 428 L 228 428 Q 220 428 220 436 L 220 452" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow-moss)"/>
+  <path d="M 510 404 L 510 428 L 672 428 Q 680 428 680 436 L 680 452" fill="none" stroke="#9a3412" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <rect x="286.575" y="404" width="26.85" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="300" y="416" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">yes</text>
+  <rect x="579.05" y="404" width="21.9" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="590" y="416" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">no</text>
+  <rect x="40" y="56" width="340" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="56" width="340" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="82" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">the upstream body and user tag</text>
+  <text x="210" y="99" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">a changed body no longer matches</text>
+  <rect x="105" y="148" width="210" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="105" y="148" width="210" height="44" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="174" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">sha256</text>
+  <rect x="40" y="228" width="340" height="68" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="228" width="340" height="68" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="260" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">compare with the hash in the snapshot</text>
+  <text x="210" y="277" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">the hash of the upstream body and user tag</text>
+  <rect x="520" y="56" width="340" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="56" width="340" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="690" y="82" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">the external files named in depend</text>
+  <text x="690" y="99" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">files the upstream entity does not carry</text>
+  <rect x="585" y="148" width="210" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="585" y="148" width="210" height="44" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="690" y="174" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">sha256</text>
+  <rect x="520" y="228" width="340" height="68" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="228" width="340" height="68" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="690" y="260" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">compare with fingerprint.depend in tag.json</text>
+  <text x="690" y="277" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">a different key set or hash means a redo</text>
+  <rect x="300" y="344" width="300" height="60" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="344" width="300" height="60" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="378" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">do both match?</text>
+  <rect x="80" y="452" width="280" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="80" y="452" width="280" height="56" rx="6" fill="rgba(29,104,66,0.08)" stroke="#1d6842" stroke-width="1"/>
+  <text x="220" y="484" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">keep · no function call</text>
+  <rect x="540" y="452" width="280" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="540" y="452" width="280" height="56" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1"/>
+  <text x="680" y="484" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">redo · clear and reprocess</text>
+  <rect x="40" y="548" width="820" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="548" width="820" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="574" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">fingerprint.record is bookkeeping only</text>
+  <text x="450" y="591" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">it goes into tag.json, so it is part of this entity's own hash</text>
+</svg>
+<figcaption><span class="fig-label">Figure 7</span> How the two hashes make one decision: the entity is kept only when the upstream snapshot and depend both match.</figcaption>
+</figure>
+<!-- figure:hashes:end -->
+
+<p><code>depend</code> has a knock-on effect. The <code>fingerprint</code> lives in <code>tag.json</code>, and the user tag part of <code>tag.json</code> goes into the hash of the upstream snapshot. So when a file in <code>depend</code> changes, this operator redoes itself and its new hash changes with it; the downstream step sees that the upstream changed and redoes itself as well. That is how a change travels outwards from the middle of the graph.</p>
+<h3 id="path-templates-and-placeholders">Path templates and placeholders</h3>
+<p>Placeholders in a template are written as <code>{name}</code>, and these are the values they can take:</p>
+<table>
+<thead>
+<tr>
+<th>Placeholder</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{name}</code></td>
+<td>The name of the current entity. It always wins over a parameter of the same name</td>
+</tr>
+<tr>
+<td><code>{staging}</code></td>
+<td>The <code>.staging</code> directory of the job. A string parameter of the same name overrides it</td>
+</tr>
+<tr>
+<td><code>{parameter}</code></td>
+<td>A string parameter of the operator, that is, <code>props.json</code> without the reserved keys, after the node's <code>config</code> has overridden it</td>
+</tr>
+<tr>
+<td><code>{tag field}</code></td>
+<td>Only <code>record</code> can use it: a string field of the operator tag. A parameter of the same name overrides the tag field</td>
+</tr>
+</tbody>
+</table>
+<p>One piece of text may use several placeholders. A placeholder that cannot be filled makes that section fail with <code>FatalError</code>: the file does not exist, or the placeholder has no value. A relative path is resolved from the job root; an absolute path is used as it is.</p>
+<p><code>record</code> and <code>depend</code> are rendered at different moments, and that decides which values they can use:</p>
+<ul>
+<li><code>depend</code> is rendered before the function runs, so it can only use <code>{name}</code>, <code>{staging}</code> and parameters. At that point the entity has not been written yet and its tag is empty.</li>
+<li><code>record</code> is rendered after the tag has been filled, so besides the values above it can also use the string fields of the tag.</li>
+</ul>
+<h3 id="the-order-of-things-in-one-run">The order of things in one run</h3>
+<p>Putting all of this into one stage:</p>
+<ol>
+<li>Compare. The runner reads the existing entities, compares the upstream snapshot of each one and then the file hashes of <code>depend</code>, and sorts them into four groups: create, redo, keep, delete.</li>
+<li>Clear. The directories that have to go are removed, and every entity that has to be created or redone gets a placeholder directory holding an empty <code>tag.json</code>.</li>
+<li>Before the run. The paths of <code>depend</code> are rendered and the files are hashed. When a file is missing the stage stops with <code>FatalError</code> here, before the clearing, so the entities that already exist are not deleted.</li>
+<li>Call the function. <code>transform_data</code> fills the body and <code>transform_props</code> fills the tag.</li>
+<li>Account. The paths of <code>record</code> are rendered and the files are hashed, and the result goes into the <code>fingerprint</code> of <code>tag.json</code>. The files have to exist at this point, or the stage fails with <code>FatalError</code>.</li>
+<li>Write. <code>data</code> is written first, then <code>tag.json</code>.</li>
+</ol>
+<p>A source node is different: it has no upstream, so it neither compares nor lists expected names. It only runs when <code>execute</code> is called with <code>start_from_scratch=True</code>, and it accounts after <code>emit</code> has handed over the body and the tag.</p>
+<h3 id="declarations-that-are-refused">Declarations that are refused</h3>
+<p>Some declarations are refused during assembly, and the job never starts:</p>
+<ul>
+<li>A source cannot declare <code>depend</code>. A source does no comparison before it runs, so it has no use for that hash.</li>
+<li>An apply cannot declare <code>fingerprint</code> at all. An apply writes no entity, so it has nowhere to keep the hash.</li>
+</ul>
+<p>Both fail with <code>JobValidationError</code>.</p>
+<h3 id="an-empty-body">An empty body</h3>
+<p>When the function leaves no body but the operator declares <code>record</code>, the runner writes a single newline as the body.</p>
+<p>The reason is in the algorithm: an empty body hashes to an empty string, and an empty string never equals the hash recorded last time, so the entity would be judged as needing a redo on every run. A newline gives the body some content, the hash settles, and the comparison means something. A body the function wrote itself is left as it is.</p>
+<h3 id="a-node-config-replaces-the-whole-fingerprint">A node config replaces the whole fingerprint</h3>
+<p>The <code>fingerprint</code> in <code>props.json</code> and the <code>fingerprint</code> in a node's <code>config</code> are the same key, and the node's <code>config</code> replaces it as a whole rather than merging with it:</p>
+<pre><code class="language-python">job.add_operator_node(
+    &quot;source_assign&quot;,
+    &quot;source&quot;,
+    config={
+        &quot;directory&quot;: incoming,
+        &quot;fingerprint&quot;: {
+            &quot;record&quot;: {
+                &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+                &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;,
+                &quot;{catalog}&quot;: &quot;&quot;,
+            }
+        },
+    },
+)
+</code></pre>
+<p>The code above drops every fingerprint key the operator home declared in <code>props.json</code> instead of adding one more to them. When the home declares three sections of fingerprint, the node's <code>config</code> has to write all three.</p>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<p>The fingerprint is kept in the entity's <code>tag.json</code>, and looks like this:</p>
+<pre><code class="language-json">{
+  &quot;fingerprint&quot;: {
+    &quot;depend&quot;: {
+      &quot;{staging}/raw_root.csv&quot;: &quot;3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b&quot;
+    }
+  }
+}
+</code></pre>
+<p>The key is the template, not the rendered path. To find out which file a template points at this time, replace the placeholders with their actual values and look.</p>
+<p>When an entity is redone on every run, check in this order:</p>
+<ol>
+<li>Is the <code>hash</code> inside <code>upstream</code> an empty string? An empty hash means the upstream entity has no body.</li>
+<li>Is the <code>epoch</code> the epoch of this run? An entity from another epoch is redone.</li>
+<li>Is the set of keys under <code>fingerprint.depend</code> the same as the one declared now? One key too many or too few is enough to redo.</li>
+<li>Does the hash under the key match the current content of the file?</li>
+<li>Does a key under <code>fingerprint</code> use the wrong template, so that it points at a different file every time?</li>
+</ol>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/3-how-a-run-works.en.html">
+          <span class="label">Previous</span>
+          <span class="name">3. How a run works</span>
+        </a>
+        <a class="next" href="../guide/5-use-cases.en.html">
+          <span class="label">Next</span>
+          <span class="name">5. Use cases</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#the-three-kinds-of-hash-in-docorder">The three kinds of hash in docorder</a>
+      <a href="#the-hash-inside-the-upstream-snapshot">The hash inside the upstream snapshot</a>
+      <a href="#declaring-a-fingerprint">Declaring a fingerprint</a>
+      <a href="#how-the-two-checks-make-one-decision">How the two checks make one decision</a>
+      <a href="#path-templates-and-placeholders">Path templates and placeholders</a>
+      <a href="#the-order-of-things-in-one-run">The order of things in one run</a>
+      <a href="#declarations-that-are-refused">Declarations that are refused</a>
+      <a href="#an-empty-body">An empty body</a>
+      <a href="#a-node-config-replaces-the-whole-fingerprint">A node config replaces the whole fingerprint</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

@@ -18,8 +18,8 @@ class EpochEntityDiff:
 
     Construct this before the operator prepares its outputs, and call
     ``finish`` after ``execute`` returns. The source is whatever ``census``
-    reports: epoch entities for a transform, or published result files for
-    output. Added names are new, deleted names are gone, and modified names
+    reports: the entities in the epoch directory. An apply operator writes no
+    entities, so its census stays empty. Added names are new, deleted names are gone, and modified names
     kept the same name but changed their content hash. Rewritten names were
     written again and kept that hash. An entity hash is the body plus the user
     tag, so a rewrite that only replaces the upstream snapshot is rewritten,

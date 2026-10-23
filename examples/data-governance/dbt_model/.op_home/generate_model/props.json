@@ -1,0 +1,11 @@
+{
+  "type": "map",
+  "class": "primary:GenerateModel",
+  "fingerprint": {
+    "record": {
+      "{staging}/{name}.sql": "",
+      "{staging}/{name}.yml": ""
+    }
+  },
+  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+}

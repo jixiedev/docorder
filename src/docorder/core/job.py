@@ -9,7 +9,7 @@ from docorder.utils.errors import JobValidationError
 from docorder.utils.paths import home_path
 from docorder.utils.retry import RetryPolicy
 
-JOB_RESULT_DIR = ".job_result"
+JOB_STAGING_DIR = ".staging"
 
 
 class Job:
@@ -19,9 +19,9 @@ class Job:
         self.nodes = {}
 
     @property
-    def result_path(self) -> Path:
-        """Job-level output directory under the root: ``.job_result``."""
-        return self.root_path / JOB_RESULT_DIR
+    def staging_path(self) -> Path:
+        """Directory under the job root where ``Output`` writes files: ``.staging``."""
+        return self.root_path / JOB_STAGING_DIR
 
     def add_operator_node(
         self,
@@ -70,6 +70,9 @@ class Job:
                         f"job {self.name}: output paths must not contain each other ({left}, {right})"
                     )
         for node in nodes:
+            _reject_fingerprint(node)
+            if node.type == "apply" and node.upstream is None:
+                raise JobValidationError(f"{node.name}: apply operator needs an upstream")
             upstream = node.upstream
             if upstream is None:
                 continue
@@ -77,6 +80,10 @@ class Job:
                 raise JobValidationError(f"{node.name}: upstream {upstream} is not in the job")
             if upstream == node.name:
                 raise JobValidationError(f"{node.name}: cannot depend on itself")
+            if by_name[upstream].type == "apply":
+                raise JobValidationError(
+                    f"{node.name}: apply operator {upstream} has no downstream"
+                )
         self.topological()
 
     def topological(self) -> list[OperatorNode]:
@@ -107,4 +114,19 @@ class Job:
         if len(ordered) != len(self.nodes):
             raise JobValidationError(f"job {self.name} has a cycle")
         return ordered
+
+
+def _reject_fingerprint(node: OperatorNode) -> None:
+    """Refuse fingerprint config that this operator type cannot honor.
+
+    A source never compares ``depend`` before it runs. An apply writes no
+    entity, so it has nowhere to store a fingerprint.
+    """
+    raw = node.props.others.get("fingerprint")
+    if raw is None:
+        return
+    if node.type == "apply":
+        raise JobValidationError(f"{node.name}: apply operator cannot declare fingerprint")
+    if node.type == "source" and isinstance(raw, dict) and raw.get("depend"):
+        raise JobValidationError(f"{node.name}: source operator cannot declare fingerprint.depend")
 

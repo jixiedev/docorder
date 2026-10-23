@@ -1,0 +1,12 @@
+{
+  "type": "source",
+  "class": "docorder.functions.impl.directory_source:FileHashSource",
+  "paths": {
+    "documentation": "{doc_home}/{doc_file}"
+  },
+  "fingerprint": {
+    "record": {
+      "{doc_home}/{doc_file}": ""
+    }
+  }
+}

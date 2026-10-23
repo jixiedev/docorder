@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>参与贡献 | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.html">Docorder</a>
+    <nav>
+      <a href="index.html">文档</a>
+      <a href="guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="readme.html">快速开始</a>
+      </details>
+      <details>
+        <summary>使用指南</summary>
+        <a class="" href="guide/index.html">使用指南</a>
+        <a class="" href="guide/document-structure.html">文档结构</a>
+        <a class="" href="guide/1-background.html">一、背景</a>
+        <a class="" href="guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="guide/6-configuration.html">六、配置</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="glossary.html">术语表</a>
+      </details>
+      <details open>
+        <summary>项目</summary>
+        <a class="" href="code-of-conduct.html">行为准则</a>
+        <a class="current" href="contributing.html">参与贡献</a>
+        <a class="" href="security.html">安全</a>
+        <a class="" href="changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>参与贡献</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="参与贡献">参与贡献</h1>
+<p><a href="contributing.en.html">English</a></p>
+<h2 id="环境">环境</h2>
+<p>需要 Python 3.10 以上和 <a href="https://docs.astral.sh/uv/">uv</a>。要用 <code>JsonnetToPrompt</code> 时，再安装 <code>jsonnet</code> 可执行文件。</p>
+<pre><code class="language-bash">uv sync --group dev
+uv run ruff check
+uv run pytest
+</code></pre>
+<p><code>tests/test_contract.py</code> 是调度行为的契约测试。改动实体、比较、清场、重试或 source 的行为时，先在这里补用例。<code>make quality</code> 和 CI 还会运行 <code>examples/data-governance/documentation/</code> 下的示例作业。</p>
+<h2 id="改哪里">改哪里</h2>
+<p>运行时在 <code>src/docorder/</code>。<code>core/</code> 是实体、作业、算子和 stage 调度。<code>functions/</code> 是 source、map、reduce、fanout、apply 基类。内置实现在 <code>functions/impl/</code>。<code>utils/</code> 是错误、模块加载、home 搜索和重试。</p>
+<p>算子 home 放在 <code>DOCORDER_HOMES</code> 指向的目录里，不打进安装包。路径分隔符与 <code>PATH</code> 相同，靠前的目录优先。新的转换优先复用已有 function。现有类型表达不了时，在 home 的 <code>primary.py</code> 里实现与 <code>props.json</code> 的 <code>type</code> 对应的 function 基类，并把 <code>class</code> 写成 <code>primary:类名</code>。重试和线程池由 runner 负责，不要在 function 里再做一套。写法见 <a href="guide/index.html">docs/guide.md</a> 第九章。</p>
+<h2 id="改文档">改文档</h2>
+<p>文档的源文件是仓库里的 Markdown。<code>docs/guide.md</code> 是使用指南的唯一源文件，<code>README.md</code>、<code>glossary.md</code>、<code>CONTRIBUTING.md</code>、<code>SECURITY.md</code>、<code>CHANGELOG.md</code> 各自成页。</p>
+<p>改完 Markdown 重新生成网页：</p>
+<pre><code class="language-bash">uv run python scripts/build_figures.py
+uv run python scripts/build_docs.py
+</code></pre>
+<p>产物在 <code>docs/site/</code> 下，包括使用指南按章拆开的页面。生成出来的网页不要手工改，改源文件再重新运行脚本。首页的正文片段在 <code>scripts/templates/</code> 下，那是手写内容，生成脚本会把它套进统一的页面外壳。</p>
+<p>新增章节的做法：在 <code>docs/guide.md</code> 和 <code>docs/guide.en.md</code> 里各加一个二级标题，两边的标题按顺序一一对应，脚本按位置配对生成中英文页面。编号列表形式的章节摘要写在「文档结构」一章里，脚本从那里取每一章的简介。</p>
+<p>使用指南里的配图由 <code>scripts/build_figures.py</code> 生成，图直接写进 <code>docs/guide.md</code> 和 <code>docs/guide.en.md</code>。脚本按成对的注释就地替换图，可以反复运行：</p>
+<pre><code class="language-text">&lt;!-- figure:slug:start --&gt;
+&lt;!-- figure:slug:end --&gt;
+</code></pre>
+<p>要改图，改 <code>scripts/build_figures.py</code> 里对应的函数，再重新运行脚本；不要手工编辑注释之间的内容。</p>
+<p>文档改动同时改中文和同名的 <code>.en</code> 文件。文档里的命令和示例代码，提交前在本机实际跑一遍。</p>
+<h2 id="提交">提交</h2>
+<p>贡献以 <a href="../../LICENSE">MIT 许可</a> 发布。提交说明写清原因。不要提交密钥、访问令牌、<code>runs/</code> 或真实业务数据。</p>
+<p>行为变更记入 <code>CHANGELOG.md</code> 的 Unreleased 小节。文档改动同时改中文和同名的 <code>.en</code> 文件。文档里的命令和示例代码，提交前在本机实际跑一遍。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="code-of-conduct.html">
+          <span class="label">上一篇</span>
+          <span class="name">行为准则</span>
+        </a>
+        <a class="next" href="security.html">
+          <span class="label">下一篇</span>
+          <span class="name">安全</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#环境">环境</a>
+      <a href="#改哪里">改哪里</a>
+      <a href="#改文档">改文档</a>
+      <a href="#提交">提交</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

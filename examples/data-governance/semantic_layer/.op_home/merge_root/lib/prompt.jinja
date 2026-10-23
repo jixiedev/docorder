@@ -1,0 +1,14 @@
+# Merger_ROOT
+
+## Merge
+
+Merge `raw_root.csv` and `raw_root_patch_log.csv` into one root catalog. Merge synonyms only when `kind` matches.
+
+Write only a pipe-delimited CSV with this header:
+
+`root_id|root_zh|kind|definition|not_a|aliases`
+
+Read these two files. Their contents are not in this prompt.
+
+- raw_root.csv: {{ staging('raw_root.csv') }}
+- raw_root_patch_log.csv: {{ staging('raw_root_patch_log.csv') }}

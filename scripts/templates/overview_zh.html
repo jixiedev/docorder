@@ -1,0 +1,372 @@
+      <header class="hero" id="top">
+        <div>
+          <p class="kicker">Python 库 · stage runner</p>
+          <h1>按阶段处理一批结构相同的目录</h1>
+          <p class="lead">许多相似的对象收成目录，再沿一张有向无环图逐段转换。算子只描述转换。输出放在哪一次运行里，由这次运行决定。</p>
+        </div>
+        <figure class="pipeline">
+          <div class="pipe">
+            <div class="pipe-col">
+              <p class="pipe-label">源目录</p>
+              <div class="stack">
+                <span class="sheet">orders/</span>
+                <span class="sheet">users/</span>
+                <span class="sheet">items/</span>
+              </div>
+              <p class="pipe-note">每个目录是一个实体，含 <code>data</code> 与 <code>tag.json</code>。</p>
+            </div>
+            <div class="gate" aria-hidden="true"><span>source<br>整段结束</span></div>
+            <div class="pipe-col">
+              <p class="pipe-label">tables / 20261015</p>
+              <div class="stack">
+                <article class="folder">
+                  <header>orders</header>
+                  <ul>
+                    <li><i class="dot"></i>data</li>
+                    <li><i class="dot tag"></i>tag.json</li>
+                  </ul>
+                </article>
+                <article class="folder">
+                  <header>users</header>
+                  <ul>
+                    <li><i class="dot"></i>data</li>
+                    <li><i class="dot tag"></i>tag.json</li>
+                  </ul>
+                </article>
+              </div>
+            </div>
+            <div class="gate" aria-hidden="true"><span>map<br>整段结束</span></div>
+            <div class="pipe-col">
+              <p class="pipe-label">prompt / 20261015</p>
+              <div class="stack">
+                <article class="folder kept">
+                  <header>orders</header>
+                  <ul>
+                    <li><i class="dot"></i>data</li>
+                    <li><i class="dot tag"></i>tag.json</li>
+                    <li><i class="dot up"></i>upstream</li>
+                  </ul>
+                </article>
+                <article class="folder pending">
+                  <header>items · 未完成</header>
+                  <ul>
+                    <li><i class="dot"></i>data</li>
+                    <li><i class="dot tag"></i>tag.json</li>
+                    <li class="absent"><i class="dot up"></i>还没有 upstream</li>
+                  </ul>
+                </article>
+              </div>
+            </div>
+          </div>
+          <p class="caption">下游等上一段全部结束。items 的 tag.json 里还没有 upstream，同一 epoch 再跑时只补这一个。</p>
+        </figure>
+      </header>
+
+      <section class="section" id="what">
+        <div class="section-head">
+          <h2>什么是 docorder</h2>
+          <p>进度记在每个对象自己的目录里。一段等上一段结束，段内只补没做完的、重做上游变了的。</p>
+        </div>
+        <div class="cards">
+          <article class="card">
+            <span class="num">1</span>
+            <strong>一批相同的对象</strong>
+            <p>一张张表、一个个模型，走相同的几步：取得源文件，渲染提示词，调用模型，留下结果。</p>
+          </article>
+          <article class="card">
+            <span class="num">2</span>
+            <strong>调用慢，而且会停在半路</strong>
+            <p>令牌用尽、进程退出、外部命令返回错误，都可能发生在几千个对象已经处理了一部分之后。</p>
+          </article>
+          <article class="card">
+            <span class="num">3</span>
+            <strong>算子可以换一次运行再用来</strong>
+            <p>算子描述转换，不描述这次的输出位置。输出目录和要覆盖的参数，在组装作业时再填上。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="concepts">
+        <div class="section-head">
+          <h2>核心概念</h2>
+          <p>第一次接触 docorder，先熟悉这几个概念：</p>
+        </div>
+        <ul class="concepts">
+          <li><a href="guide.md#实体">实体</a><span>一个目录装着正文和附加信息，是处理的最小单位。</span></li>
+          <li><a href="guide.md#上游快照">上游快照</a><span>记下这个结果是根据哪份上游算出来的，用来判断要不要重做。</span></li>
+          <li><a href="guide.md#算子与算子-home">算子与算子 home</a><span>描述「这一步怎么做」，与某一次运行无关，可以反复使用。</span></li>
+          <li><a href="guide.md#epoch-与-stage">epoch 与 stage</a><span>一批结果的名字，以及一段处理的单位。</span></li>
+          <li><a href="guide.md#runner-与应得名单">runner 与应得名单</a><span>算出这一步应该有哪些结果，再和磁盘上的逐一比较。</span></li>
+        </ul>
+        <p>完整的定义见 <a href="guide.md#二核心概念与术语">核心概念与术语</a>一章，术语速查见 <a href="../glossary.md">术语表</a>。</p>
+      </section>
+
+      <section class="section" id="model">
+        <div class="section-head">
+          <h2>模型</h2>
+          <p>实体是一层子目录，算子有五种类型，作业是一张图。三者的界线决定了一次运行怎么落盘、怎么续跑。</p>
+        </div>
+
+        <div class="split">
+          <div class="prose">
+            <h3>实体是一层子目录</h3>
+            <p>目录名就是实体名。名字不能含斜杠，也不能以 <code>.</code> 或 <code>_</code> 开头。<code>data</code> 是正文，<code>tag.json</code> 是给下游过滤和填模板的特性，有上游时还含 <code>upstream</code> 快照。图的起点没有上游，因此不写这个键。</p>
+            <p><code>20261015</code> 是这次运行的 epoch，也就是实体所在的那层子目录名。换一个 epoch 等于换一个子目录，上一次的结果留在原处。</p>
+          </div>
+          <pre class="tree" aria-label="一次运行的目录">runs/
+├─ tables/                 source
+│  └─ 20261015/orders/
+│     ├─ data             正文
+│     └─ tag.json         特性
+└─ prompt/                 map
+   └─ 20261015/orders/
+      ├─ data
+      └─ tag.json         含 upstream</pre>
+        </div>
+
+        <h3 class="sub">算子有五种类型</h3>
+        <p>算子的静态文件放在 home 里，由 <code>DOCORDER_HOMES</code> 搜索，靠前的同名目录优先。<code>props.json</code> 里的 <code>type</code> 和 <code>class</code> 必须书写，作业不能改；<code>class</code> 写成 <code>模块:类名</code>，或写成 <code>primary:类名</code> 以加载 home 里的 <code>primary.py</code>。</p>
+        <div class="types">
+          <article class="type">
+            <div class="mini" aria-hidden="true">
+              <div class="col"><b class="file">a.j</b><b class="file">b.j</b></div>
+              <i>→</i>
+              <div class="col"><b>a</b><b>b</b></div>
+            </div>
+            <strong>source</strong>
+            <p>没有上游。function 产出第一批实体。</p>
+          </article>
+          <article class="type">
+            <div class="mini" aria-hidden="true">
+              <div class="col"><b>a</b><b>b</b></div>
+              <i>→</i>
+              <div class="col"><b>a</b><b>b</b></div>
+            </div>
+            <strong>map</strong>
+            <p>上游每个实体写出一个同名实体。</p>
+          </article>
+          <article class="type">
+            <div class="mini" aria-hidden="true">
+              <div class="col"><b>a</b><b>b</b><b>c</b></div>
+              <i>→</i>
+              <div class="col"><b class="one">result</b></div>
+            </div>
+            <strong>reduce</strong>
+            <p>上游整批收成一个实体。</p>
+          </article>
+          <article class="type">
+            <div class="mini" aria-hidden="true">
+              <div class="col"><b>a</b></div>
+              <i>→</i>
+              <div class="col"><b>a1</b><b>a2</b><b>a3</b></div>
+            </div>
+            <strong>fanout</strong>
+            <p>一个上游实体拆成多个。</p>
+          </article>
+          <article class="type">
+            <div class="mini" aria-hidden="true">
+              <div class="col"><b>a</b><b>b</b></div>
+              <i>→</i>
+              <div class="col"><b class="one">文件</b></div>
+            </div>
+            <strong>apply</strong>
+            <p>对每个上游实体调用一次，不产生实体。</p>
+          </article>
+        </div>
+        <p>包内可以直接配置的 function 覆盖 source、map、reduce 和 apply 四类；fanout 只有基类，要用时在 home 里实现。<code>parallelism</code> 和 <code>retry</code> 也可以写在 home 里，添加节点时可以覆盖。</p>
+
+        <h3 class="sub">作业是一张图</h3>
+        <p>每个节点有名称、算子 home、本次输出路径。输出路径不写进 home。除 source 以外，每个节点声明一个上游。runner 按拓扑顺序执行，一个节点全部结束才开始下游。书写顺序用来排定互不依赖的节点谁先谁后。</p>
+        <div class="chain" aria-label="一张作业图">
+          <span class="node">tables</span>
+          <i>→</i>
+          <span class="node">prompt</span>
+          <i>→</i>
+          <span class="node">answers</span>
+          <i>→</i>
+          <span class="node">index</span>
+        </div>
+      </section>
+
+      <section class="section" id="start">
+        <div class="section-head">
+          <h2>快速开始</h2>
+          <p>先装上，跑通一个两步作业，再逐步展开。</p>
+        </div>
+        <ul class="concepts">
+          <li><a href="../README.md">安装与快速开始</a><span>用 uv 从仓库装上，写一个两步作业跑通。</span></li>
+          <li><a href="guide.md#十在自己的项目中使用-docorder">完整项目示例</a><span>从规划目录到看结果，每一步都有可运行的文件。</span></li>
+          <li><a href="guide.md#六配置">配置</a><span>props.json 的每个键、节点参数、环境变量。</span></li>
+        </ul>
+        <div class="install">
+          <p class="cmd">git clone https://github.com/jixie-wish/docorder.git &amp;&amp; cd docorder &amp;&amp; uv sync</p>
+          <div class="pills">
+            <span>Python 3.10 或更高版本</span>
+            <span>Jinja2、PyYAML、tqdm 随安装装上</span>
+            <span>算子 home 由你放到 DOCORDER_HOMES 里</span>
+            <span>JsonnetToPrompt 需要本机 jsonnet</span>
+            <span>docorder status 查看输出目录里的 epoch</span>
+          </div>
+        </div>
+        <div class="files">
+          <figure class="file">
+            <figcaption>tables_source/props.json</figcaption>
+            <pre>{
+  "type": "source",
+  "class": "docorder.functions.impl.directory_source:DirectorySource",
+  "directory": "/data/tables"
+}</pre>
+          </figure>
+          <figure class="file">
+            <figcaption>jsonnet_prompt/props.json</figcaption>
+            <pre>{
+  "type": "map",
+  "class": "docorder.functions.impl.jsonnet_to_prompt:JsonnetToPrompt",
+  "parallelism": 4,
+  "retry": { "max_attempts": 3, "backoff_seconds": 5 }
+}</pre>
+          </figure>
+          <figure class="file wide">
+            <figcaption>run.py</figcaption>
+            <pre>import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+
+def main() -> None:
+    os.environ["DOCORDER_HOMES"] = "/opt/docorder-homes"
+    job = Job("documentation", Path("runs"))
+    job.add_operator_node("tables", "tables_source")
+    job.add_operator_node("prompt", "jsonnet_prompt", upstream="tables")
+    execute(job, "20261015", start_from_scratch=True)
+
+
+if __name__ == "__main__":
+    main()</pre>
+          </figure>
+        </div>
+        <div class="pathline">
+          <span>runs/tables/20261015/…</span>
+          <span>runs/prompt/20261015/…</span>
+        </div>
+        <p><code>directory</code> 的相对路径相对算子 home 解析。每个直接子目录只要含有 <code>data</code> 和 <code>tag.json</code> 就成为一个实体，目录名就是实体名，正文是 <code>data</code> 的原文。source 只在 <code>start_from_scratch=True</code> 时按目录重写；否则下游读取输出路径上已经存在的实体。<code>config</code> 可以覆盖 home 里的同名 function 参数。<code>parallelism</code> 大于 1 时 runner 在当前进程里用线程分片，不另起子进程。</p>
+      </section>
+
+      <section class="section" id="again">
+        <div class="section-head">
+          <h2>再跑</h2>
+          <p>runner 把应得名单和磁盘上的目录做比较。模型调用按 home 里的 <code>retry</code> 在本段内重试；重试耗尽后，已写好快照的实体留下，下次从其余实体继续。</p>
+        </div>
+        <div class="states">
+          <article class="state keep">
+            <article class="folder kept">
+              <header>orders</header>
+              <ul>
+                <li><i class="dot"></i>data</li>
+                <li><i class="dot tag"></i>tag.json</li>
+                <li><i class="dot up"></i>upstream 仍吻合</li>
+              </ul>
+            </article>
+            <strong>留下</strong>
+            <p>快照里的上游哈希和 epoch 都与当前一致。</p>
+          </article>
+          <article class="state run">
+            <article class="folder pending">
+              <header>items</header>
+              <ul>
+                <li><i class="dot"></i>data</li>
+                <li><i class="dot tag"></i>tag.json</li>
+                <li class="absent"><i class="dot up"></i>没有快照，或哈希变了</li>
+              </ul>
+            </article>
+            <strong>执行并覆盖</strong>
+            <p>名单里有，但还没完成；或上游正文已经变了。</p>
+          </article>
+          <article class="state drop">
+            <article class="folder gone">
+              <header>draft</header>
+              <ul>
+                <li><i class="dot"></i>data</li>
+                <li><i class="dot tag"></i>tag.json</li>
+                <li class="absent"><i class="dot up"></i>名单里已经没有</li>
+              </ul>
+            </article>
+            <strong>删除</strong>
+            <p>目录里还在，应得名单里已经没有这个名字。</p>
+          </article>
+        </div>
+        <p>完整的判定规则和常见场景见 <a href="guide.md#三工作流程">工作流程</a>一章。</p>
+      </section>
+
+      <section class="section" id="docs">
+        <div class="section-head">
+          <h2>文档</h2>
+          <p>完整手册在使用指南里，下面是它的目录。</p>
+        </div>
+        <div class="reads">
+          <a class="read" href="guide.md#一背景">
+            <strong>一、背景</strong>
+            <p>docorder 要解决的问题，一个两步作业的最小例子，设计取舍与本版边界。</p>
+          </a>
+          <a class="read" href="guide.md#二核心概念与术语">
+            <strong>二、核心概念与术语</strong>
+            <p>实体、上游快照、算子与算子 home、function、作业与节点、epoch 与 stage、runner 与应得名单。</p>
+          </a>
+          <a class="read" href="guide.md#三工作流程">
+            <strong>三、工作流程</strong>
+            <p>一次运行从检查作业图到逐个节点结束，每一步做了什么；再跑时每个结果的去留。</p>
+          </a>
+          <a class="read" href="guide.md#四指纹与哈希">
+            <strong>四、指纹与哈希</strong>
+            <p>三种哈希各算什么，怎么声明对外部文件的依赖，以及怎么排查一个每次运行都重做的实体。</p>
+          </a>
+          <a class="read" href="guide.md#五使用场景">
+            <strong>五、使用场景</strong>
+            <p>几种典型的作业图分别适合什么任务，以及哪些任务不适合用 docorder。</p>
+          </a>
+          <a class="read" href="guide.md#六配置">
+            <strong>六、配置</strong>
+            <p>docorder 如何找到算子，props.json 里每个键的含义，作业与节点的参数，环境变量。</p>
+          </a>
+          <a class="read" href="guide.md#七算子分类与内置-function">
+            <strong>七、算子分类与内置 function</strong>
+            <p>五种算子的区别，以及每个内置 function 的参数、产出和失败情形。</p>
+          </a>
+          <a class="read" href="guide.md#八渲染类-function-与模板变量">
+            <strong>八、渲染类 function 与模板变量</strong>
+            <p>模板里可以直接使用的全部变量，以及六种增加模板变量的方法。</p>
+          </a>
+          <a class="read" href="guide.md#九开发自己的-function">
+            <strong>九、开发自己的 function</strong>
+            <p>继承哪个基类，要实现哪些方法，必须遵守哪些约定，以及如何为它写测试。</p>
+          </a>
+          <a class="read" href="guide.md#十在自己的项目中使用-docorder">
+            <strong>十、在自己的项目中使用 docorder</strong>
+            <p>从安装、规划目录、准备输入数据到运行与再跑的完整步骤，每一步都可运行。</p>
+          </a>
+          <a class="read" href="guide.md#十一数据治理案例">
+            <strong>十一、数据治理案例</strong>
+            <p>examples/data-governance 下的真实作业：四个作业接力，从指标清单到词根表与成员表。</p>
+          </a>
+          <a class="read" href="guide.md#十二最佳实践">
+            <strong>十二、最佳实践</strong>
+            <p>目录与命名、增量与幂等、算子 home 的组织、错误处理、大模型调用成本与常见反模式。</p>
+          </a>
+        </div>
+      </section>
+
+      <section class="section" id="contribute">
+        <div class="section-head">
+          <h2>参与贡献</h2>
+          <p>docorder 欢迎issue 和补丁。行为变更记入更新日志，文档改动同时改中文和英文。</p>
+        </div>
+        <ul class="concepts">
+          <li><a href="../CONTRIBUTING.md">贡献指南</a><span>环境、开发约定、代码放在哪里、提交要求。</span></li>
+          <li><a href="../SECURITY.md">安全</a><span>凭据怎么处理，调用外部命令时要注意什么。</span></li>
+          <li><a href="../CHANGELOG.md">更新日志</a><span>每个版本改了什么。</span></li>
+        </ul>
+      </section>
+
+      

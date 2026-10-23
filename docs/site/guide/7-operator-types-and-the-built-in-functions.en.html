@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>7. Operator types and the built-in functions | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="current" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>7. Operator types and the built-in functions</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="7-operator-types-and-the-built-in-functions">7. Operator types and the built-in functions</h1>
+<h3 id="the-five-operator-types">The five operator types</h3>
+<p>The five operator types differ in how the input entities correspond to the output entities, and where the result of the job is written. The table below compares them from several angles. The "function base class" column is the class that the function of such an operator has to inherit, and the "built-in functions" column lists the functions that ship with docorder and can be used directly in <code>props.json</code>.</p>
+<!-- figure:operators:start -->
+<figure class="figure" id="fig-operators">
+<svg role="img" aria-labelledby="operators-title operators-desc" viewBox="0 0 900 540" width="100%" style="max-width:900px">
+  <title id="operators-title">The five operator types</title>
+  <desc>source produces entities from external data; map turns one upstream entity into one entity of the same name; reduce merges every upstream entity into one; fanout splits one upstream entity into several; apply only calls the function and produces no entity.</desc>
+  <defs>
+    <marker id="operators-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="operators-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="operators-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="540" fill="#f6f1e8"/>
+  <text x="140" y="28" fill="#6f685c" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">upstream entities</text>
+  <text x="410" y="28" fill="#6f685c" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">operator</text>
+  <text x="700" y="28" fill="#6f685c" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">output entities</text>
+  <rect x="70" y="52" width="140" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="70" y="52" width="140" height="48" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <text x="140" y="80" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">external data</text>
+  <rect x="280" y="48" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="48" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="74" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">source</text>
+  <text x="410" y="91" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">SourceFunction</text>
+  <rect x="623" y="62" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="73" x2="660" y2="73" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="80" x2="651" y2="80" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="677" y="62" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="73" x2="714" y2="73" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="80" x2="705" y2="80" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="731" y="62" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="73" x2="768" y2="73" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="80" x2="759" y2="80" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 220 76.0 L 272 76.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 76.0 L 613.0 76.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="571.75" y="52" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="580.5" y="64" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="117" y="146" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="157" x2="154" y2="157" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="164" x2="145" y2="164" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="132" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="132" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="158" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">map</text>
+  <text x="410" y="175" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">MapFunction</text>
+  <rect x="677" y="146" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="157" x2="714" y2="157" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="164" x2="705" y2="164" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 173.0 160.0 L 272 160.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 160.0 L 667.0 160.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="213.75" y="136" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="222.5" y="148" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="598.75" y="136" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="607.5" y="148" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="63" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="241" x2="100" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="248" x2="91" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="117" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="241" x2="154" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="248" x2="145" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="171" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="241" x2="208" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="248" x2="199" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="216" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="216" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="242" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">reduce</text>
+  <text x="410" y="259" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">ReduceFunction</text>
+  <rect x="677" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="241" x2="714" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="248" x2="705" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 227.0 244.0 L 272 244.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 244.0 L 667.0 244.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="240.75" y="220" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="249.5" y="232" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="598.75" y="220" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="607.5" y="232" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="117" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="325" x2="154" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="332" x2="145" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="300" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="300" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="326" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">fanout</text>
+  <text x="410" y="343" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">FanoutFunction</text>
+  <rect x="623" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="325" x2="660" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="332" x2="651" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="677" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="325" x2="714" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="332" x2="705" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="731" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="325" x2="768" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="332" x2="759" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 173.0 328.0 L 272 328.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 328.0 L 613.0 328.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="213.75" y="304" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="222.5" y="316" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="571.75" y="304" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="580.5" y="316" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="63" y="398" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="409" x2="100" y2="409" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="416" x2="91" y2="416" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="117" y="398" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="409" x2="154" y2="409" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="416" x2="145" y2="416" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="171" y="398" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="409" x2="208" y2="409" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="416" x2="199" y2="416" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="384" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="384" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="410" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">apply</text>
+  <text x="410" y="427" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">ApplyFunction</text>
+  <rect x="630" y="388" width="140" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="630" y="388" width="140" height="48" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="700" y="416" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">writes no entity</text>
+  <path d="M 227.0 412.0 L 272 412.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 412.0 L 620 412.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="240.75" y="388" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="249.5" y="400" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="575.25" y="388" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="584" y="400" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">0</text>
+  <text x="40" y="470" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">Entity names: source comes from emit, map matches the upstream,</text>
+  <text x="40" y="490" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">reduce uses the output argument, fanout comes from output_names,</text>
+  <text x="40" y="510" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">apply writes no entity and can have no downstream.</text>
+</svg>
+<figcaption><span class="fig-label">Figure 5</span> The five operator types: the number over each arrow counts entities, and apply is the only type that produces none.</figcaption>
+</figure>
+<!-- figure:operators:end -->
+
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>How the input corresponds to the output</th>
+<th>Where the name of the output entity comes from</th>
+<th>Can it run in parallel</th>
+<th>Function base class</th>
+<th>Built-in functions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>source</td>
+<td>No upstream, produces entities from external data</td>
+<td>Every record the <code>emit</code> method hands over</td>
+<td>No</td>
+<td><code>SourceFunction</code></td>
+<td><code>DirectorySource</code>, <code>FilteredDirectorySource</code>, <code>FileHashSource</code></td>
+</tr>
+<tr>
+<td>map</td>
+<td>One upstream entity gives one output entity</td>
+<td>The same name as the upstream entity</td>
+<td>Yes</td>
+<td><code>MapFunction</code></td>
+<td><code>TemplateToPrompt</code>, <code>JinjaToJsonnet</code>, <code>JsonnetToPrompt</code>, <code>Command</code>, <code>PromptToLLM</code>, <code>EntityTemplateToLLM</code></td>
+</tr>
+<tr>
+<td>reduce</td>
+<td>All upstream entities give one output entity</td>
+<td>The parameter <code>output</code>, default <code>result</code></td>
+<td>No</td>
+<td><code>ReduceFunction</code></td>
+<td><code>TemplateToLLM</code></td>
+</tr>
+<tr>
+<td>fanout</td>
+<td>One upstream entity gives several output entities</td>
+<td>The return value of the <code>output_names</code> method</td>
+<td>Yes</td>
+<td><code>FanoutFunction</code></td>
+<td>None</td>
+</tr>
+<tr>
+<td>apply</td>
+<td>The function is called once per upstream entity and produces no entity</td>
+<td>None</td>
+<td>No</td>
+<td><code>ApplyFunction</code></td>
+<td><code>Output</code></td>
+</tr>
+</tbody>
+</table>
+<p>The class that <code>class</code> names in <code>props.json</code> has to be a subclass of the base class of the <code>type</code>. For example, when <code>type</code> is <code>map</code>, <code>class</code> can only be <code>MapFunction</code> or a subclass of it, and writing a function of type source fails at assembly with an error. The five rendering map functions that ship with docorder all inherit from <code>RenderedMap</code>, which is a subclass of <code>MapFunction</code> and provides the three-step shape of "read, render, generate the tag". Chapter 8 introduces it. <code>EntityTemplateToLLM</code> is also a map, but it does not go through those three steps.</p>
+<h3 id="the-source-operator">The source operator</h3>
+<p>A source operator sits at the start of the job graph and turns external data into the first batch of entities. As chapter 3 said, a source node only runs its function to reread the external data when <code>execute</code> is called with <code>start_from_scratch=True</code>.</p>
+<h4 id="directorysource">DirectorySource</h4>
+<p>The full name of <code>DirectorySource</code> is <code>docorder.functions.impl.directory_source:DirectorySource</code>. It collects the subdirectories of a directory that are already shaped like entities into entities. It only handles the direct subdirectories of that directory and does not go deeper. The name of the subdirectory is the entity name; the subdirectory has to hold <code>data</code> and <code>tag.json</code>, the body comes from <code>data</code>, and the tag comes from <code>tag.json</code>. Ordinary files, subdirectories missing one of the two files, and subdirectories whose names start with <code>.</code> or <code>_</code> are all skipped.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>directory</code></td>
+<td>Required</td>
+<td>The input directory to read; a relative path is resolved from the operator home</td>
+</tr>
+</tbody>
+</table>
+<p>The following situations cause a failure. If a <code>data</code> is not valid UTF-8 text, or a <code>tag.json</code> is not a JSON object, the stage fails and is not retried. If the directory named by <code>directory</code> does not exist, the stage fails with <code>FatalError</code>.</p>
+<p>The input data usually belongs to the concrete project and not to the operator, so the input directory is generally not put in the operator home; instead you pass an absolute path through <code>config</code> when you add the node:</p>
+<pre><code class="language-python">job.add_operator_node(&quot;tables&quot;, &quot;table_source&quot;, config={&quot;directory&quot;: str(ROOT / &quot;data&quot; / &quot;tables&quot;)})
+</code></pre>
+<p>If you need to change part of the behaviour of <code>DirectorySource</code>, you can write a subclass and override one or more of these three methods: <code>extract_tag(name, content, tag)</code> decides the tag of each entity directory, where <code>name</code> is the directory name, <code>content</code> is the text of <code>data</code>, and <code>tag</code> is the <code>tag.json</code> that was read; <code>include(path)</code> decides whether an entity directory is collected into a record, and returning <code>True</code> keeps it; <code>generate(directory)</code> replaces the whole process of "producing records from a directory". The <code>TableSource</code> in chapter 10 is an example that overrides <code>extract_tag</code>.</p>
+<h4 id="filtereddirectorysource">FilteredDirectorySource</h4>
+<p>The full name of <code>FilteredDirectorySource</code> is <code>docorder.functions.impl.directory_source:FilteredDirectorySource</code>. On top of <code>DirectorySource</code> it adds a <code>filter</code> parameter, which selects the wanted entities by the ending of the entity directory name and by the size of the <code>data</code> file. Every other behaviour is exactly the same as in <code>DirectorySource</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>directory</code></td>
+<td>Required</td>
+<td>The same as in <code>DirectorySource</code></td>
+</tr>
+<tr>
+<td><code>filter.disabled_suffix</code></td>
+<td>Optional</td>
+<td>A string or a list of strings; an entity directory whose name ends with one of them is excluded</td>
+</tr>
+<tr>
+<td><code>filter.enabled_suffix</code></td>
+<td>Optional</td>
+<td>A string or a list of strings; once it is set, only entities whose directory name ends with one of them are kept</td>
+</tr>
+<tr>
+<td><code>filter.min_size</code></td>
+<td>Optional</td>
+<td>A non-negative integer, the lower bound of the size of the <code>data</code> file in bytes; a size equal to the bound is kept</td>
+</tr>
+<tr>
+<td><code>filter.max_size</code></td>
+<td>Optional</td>
+<td>A non-negative integer, the upper bound of the size of the <code>data</code> file in bytes; a size equal to the bound is kept</td>
+</tr>
+</tbody>
+</table>
+<p>For every entity directory the checks run in this order: first whether it matches <code>disabled_suffix</code>, and if it does it is excluded; then whether <code>enabled_suffix</code> is set, and if it is set but the directory name does not match, it is excluded as well; finally whether the size of the <code>data</code> file is within the range. If <code>filter</code> is not an object, one of the suffixes is an empty string, a size is not a non-negative integer, or <code>min_size</code> is greater than <code>max_size</code>, the stage fails with <code>FatalError</code>.</p>
+<p>The configuration below only reads the entities under <code>inputs/</code> in the operator home whose <code>data</code> is at most 64 KB:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:FilteredDirectorySource&quot;,
+  &quot;directory&quot;: &quot;inputs&quot;,
+  &quot;filter&quot;: { &quot;max_size&quot;: 65536 }
+}
+</code></pre>
+<h4 id="filehashsource">FileHashSource</h4>
+<p>The full name of <code>FileHashSource</code> is <code>docorder.functions.impl.directory_source:FileHashSource</code>. On top of <code>DirectorySource</code> it adds a <code>paths</code> parameter, which writes the absolute paths of a set of files into the tag of the entity. The body is still the original <code>data</code> of the input directory, and the file hashes are not computed by this function.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>directory</code></td>
+<td>Required</td>
+<td>The same as in <code>DirectorySource</code></td>
+</tr>
+<tr>
+<td><code>paths</code></td>
+<td>Required</td>
+<td>An object whose keys are the field names written into the tag and whose values are path templates; what is written into the tag is the resolved absolute path</td>
+</tr>
+</tbody>
+</table>
+<p>The values of <code>paths</code> are path templates that use <code>{name}</code> placeholders. You can fill them with a string from the tag of the entity, or with a string from the operator parameters, and on a shared name the operator parameter overrides the tag. A relative path is resolved from the operator home. When the file does not exist, a placeholder has no value, or <code>paths</code> is not an object, the stage fails with <code>FatalError</code>.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:FileHashSource&quot;,
+  &quot;paths&quot;: {
+    &quot;sql&quot;: &quot;{model_home}/{db}/{table}.sql&quot;,
+    &quot;yml&quot;: &quot;{model_home}/{db}/{table}.yml&quot;
+  },
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+      &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p>The values inside <code>fingerprint.record</code> are not used; only its keys are templates. The <code>{name}</code> placeholders in the template can be filled with <code>{name}</code> (the entity name), <code>{staging}</code> (the <code>.staging</code> directory of the job), the string fields of the tag, and the string values of the operator parameters, and on a shared name a parameter overrides the tag. A relative path is resolved from the job root. After the runner hands over the records, it records the sha256 of the files in the tag of the entity, and uses it to tell whether the source files changed; see the section "Fingerprints" in this chapter. A source node can only declare <code>record</code>, not <code>depend</code>.</p>
+<h3 id="the-map-operator">The map operator</h3>
+<p>A map operator produces one same-named output entity for each upstream entity, and it is the most common kind of operator. The five rendering map functions that ship with docorder all inherit from <code>RenderedMap</code>; which variables they can use in a template or in the arguments of a command is explained in chapter 8. <code>EntityTemplateToLLM</code> uses a separate Jinja template that holds only paths to call the LLM.</p>
+<h4 id="templatetoprompt">TemplateToPrompt</h4>
+<p>The full name of <code>TemplateToPrompt</code> is <code>docorder.functions.impl.template_to_prompt:TemplateToPrompt</code>. It renders every entity with a Jinja template from the operator home, and the rendered text is the body of the output entity; the tag of the output entity is a copy of the tag of the upstream entity.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>template</code></td>
+<td>Required</td>
+<td>The path of the template file relative to the operator home; this path must not point outside the operator home</td>
+</tr>
+</tbody>
+</table>
+<p>This function renders the template with Jinja in strict mode: if the template refers to a variable that does not exist, the render fails outright instead of quietly replacing it with an empty string, so that a typo in the template is found early. A syntax error in the template and a missing variable both fail with <code>FatalError</code> and are not retried, because however often you try the result is the same.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;template&quot;: &quot;lib/note.jinja&quot;
+}
+</code></pre>
+<p>If the content of <code>lib/note.jinja</code> is <code>Note: {{ entity.source_data }}</code> and the body of the upstream entity is <code>hello</code>, then the body of the output entity is <code>Note: hello</code>. The <code>entity.source_data</code> here is a built-in template variable of docorder, and it stands for the body of the upstream entity.</p>
+<h4 id="jinjatojsonnet">JinjaToJsonnet</h4>
+<p>The full name of <code>JinjaToJsonnet</code> is <code>docorder.functions.impl.jinja_to_jsonnet:JinjaToJsonnet</code>. It requires the body of the upstream entity to be a JSON object, treats every key of that object as a variable of the Jinja template, renders the template in the operator home, and the rendered result is a jsonnet program that becomes the body of the output entity. The tag it produces is an empty object, but the runner still merges the upstream <code>global_prop</code> into it as usual.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>template</code></td>
+<td>Required</td>
+<td>The path of the template file relative to the operator home</td>
+</tr>
+<tr>
+<td><code>variables</code></td>
+<td>Optional</td>
+<td>A JSON object that gives default values for the template variables; a key of the same name in the upstream body overrides the value here</td>
+</tr>
+</tbody>
+</table>
+<p>In the template, writing <code>{{ table }}</code> inserts the value of the variable as plain text; writing <code>{{ columns | jsonnet }}</code> converts the value of the variable into a literal that jsonnet understands, through the <code>jsonnet</code> filter, for example a string gets quotes and a list or an object is written in the matching syntax. A filter is a piece of Jinja syntax that hands a value to a function with the pipe <code>|</code>. If the upstream body is empty, is not valid JSON, is not a JSON object, <code>variables</code> is not an object, the template has an error, or the rendered result is all whitespace, the stage fails with <code>FatalError</code>.</p>
+<p>Here is an example of a template:</p>
+<pre><code class="language-text">{
+  table: {{ table | jsonnet }},
+  owner: {{ owner | jsonnet }},
+  columns: [c.name for c in {{ columns | jsonnet }}],
+  column_count: std.length(self.columns),
+}
+</code></pre>
+<p>Suppose the body of the upstream entity is <code>{"table": "orders", "columns": [...]}</code>, where <code>columns</code> lists three fields, and the <code>variables</code> parameter is <code>{"owner": "data-team"}</code>. This template renders a jsonnet program, which is then compiled by the <code>JsonnetToPrompt</code> described in the next section, and the result is JSON like <code>{"column_count": 3, "columns": ["order_id", "user_id", "amount"], "owner": "data-team", "table": "orders"}</code>.</p>
+<p>If you need to customize its behaviour, write a subclass: overriding the <code>template_text()</code> method lets the code provide the template content directly instead of reading it from a file; overriding the <code>generate_props</code> method lets you extract information from the rendered result and use it as the tag of the output entity.</p>
+<h4 id="jsonnettoprompt">JsonnetToPrompt</h4>
+<p>The full name of <code>JsonnetToPrompt</code> is <code>docorder.functions.impl.jsonnet_to_prompt:JsonnetToPrompt</code>. It takes the body of the upstream entity as a jsonnet program and compiles it with the command <code>jsonnet -</code>, passing the program on standard input; what the compiler prints on standard output is the body of the output entity, and the tag of the output entity is a copy of the upstream tag. This function has no parameters of its own, but it requires <code>jsonnet</code> to be installed on the machine and to be on the <code>PATH</code>.</p>
+<p>If the <code>jsonnet</code> command cannot be found, the stage fails with <code>FatalError</code>; if the compilation returns a non-zero exit code, an ordinary exception is raised and retried according to the <code>retry</code> parameter of the node. If the jsonnet program uses <code>import</code> to pull in other files, the paths are resolved exactly as they are written in the program; in the template of <code>JinjaToJsonnet</code> you can get the absolute path of the operator home with <code>{{ home }}</code>, and build the full path of a file in the operator home from it.</p>
+<h4 id="command">Command</h4>
+<p>The full name of <code>Command</code> is <code>docorder.functions.impl.command:Command</code>. It runs an external command once for each entity, and the command is started directly, without a shell.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>argv</code></td>
+<td>Required</td>
+<td>A list whose first item is the command and whose other items are its arguments; every <code>{name}</code> placeholder in an item is replaced with the matching value</td>
+</tr>
+<tr>
+<td><code>cwd</code></td>
+<td>Optional</td>
+<td>The working directory of the command; the placeholders in it are not replaced</td>
+</tr>
+<tr>
+<td><code>output_file</code></td>
+<td>Optional</td>
+<td>The result file the command writes; the placeholders in it are replaced; a relative path is relative to the current directory of the Python process that runs the script</td>
+</tr>
+<tr>
+<td><code>capture</code></td>
+<td>Optional</td>
+<td>Where the body comes from: <code>file</code>, <code>stdout</code>, or <code>none</code>; the default is <code>file</code> when <code>output_file</code> is set and <code>stdout</code> otherwise</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>capture</code> is <code>file</code>, the content of <code>output_file</code> is read as the body after the command finishes; when it is <code>stdout</code>, what the command printed on standard output is the body; when it is <code>none</code>, the body is an empty string, which suits the cases where only the side effects of the command matter. The tag of the output entity is a copy of the upstream tag plus a <code>command</code> key, which holds the full command line after the placeholders were replaced; when <code>output_file</code> is set, there is also an <code>output_file</code> key, which holds the replaced file path.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.command:Command&quot;,
+  &quot;argv&quot;: [&quot;cp&quot;, &quot;{entity.source_data_path}&quot;, &quot;{entity.output}/copy.json&quot;],
+  &quot;output_file&quot;: &quot;{entity.output}/copy.json&quot;
+}
+</code></pre>
+<p>In this example, <code>{entity.source_data_path}</code> is replaced with the path of the body file of the upstream entity, and <code>{entity.output}</code> is replaced with the directory of the entity being written. The command copies the source file into this entity directory, and then <code>Command</code> reads the copied file as the body. Because the command does not go through a shell, you cannot use a pipe <code>|</code> or a redirection <code>&gt;</code> directly in the arguments; if you really need one, write it explicitly as <code>["sh", "-c", "..."]</code>, but then note that the values substituted into the command line are interpreted by the shell, and if those values come from untrusted input they may cause a command injection.</p>
+<p>The following situations fail with <code>FatalError</code> and are not retried: the command cannot be found; <code>argv</code> is empty; the value of <code>capture</code> is not recognized; <code>capture</code> is <code>file</code> but <code>output_file</code> is not set; a placeholder refers to a name that does not exist. The following situations raise an ordinary exception and are retried according to <code>retry</code>: the command returns a non-zero exit code; <code>capture</code> is <code>file</code> and the command did not write <code>output_file</code>.</p>
+<h4 id="prompttollm">PromptToLLM</h4>
+<p>The full name of <code>PromptToLLM</code> is <code>docorder.functions.impl.prompt_to_llm:PromptToLLM</code>. It takes the body of the upstream entity as a prompt and hands it to a model tool that runs as a command line program. After the tool returns, a <code>data</code> file that is already in the directory of the target entity is the body: it has to be non-empty UTF-8 text, and once the check passes it is not rewritten, only <code>tag.json</code> is added. Without that file, what the tool printed on standard output is the body. The tag of the output entity is a copy of the upstream tag. If a <code>data</code> file exists before the call starts, it is deleted first. docorder ships no preset configuration for any model tool; the tool has to be defined by you.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>workspace</code></td>
+<td>Required</td>
+<td>An existing directory, used as the working directory of the model tool process</td>
+</tr>
+<tr>
+<td><code>tool</code></td>
+<td>Optional</td>
+<td>The tool to use: a tool name, the path of a tool definition file, or a tool definition object written inline; when it is not set, the environment variable <code>DOCORDER_LLM</code> is read</td>
+</tr>
+</tbody>
+</table>
+<p>When <code>tool</code> is a string, docorder first looks for a <code>tools/&lt;name&gt;.json</code> file in the operator home, and if that file does not exist, reads the string as a path to a file. A tool definition is a JSON object with the following fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run</code></td>
+<td>Required</td>
+<td>A non-empty list of strings, the command and its arguments; the <code>{workspace}</code> in it is replaced with the working directory</td>
+</tr>
+<tr>
+<td><code>prompt</code></td>
+<td>Optional</td>
+<td>How the prompt is passed: <code>stdin</code> (the default) passes it on standard input, <code>arg</code> appends it as the last argument of the command</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Optional</td>
+<td>The name of the tool, which appears in error messages so that it is easy to recognize</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">{ &quot;name&quot;: &quot;my-llm&quot;, &quot;run&quot;: [&quot;my-llm-cli&quot;, &quot;--cwd&quot;, &quot;{workspace}&quot;], &quot;prompt&quot;: &quot;stdin&quot; }
+</code></pre>
+<p>The <code>my-llm-cli</code> above is only a placeholder name; in real use, replace it with the command line model tool you actually use. The following situations fail with <code>FatalError</code>: <code>workspace</code> is not set or the directory it names does not exist; the tool cannot be found; the format of the tool definition is wrong; the executable of the tool is not on the <code>PATH</code>. When the tool returns a non-zero exit code, an ordinary exception is raised and retried according to <code>retry</code>. Because a model API fails now and then because of rate limiting or network problems, an operator that uses <code>PromptToLLM</code> should usually configure <code>retry</code> in <code>props.json</code>.</p>
+<h4 id="entitytemplatetollm">EntityTemplateToLLM</h4>
+<p>The full name of <code>EntityTemplateToLLM</code> is <code>docorder.functions.impl.template_to_llm:EntityTemplateToLLM</code>. It renders one Jinja template per upstream entity, hands the rendered text to the model tool, and writes the reply as the body of that entity. It does not go through the three steps of <code>RenderedMap</code>; one call produces the body and the tag at the same time.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Required</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>template</code></td>
+<td>Required</td>
+<td>The path of the template file relative to the operator home</td>
+</tr>
+<tr>
+<td><code>workspace</code></td>
+<td>Required</td>
+<td>An existing directory, used as the working directory of the model tool process</td>
+</tr>
+<tr>
+<td><code>tool</code></td>
+<td>Optional</td>
+<td>The same as in <code>PromptToLLM</code></td>
+</tr>
+<tr>
+<td><code>header</code></td>
+<td>Optional</td>
+<td>The header line of the reply from which the body is taken; the meaning is the same as in <code>TemplateToLLM</code></td>
+</tr>
+<tr>
+<td><code>tag_template</code></td>
+<td>Optional</td>
+<td>A piece of Jinja whose rendered result is the tag of the entity</td>
+</tr>
+</tbody>
+</table>
+<p>The template sees <code>source</code>, which has the three fields <code>name</code>, <code>path</code>, and <code>tag</code>. <code>path</code> is the path of the <code>data</code> file of the upstream entity. The template can also call <code>staging(name)</code>, which gives the path of one file that already exists in the <code>.staging</code> directory of the job. The template does not get the content of the files; write the path in the prompt and let the model read it.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_llm:EntityTemplateToLLM&quot;,
+  &quot;template&quot;: &quot;lib/prompt.jinja&quot;,
+  &quot;header&quot;: &quot;root_id|member_id|member_zh&quot;,
+  &quot;tag_template&quot;: &quot;{\&quot;root_id\&quot;: {{ (source.tag.get('root_id') or source.name)|tojson }}}&quot;,
+  &quot;workspace&quot;: &quot;/data/workspace&quot;
+}
+</code></pre>
+<pre><code class="language-jinja">root_id: {{ source.tag.get('root_id') or source.name }}
+{{ source.path }}
+</code></pre>
+<p>When the template refers to a variable that does not exist, the tool cannot be found, the tool definition is invalid, or the <code>header</code> has no matching line in the reply, the stage fails with <code>FatalError</code>; a non-zero exit code from the tool is retried according to <code>retry</code>.</p>
+<h3 id="the-reduce-operator">The reduce operator</h3>
+<p>A reduce operator merges all the entities the upstream has in this epoch into one output entity, whose name is decided by the parameter <code>output</code>, <code>result</code> when it is not set. The function receives the list of upstream entities sorted by entity name, and that one target entity. Because this output depends on all the upstream entities, a change to the body of any upstream entity, a new entity, or a deleted entity makes this output be computed again.</p>
+<p>The built-in function is <code>docorder.functions.impl.template_to_llm:TemplateToLLM</code>. It renders all the upstream entities into one Jinja template, hands the rendered result to the model tool, and writes the reply as the body of that one output entity. The template sees <code>sources</code>, a list in the order the reduce received them, each item with <code>name</code>, <code>path</code>, and <code>tag</code>; <code>path</code> is the path of the <code>data</code> file of that entity. The template can also call <code>staging(name)</code>, which gives the path of one file that already exists in the <code>.staging</code> directory of the job. When <code>header</code> has a value, the body starts at that header line of the reply; <code>tag_template</code> is an optional piece of Jinja whose rendered result is the tag of the entity; <code>min_sources</code> and <code>max_sources</code> bound the number of upstream entities.</p>
+<p>Other reduce transforms can be written by you; chapter 9 shows how and gives examples.</p>
+<h3 id="the-fanout-operator">The fanout operator</h3>
+<p>A fanout operator splits each upstream entity into several output entities. Which output entities it splits into is decided by the <code>output_names(source)</code> method of the function: it takes one upstream entity and returns a list of output entity names, and by default it returns only the name of the upstream entity itself. Across the whole stage, the names that all upstream entities split into have to be different from each other, or the stage fails with <code>OperatorValidationError</code>. The <code>output_names</code> method is called in the main process and may be called more than once in one run, so its result should depend only on the upstream entity passed in, and it should not have side effects such as writing files. docorder ships no function of the fanout type; chapter 9 gives an example.</p>
+<h3 id="the-apply-operator">The apply operator</h3>
+<p>An apply operator calls the <code>apply</code> method of the function once for each entity the upstream has in this epoch, and then calls <code>finish</code> once. Both methods have to return <code>None</code>. It writes no entities, and no node in the job graph can name it as its upstream; it must itself have an upstream. When the upstream is empty, <code>apply</code> is not called but <code>finish</code> still is.</p>
+<p>The built-in function is <code>docorder.functions.impl.output:Output</code>. It is called by the apply operator and writes the body of every entity as one file in <code>.staging</code> at the job root, as the overall output of the job. The parameter <code>directory</code> selects another path, and a relative path is resolved from the operator home. The file name is decided by <code>rename(entity)</code>, and by default it is the entity name; the parameter <code>filename</code> sets a fixed name, and a subclass overrides this method to name each entity. The return value has to be a single file name. Two entities that get the same file name make the stage fail with <code>FatalError</code>. The files this function wrote last time and does not produce this time are deleted in <code>finish</code>.</p>
+<h3 id="failure-and-retry">Failure and retry</h3>
+<p>The table below summarizes which exception each kind of failure raises, and whether that exception is retried according to the <code>retry</code> parameter of the node.</p>
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>Exception</th>
+<th>Retried according to <code>retry</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A cyclic dependency in the job graph, an upstream node that does not exist, conflicting output directories</td>
+<td><code>JobValidationError</code></td>
+<td>Not applicable, it fails before the execution starts</td>
+</tr>
+<tr>
+<td>The function class cannot be found, or is not a subclass of the matching base class</td>
+<td><code>OperatorValidationError</code></td>
+<td>Not applicable, it fails before the execution starts</td>
+</tr>
+<tr>
+<td>The operator home cannot be found</td>
+<td><code>FileNotFoundError</code></td>
+<td>Not applicable, it fails while the job is built</td>
+</tr>
+<tr>
+<td>A missing configuration, a wrong template, a missing template variable, a wrong input format</td>
+<td><code>FatalError</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td>An external command, jsonnet, or a model tool returns a non-zero exit code</td>
+<td><code>DocorderError</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Any other exception raised by a function</td>
+<td>The original exception</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>All these exception classes are defined in <code>docorder.utils.errors</code>, where <code>DocorderError</code> is the common parent of <code>JobValidationError</code>, <code>OperatorValidationError</code>, and <code>FatalError</code>.</p>
+<h4 id="how-each-built-in-function-fails">How each built-in function fails</h4>
+<p><code>FatalError</code> means that the configuration or the input itself is wrong and another attempt will not help, so the stage fails at once. Every other exception, including a non-zero status from an external process, is tried again after waiting <code>backoff_seconds × attempts so far</code> seconds, until <code>max_attempts</code> is used up. To decide whether an error should be retried, compare it with the table below.</p>
+<table>
+<thead>
+<tr>
+<th>function</th>
+<th>Fails at once, no retry</th>
+<th>Retried according to <code>retry</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DirectorySource</code>, <code>FilteredDirectorySource</code>, <code>FileHashSource</code></td>
+<td>missing <code>directory</code>, directory does not exist, malformed <code>filter</code>, malformed <code>paths</code>, a placeholder with no value, a path that is not a file, <code>data</code> that is not UTF-8, <code>tag.json</code> that is not an object</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>TemplateToPrompt</code></td>
+<td><code>template</code> missing, template file not in the home, template refers to a variable that does not exist</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>JinjaToJsonnet</code></td>
+<td><code>template</code> missing, upstream body empty or not a JSON object, render is only whitespace</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>JsonnetToPrompt</code></td>
+<td><code>jsonnet</code> not found</td>
+<td>the compiler exits with a non-zero status</td>
+</tr>
+<tr>
+<td><code>Command</code></td>
+<td><code>argv</code> missing, first command not found, a brace variable that does not exist, an invalid <code>capture</code> value</td>
+<td>the process exits with a non-zero status, the command did not write <code>output_file</code></td>
+</tr>
+<tr>
+<td><code>PromptToLLM</code></td>
+<td><code>workspace</code> missing or not a directory, tool not found, invalid tool definition, first command not found</td>
+<td>the process exits with a non-zero status, the written <code>data</code> is empty, not UTF-8, or not a file</td>
+</tr>
+<tr>
+<td><code>TemplateToLLM</code>, <code>EntityTemplateToLLM</code></td>
+<td><code>template</code> missing, <code>workspace</code> missing or not a directory, a bad <code>header</code> / <code>tag_template</code>, the template refers to a missing variable, <code>staging</code> is given a bad file name or the file is missing, the reply has no <code>header</code>, tool not found, invalid tool definition, first command not found. <code>TemplateToLLM</code> also fails at once when the source count is wrong</td>
+<td>the process exits with a non-zero status</td>
+</tr>
+<tr>
+<td><code>Output</code></td>
+<td><code>directory</code> is not a non-empty string, <code>filename</code> is not a non-empty string, <code>rename</code> returns an invalid file name, two entities produce the same file name</td>
+<td>a transient error while writing a <code>.staging</code> file</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/6-configuration.en.html">
+          <span class="label">Previous</span>
+          <span class="name">6. Configuration</span>
+        </a>
+        <a class="next" href="../guide/8-rendering-functions-and-template-variables.en.html">
+          <span class="label">Next</span>
+          <span class="name">8. Rendering functions and template variables</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#the-five-operator-types">The five operator types</a>
+      <a href="#the-source-operator">The source operator</a>
+      <a href="#directorysource">DirectorySource</a>
+      <a href="#filtereddirectorysource">FilteredDirectorySource</a>
+      <a href="#filehashsource">FileHashSource</a>
+      <a href="#the-map-operator">The map operator</a>
+      <a href="#templatetoprompt">TemplateToPrompt</a>
+      <a href="#jinjatojsonnet">JinjaToJsonnet</a>
+      <a href="#jsonnettoprompt">JsonnetToPrompt</a>
+      <a href="#command">Command</a>
+      <a href="#prompttollm">PromptToLLM</a>
+      <a href="#entitytemplatetollm">EntityTemplateToLLM</a>
+      <a href="#the-reduce-operator">The reduce operator</a>
+      <a href="#the-fanout-operator">The fanout operator</a>
+      <a href="#the-apply-operator">The apply operator</a>
+      <a href="#failure-and-retry">Failure and retry</a>
+      <a href="#how-each-built-in-function-fails">How each built-in function fails</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

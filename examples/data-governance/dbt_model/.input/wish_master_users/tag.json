@@ -1,0 +1,5 @@
+{
+  "database": "wish",
+  "table": "master_users",
+  "doc_file": "wish_master_users.md"
+}

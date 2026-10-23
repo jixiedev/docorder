@@ -12,12 +12,35 @@ from docorder.utils.errors import JobValidationError, OperatorValidationError
 
 
 class ModuleLoader:
-    """Loads ``primary:Name`` from an operator home, or ``module:Name``."""
+    """Load the function class named by an operator home's ``class`` field.
+
+    The value is ``module:Class``. The colon is split once.
+
+    ``primary:Class`` loads ``primary.py`` from that operator home. The file
+    is executed with ``importlib`` under the module name
+    ``docorder_home_<home directory name>``, then cached on this class by
+    the home's resolved path. A second load of the same home returns the
+    cached module and does not execute the file again. A home with no
+    ``primary.py`` raises ``JobValidationError``.
+
+    Any other module name is imported with ``importlib.import_module``, so
+    it must already be importable, for example
+    ``docorder.functions.impl.command:Command``. The symbol is taken with
+    ``getattr``. A missing symbol is ``JobValidationError``.
+
+    ``load_function_class`` is what operator assembly calls. It turns a
+    load failure into ``OperatorValidationError``, then requires the symbol
+    to be a concrete subclass of the base for the operator's ``type``. An
+    abstract class is rejected with the names of the methods it still has
+    to implement. The check runs before any stage, so a bad class on a
+    later node fails the job before earlier nodes write.
+    """
 
     _modules: dict[Path, Any] = {}
 
     @classmethod
     def load_primary(cls, home: Path) -> Any:
+        """Return the module object for ``home / primary.py``, loading it once."""
         key = home.resolve()
         cached = cls._modules.get(key)
         if cached is not None:
@@ -35,6 +58,11 @@ class ModuleLoader:
 
     @classmethod
     def load_symbol(cls, home: Path, target: str) -> Any:
+        """Return the attribute named by ``target`` (``module:Name``).
+
+        ``primary`` reads the home. Every other module name is imported
+        from the normal module path. ``target`` must contain one colon.
+        """
         module_name, symbol_name = target.split(":", 1)
         if module_name == "primary":
             module = cls.load_primary(home)
@@ -53,7 +81,12 @@ class ModuleLoader:
         spec: object,
         base: type,
     ) -> type:
-        """Load ``spec`` and require a concrete subclass of ``base``."""
+        """Load ``spec`` and require a concrete subclass of ``base``.
+
+        ``operator_name`` is only used in the error text. A bad spec, a
+        missing symbol, the wrong base, or leftover abstract methods all
+        raise ``OperatorValidationError``.
+        """
         if not isinstance(spec, str) or ":" not in spec:
             raise OperatorValidationError(
                 f"{operator_name}: class must be 'primary:Class' or 'module:Class'"

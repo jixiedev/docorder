@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.en.html">Docorder</a>
+    <nav>
+      <a href="index.en.html">Docs</a>
+      <a href="guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="readme.en.html">Quick start</a>
+      </details>
+      <details>
+        <summary>The guide</summary>
+        <a class="" href="guide/index.en.html">The guide</a>
+        <a class="" href="guide/document-structure.en.html">Document structure</a>
+        <a class="" href="guide/1-background.en.html">1. Background</a>
+        <a class="" href="guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="glossary.en.html">Glossary</a>
+      </details>
+      <details open>
+        <summary>Project</summary>
+        <a class="" href="code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="contributing.en.html">Contributing</a>
+        <a class="current" href="security.en.html">Security</a>
+        <a class="" href="changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>Security</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="security">Security</h1>
+<p><a href="security.html">中文</a></p>
+<p>This project starts processes on the local machine. <code>JsonnetToPrompt</code> calls <code>jsonnet</code> to compile upstream bodies. <code>Command</code> runs the <code>argv</code> from the job configuration. <code>PromptToLLM</code> runs the <code>run</code> array from a tool definition and hands it the upstream body. These processes run as the user who runs the job, and can read and write any file that user can reach. Run a job only on directories and configuration you trust.</p>
+<p><code>Command</code> does not go through a shell, but <code>{key}</code> placeholders in <code>argv</code> are replaced with values from the rendering environment, such as <code>{entity.source_data}</code>. The upstream tag and body are read through <code>entity.source_tag</code> and <code>entity.source_data</code>. When <code>argv</code> takes a form such as <code>sh -c</code>, those values run as shell code.</p>
+<p><code>PromptToLLM</code> has no built-in tool, and the package ships no presets. The tool comes from the node's <code>tool</code> parameter, from <code>tools/&lt;name&gt;.json</code> in the home, or from the JSON file named by the <code>DOCORDER_LLM</code> environment variable, and the process arguments are exactly what that definition says. If the definition turns on options such as skipping confirmations or disabling a sandbox in a model tool, the tool can modify files in <code>workspace</code> without asking. <code>workspace</code> should be the directory tree you intend that tool to modify. Do not point it at a directory that holds secrets or other sensitive files.</p>
+<p>Do not open a public issue for a vulnerability. Contact the maintainer privately, and describe the impact and how to reproduce it. Until the maintainer has confirmed the report, do not include steps that could be used to attack someone else's environment.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="contributing.en.html">
+          <span class="label">Previous</span>
+          <span class="name">Contributing</span>
+        </a>
+        <a class="next" href="changelog.en.html">
+          <span class="label">Next</span>
+          <span class="name">Changelog</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

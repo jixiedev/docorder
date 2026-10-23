@@ -1,0 +1,16 @@
+# Taxonomist_MEMBER
+
+## Members
+
+For this one root, propose measurement recipes shared by the metrics already assigned to it. Do not assign individual metrics to members.
+
+Write only a pipe-delimited CSV with this header:
+
+`root_id|member_id|member_zh|definition|is_default|scope_filter|time_basis|attribution|aliases`
+
+Use at most 20 members. Exactly one row has `is_default=Y` when any member exists. `member_id` is snake_case and unique within this root. Split sum from average, and count from count_distinct. Leave country, channel, and page out of `member_id`.
+
+Read this file. Its contents are not in this prompt.
+
+root_id: {{ source.tag.get('root_id') or source.name }}
+{{ source.path }}

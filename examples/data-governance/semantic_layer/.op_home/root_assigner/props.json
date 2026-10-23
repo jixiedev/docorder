@@ -1,0 +1,11 @@
+{
+  "type": "map",
+  "class": "primary:RootAssigner",
+  "template": "lib/prompt.jinja",
+  "fingerprint": {
+    "depend": {
+      "{staging}/final_root.csv": ""
+    }
+  },
+  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+}

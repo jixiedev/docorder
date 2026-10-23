@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>七、算子分类与内置 function | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="current" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>七、算子分类与内置 function</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="七算子分类与内置-function">七、算子分类与内置 function</h1>
+<h3 id="五种算子">五种算子</h3>
+<p>五种算子的区别在于输入实体与输出实体之间如何对应，以及作业结果写到哪里。下表从几个方面对它们作了比较。其中「function 基类」一列是编写这种算子的 function 时必须继承的类，「内置 function」一列是 docorder 自带、可以直接在 <code>props.json</code> 中使用的 function。</p>
+<!-- figure:operators:start -->
+<figure class="figure" id="fig-operators">
+<svg role="img" aria-labelledby="operators-title operators-desc" viewBox="0 0 900 540" width="100%" style="max-width:900px">
+  <title id="operators-title">五种算子的输入与输出</title>
+  <desc>source 从外部数据产生若干实体；map 让一个上游实体对应一个同名输出实体；reduce 把全部上游实体合成一个；fanout 把一个上游实体拆成若干个；apply 只调用 function，不产生实体。</desc>
+  <defs>
+    <marker id="operators-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="operators-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="operators-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="540" fill="#f6f1e8"/>
+  <text x="140" y="28" fill="#6f685c" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">上游实体</text>
+  <text x="410" y="28" fill="#6f685c" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">算子</text>
+  <text x="700" y="28" fill="#6f685c" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">输出实体</text>
+  <rect x="70" y="52" width="140" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="70" y="52" width="140" height="48" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <text x="140" y="80" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">外部数据</text>
+  <rect x="280" y="48" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="48" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="74" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">source</text>
+  <text x="410" y="91" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">SourceFunction</text>
+  <rect x="623" y="62" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="73" x2="660" y2="73" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="80" x2="651" y2="80" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="677" y="62" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="73" x2="714" y2="73" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="80" x2="705" y2="80" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="731" y="62" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="73" x2="768" y2="73" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="80" x2="759" y2="80" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 220 76.0 L 272 76.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 76.0 L 613.0 76.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="571.75" y="52" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="580.5" y="64" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="117" y="146" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="157" x2="154" y2="157" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="164" x2="145" y2="164" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="132" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="132" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="158" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">map</text>
+  <text x="410" y="175" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">MapFunction</text>
+  <rect x="677" y="146" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="157" x2="714" y2="157" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="164" x2="705" y2="164" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 173.0 160.0 L 272 160.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 160.0 L 667.0 160.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="213.75" y="136" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="222.5" y="148" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="598.75" y="136" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="607.5" y="148" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="63" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="241" x2="100" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="248" x2="91" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="117" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="241" x2="154" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="248" x2="145" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="171" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="241" x2="208" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="248" x2="199" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="216" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="216" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="242" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">reduce</text>
+  <text x="410" y="259" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">ReduceFunction</text>
+  <rect x="677" y="230" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="241" x2="714" y2="241" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="248" x2="705" y2="248" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 227.0 244.0 L 272 244.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 244.0 L 667.0 244.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="240.75" y="220" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="249.5" y="232" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="598.75" y="220" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="607.5" y="232" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="117" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="325" x2="154" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="332" x2="145" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="300" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="300" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="326" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">fanout</text>
+  <text x="410" y="343" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">FanoutFunction</text>
+  <rect x="623" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="325" x2="660" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="632" y1="332" x2="651" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="677" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="325" x2="714" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="686" y1="332" x2="705" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="731" y="314" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="325" x2="768" y2="325" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="740" y1="332" x2="759" y2="332" stroke="#d8d0c1" stroke-width="1"/>
+  <path d="M 173.0 328.0 L 272 328.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 328.0 L 613.0 328.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="213.75" y="304" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="222.5" y="316" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">1</text>
+  <rect x="571.75" y="304" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="580.5" y="316" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="63" y="398" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="409" x2="100" y2="409" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="72" y1="416" x2="91" y2="416" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="117" y="398" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="409" x2="154" y2="409" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="126" y1="416" x2="145" y2="416" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="171" y="398" width="46" height="28" rx="4" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="409" x2="208" y2="409" stroke="#d8d0c1" stroke-width="1"/>
+  <line x1="180" y1="416" x2="199" y2="416" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="280" y="384" width="260" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="384" width="260" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="410" y="410" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">apply</text>
+  <text x="410" y="427" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">ApplyFunction</text>
+  <rect x="630" y="388" width="140" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="630" y="388" width="140" height="48" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="700" y="416" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">不写实体</text>
+  <path d="M 227.0 412.0 L 272 412.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <path d="M 548 412.0 L 620 412.0" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#operators-arrow)"/>
+  <rect x="240.75" y="388" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="249.5" y="400" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">N</text>
+  <rect x="575.25" y="388" width="17.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="584" y="400" fill="#6f685c" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">0</text>
+  <text x="40" y="470" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">实体名：source 由 emit 给出 · map 与上游同名</text>
+  <text x="40" y="490" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">reduce 取参数 output（默认 result）· fanout 由 output_names 给出</text>
+  <text x="40" y="510" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">apply 没有输出实体，也不能有下游</text>
+</svg>
+<figcaption><span class="fig-label">图 5</span> 五种算子：箭头上标的是实体个数，apply 是唯一不产生输出实体的类型。</figcaption>
+</figure>
+<!-- figure:operators:end -->
+
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>输入与输出的对应关系</th>
+<th>输出实体的名字从哪里来</th>
+<th>能否并行</th>
+<th>function 基类</th>
+<th>内置 function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>source</td>
+<td>没有上游，从外部数据产生实体</td>
+<td><code>emit</code> 方法交出的每条记录</td>
+<td>否</td>
+<td><code>SourceFunction</code></td>
+<td><code>DirectorySource</code>、<code>FilteredDirectorySource</code>、<code>FileHashSource</code></td>
+</tr>
+<tr>
+<td>map</td>
+<td>一个上游实体对应一个输出实体</td>
+<td>与上游实体同名</td>
+<td>是</td>
+<td><code>MapFunction</code></td>
+<td><code>TemplateToPrompt</code>、<code>JinjaToJsonnet</code>、<code>JsonnetToPrompt</code>、<code>Command</code>、<code>PromptToLLM</code>、<code>EntityTemplateToLLM</code></td>
+</tr>
+<tr>
+<td>reduce</td>
+<td>全部上游实体对应一个输出实体</td>
+<td>参数 <code>output</code>，默认为 <code>result</code></td>
+<td>否</td>
+<td><code>ReduceFunction</code></td>
+<td><code>TemplateToLLM</code></td>
+</tr>
+<tr>
+<td>fanout</td>
+<td>一个上游实体对应多个输出实体</td>
+<td><code>output_names</code> 方法的返回值</td>
+<td>是</td>
+<td><code>FanoutFunction</code></td>
+<td>无</td>
+</tr>
+<tr>
+<td>apply</td>
+<td>每个上游实体调用一次 function，不产生实体</td>
+<td>无</td>
+<td>否</td>
+<td><code>ApplyFunction</code></td>
+<td><code>Output</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>props.json</code> 中 <code>class</code> 指向的类必须是 <code>type</code> 所对应基类的子类。例如 <code>type</code> 写的是 <code>map</code>，<code>class</code> 就只能是 <code>MapFunction</code> 或它的子类，写成一个 source 类型的 function 会在装配阶段报错。docorder 自带的五个渲染类 map function 都继承自 <code>RenderedMap</code>，它是 <code>MapFunction</code> 的一个子类，提供了「读取、渲染、生成附加信息」的三步结构，第八章会专门介绍。<code>EntityTemplateToLLM</code> 也是 map，它不走这三步。</p>
+<h3 id="source-算子">source 算子</h3>
+<p>source 算子位于作业图的起点，负责把外部数据变成最初的一批实体。正如第三章所说，source 节点只有在调用 <code>execute</code> 时传入了 <code>start_from_scratch=True</code>，才会运行 function 重新读取外部数据。</p>
+<h4 id="directorysource">DirectorySource</h4>
+<p><code>DirectorySource</code> 的完整写法是 <code>docorder.functions.impl.directory_source:DirectorySource</code>，它把一个目录中已经写成实体形状的子目录收成实体。它只处理该目录下直接包含的子目录，不会再往下走。子目录名就是实体名；子目录里必须有 <code>data</code> 和 <code>tag.json</code>，正文来自 <code>data</code>，附加信息来自 <code>tag.json</code>。普通文件、缺这两个文件之一的子目录，以及名字以 <code>.</code> 或 <code>_</code> 开头的子目录，都会被跳过。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>directory</code></td>
+<td>必须</td>
+<td>要读取的输入目录；如果写的是相对路径，会相对于算子 home 解析</td>
+</tr>
+</tbody>
+</table>
+<p>以下几种情况会导致失败。如果某个 <code>data</code> 不是合法的 UTF-8 文本，或 <code>tag.json</code> 不是 JSON 对象，这个 stage 会失败，而且不会重试。如果 <code>directory</code> 指定的目录不存在，会以 <code>FatalError</code> 错误失败。</p>
+<p>输入数据通常属于具体的项目，而不属于算子，所以一般不会把输入目录放在算子 home 里，而是在添加节点时通过 <code>config</code> 传入一个绝对路径：</p>
+<pre><code class="language-python">job.add_operator_node(&quot;tables&quot;, &quot;table_source&quot;, config={&quot;directory&quot;: str(ROOT / &quot;data&quot; / &quot;tables&quot;)})
+</code></pre>
+<p>如果需要改变 <code>DirectorySource</code> 的部分行为，可以编写它的子类，并覆盖以下三个方法中的一个或几个：<code>extract_tag(name, content, tag)</code> 决定每个实体目录的附加信息，参数 <code>name</code> 是目录名，<code>content</code> 是 <code>data</code> 的文本，<code>tag</code> 是读到的 <code>tag.json</code>；<code>include(path)</code> 决定一个实体目录是否要收成记录，返回 <code>True</code> 表示保留；<code>generate(directory)</code> 则完全替换「从目录产生记录」的过程。第十章的 <code>TableSource</code> 就是覆盖 <code>extract_tag</code> 的一个例子。</p>
+<h4 id="filtereddirectorysource">FilteredDirectorySource</h4>
+<p><code>FilteredDirectorySource</code> 的完整写法是 <code>docorder.functions.impl.directory_source:FilteredDirectorySource</code>。它在 <code>DirectorySource</code> 的基础上增加了一个 <code>filter</code> 参数，用来按实体目录名的结尾和 <code>data</code> 文件大小挑选需要的实体，其余行为与 <code>DirectorySource</code> 完全相同。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>directory</code></td>
+<td>必须</td>
+<td>与 <code>DirectorySource</code> 相同</td>
+</tr>
+<tr>
+<td><code>filter.disabled_suffix</code></td>
+<td>可选</td>
+<td>一个字符串或字符串列表；实体目录名以其中任意一个结尾时，排除这个目录</td>
+</tr>
+<tr>
+<td><code>filter.enabled_suffix</code></td>
+<td>可选</td>
+<td>一个字符串或字符串列表；设置之后，只保留目录名以其中任意一个结尾的实体</td>
+</tr>
+<tr>
+<td><code>filter.min_size</code></td>
+<td>可选</td>
+<td>非负整数，<code>data</code> 文件大小的下限，单位是字节，等于下限的会被保留</td>
+</tr>
+<tr>
+<td><code>filter.max_size</code></td>
+<td>可选</td>
+<td>非负整数，<code>data</code> 文件大小的上限，单位是字节，等于上限的会被保留</td>
+</tr>
+</tbody>
+</table>
+<p>对每个实体目录，判断的顺序是：先检查它是否命中 <code>disabled_suffix</code>，命中就排除；再检查是否设置了 <code>enabled_suffix</code>，设置了而目录名没有命中也排除；最后检查 <code>data</code> 文件大小是否在范围之内。如果 <code>filter</code> 不是一个对象、某个后缀是空字符串、大小不是非负整数，或者 <code>min_size</code> 大于 <code>max_size</code>，会以 <code>FatalError</code> 错误失败。</p>
+<p>下面的配置只读取算子 home 下 <code>inputs/</code> 目录中、<code>data</code> 不超过 64 KB 的实体：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:FilteredDirectorySource&quot;,
+  &quot;directory&quot;: &quot;inputs&quot;,
+  &quot;filter&quot;: { &quot;max_size&quot;: 65536 }
+}
+</code></pre>
+<h4 id="filehashsource">FileHashSource</h4>
+<p><code>FileHashSource</code> 的完整写法是 <code>docorder.functions.impl.directory_source:FileHashSource</code>。它在 <code>DirectorySource</code> 的基础上增加一个 <code>paths</code> 参数，把一组文件的绝对路径写进实体的附加信息。正文仍然是输入目录里 <code>data</code> 的原文，文件哈希不由这个 function 计算。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>directory</code></td>
+<td>必须</td>
+<td>与 <code>DirectorySource</code> 相同</td>
+</tr>
+<tr>
+<td><code>paths</code></td>
+<td>必须</td>
+<td>一个对象，键是写进附加信息的字段名，值是路径模板；写进附加信息的是解析后的绝对路径</td>
+</tr>
+</tbody>
+</table>
+<p><code>paths</code> 的值是路径模板，用 <code>{名字}</code> 占位。可以填入实体附加信息里的字符串，也可以填入算子参数里的字符串，同名时算子参数覆盖附加信息。相对路径相对算子 home 解析。文件不存在、占位符没有值，或者 <code>paths</code> 不是对象时，这一段会以 <code>FatalError</code> 错误失败。</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:FileHashSource&quot;,
+  &quot;paths&quot;: {
+    &quot;sql&quot;: &quot;{model_home}/{db}/{table}.sql&quot;,
+    &quot;yml&quot;: &quot;{model_home}/{db}/{table}.yml&quot;
+  },
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+      &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p><code>fingerprint.record</code> 里的值不使用，只有它的键是模板。模板里的 <code>{名字}</code> 占位可以填 <code>{name}</code>（实体名）、<code>{staging}</code>（作业的 <code>.staging</code> 目录）、tag 中的字符串字段和算子参数中的字符串值，同名时参数覆盖 tag。相对路径相对作业根目录解析。它由 runner 在交出记录之后把文件的 sha256 记进实体的附加信息，用来判断源文件是否改动过，见本章的「指纹」一节。source 节点只能声明 <code>record</code>，不能声明 <code>depend</code>。</p>
+<h3 id="map-算子">map 算子</h3>
+<p>map 算子为上游的每一个实体产生一个同名的输出实体，是最常用的一种算子。docorder 自带的五个渲染类 map function 都继承自 <code>RenderedMap</code>，它们在模板或命令参数中能够使用哪些变量，会在第八章统一说明。<code>EntityTemplateToLLM</code> 另用一份只含路径的 Jinja 模板调用 LLM。</p>
+<h4 id="templatetoprompt">TemplateToPrompt</h4>
+<p><code>TemplateToPrompt</code> 的完整写法是 <code>docorder.functions.impl.template_to_prompt:TemplateToPrompt</code>。它用算子 home 中的一个 Jinja 模板渲染每个实体，渲染得到的文本就是输出实体的正文，输出实体的附加信息是上游实体附加信息的一份副本。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>template</code></td>
+<td>必须</td>
+<td>模板文件相对于算子 home 的路径，这个路径不能指向算子 home 之外</td>
+</tr>
+</tbody>
+</table>
+<p>这个 function 使用 Jinja 的严格模式渲染模板：如果模板中引用了一个不存在的变量，渲染会直接失败，而不会悄悄地把它替换成空字符串，这样可以尽早发现模板中的拼写错误。模板语法错误和变量缺失都会以 <code>FatalError</code> 错误失败，不会重试，因为再试多少次结果都一样。</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;template&quot;: &quot;lib/note.jinja&quot;
+}
+</code></pre>
+<p>如果 <code>lib/note.jinja</code> 的内容是 <code>Note: {{ entity.source_data }}</code>，而上游实体的正文是 <code>hello</code>，那么输出实体的正文就是 <code>Note: hello</code>。这里的 <code>entity.source_data</code> 是 docorder 内置的模板变量，代表上游实体的正文。</p>
+<h4 id="jinjatojsonnet">JinjaToJsonnet</h4>
+<p><code>JinjaToJsonnet</code> 的完整写法是 <code>docorder.functions.impl.jinja_to_jsonnet:JinjaToJsonnet</code>。它要求上游实体的正文是一个 JSON 对象，并把这个对象中的每个键作为 Jinja 模板的变量，渲染算子 home 中的模板，渲染结果是一段 jsonnet 程序，作为输出实体的正文。它产生的附加信息是一个空对象，不过 runner 仍会照常把上游的 <code>global_prop</code> 合并进去。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>template</code></td>
+<td>必须</td>
+<td>模板文件相对于算子 home 的路径</td>
+</tr>
+<tr>
+<td><code>variables</code></td>
+<td>可选</td>
+<td>一个 JSON 对象，为模板变量提供默认值；上游正文中的同名键会覆盖这里的值</td>
+</tr>
+</tbody>
+</table>
+<p>在模板中，直接写 <code>{{ table }}</code> 会把变量的值作为普通文本插入；写成 <code>{{ columns | jsonnet }}</code>，则会通过 <code>jsonnet</code> 过滤器把变量的值转换成 jsonnet 能识别的字面量，例如字符串会带上引号，列表和对象会写成相应的语法。过滤器是 Jinja 的一种语法，用竖线 <code>|</code> 把一个值交给一个函数处理。如果上游正文为空、不是合法的 JSON、不是 JSON 对象，<code>variables</code> 不是对象，模板有错误，或者渲染结果全是空白，都会以 <code>FatalError</code> 错误失败。</p>
+<p>下面是一个模板的例子：</p>
+<pre><code class="language-text">{
+  table: {{ table | jsonnet }},
+  owner: {{ owner | jsonnet }},
+  columns: [c.name for c in {{ columns | jsonnet }}],
+  column_count: std.length(self.columns),
+}
+</code></pre>
+<p>假设上游实体的正文是 <code>{"table": "orders", "columns": [...]}</code>，其中 <code>columns</code> 列出了三个字段，<code>variables</code> 参数是 <code>{"owner": "data-team"}</code>。这个模板会渲染出一段 jsonnet 程序，再交给下一节介绍的 <code>JsonnetToPrompt</code> 编译，最终得到 <code>{"column_count": 3, "columns": ["order_id", "user_id", "amount"], "owner": "data-team", "table": "orders"}</code> 这样的 JSON。</p>
+<p>如果需要定制它的行为，可以编写子类：覆盖 <code>template_text()</code> 方法可以由代码直接提供模板内容，而不必从文件读取；覆盖 <code>generate_props</code> 方法可以从渲染结果中提取信息，作为输出实体的附加信息。</p>
+<h4 id="jsonnettoprompt">JsonnetToPrompt</h4>
+<p><code>JsonnetToPrompt</code> 的完整写法是 <code>docorder.functions.impl.jsonnet_to_prompt:JsonnetToPrompt</code>。它把上游实体的正文当作一段 jsonnet 程序，通过标准输入交给命令 <code>jsonnet -</code> 编译，编译器在标准输出中打印的结果就是输出实体的正文，输出实体的附加信息是上游附加信息的副本。这个 function 没有任何参数，但要求本机已经安装了 <code>jsonnet</code>，并且它所在的目录在环境变量 <code>PATH</code> 中。</p>
+<p>如果找不到 <code>jsonnet</code> 命令，会以 <code>FatalError</code> 错误失败；如果编译过程返回了非零的退出码，会抛出普通的异常，并按节点的 <code>retry</code> 参数重试。如果 jsonnet 程序中用 <code>import</code> 引入了其它文件，路径会按照程序中写的样子解析；在 <code>JinjaToJsonnet</code> 的模板中，可以用 <code>{{ home }}</code> 得到算子 home 的绝对路径，从而拼出算子 home 中某个文件的完整路径。</p>
+<h4 id="command">Command</h4>
+<p><code>Command</code> 的完整写法是 <code>docorder.functions.impl.command:Command</code>。它为每个实体运行一次外部命令，命令直接启动，不经过 shell。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>argv</code></td>
+<td>必须</td>
+<td>一个列表，第一项是命令，后面各项是参数；每一项中的 <code>{名字}</code> 占位符会被替换成对应的值</td>
+</tr>
+<tr>
+<td><code>cwd</code></td>
+<td>可选</td>
+<td>运行命令时的工作目录；其中的占位符不会被替换</td>
+</tr>
+<tr>
+<td><code>output_file</code></td>
+<td>可选</td>
+<td>命令写出的结果文件；其中的占位符会被替换；相对路径相对于运行 Python 脚本时的当前目录</td>
+</tr>
+<tr>
+<td><code>capture</code></td>
+<td>可选</td>
+<td>从哪里取得正文，可以是 <code>file</code>、<code>stdout</code> 或 <code>none</code>；设置了 <code>output_file</code> 时默认为 <code>file</code>，否则默认为 <code>stdout</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>capture</code> 为 <code>file</code> 时，命令结束后读取 <code>output_file</code> 的内容作为正文；为 <code>stdout</code> 时，取命令在标准输出中打印的内容作为正文；为 <code>none</code> 时，正文是一个空字符串，适用于只关心命令副作用的场合。输出实体的附加信息是上游附加信息的副本，再加上一个 <code>command</code> 键，记录替换完占位符之后的完整命令行；如果设置了 <code>output_file</code>，还会加上一个 <code>output_file</code> 键，记录替换后的文件路径。</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.command:Command&quot;,
+  &quot;argv&quot;: [&quot;cp&quot;, &quot;{entity.source_data_path}&quot;, &quot;{entity.output}/copy.json&quot;],
+  &quot;output_file&quot;: &quot;{entity.output}/copy.json&quot;
+}
+</code></pre>
+<p>这个例子中，<code>{entity.source_data_path}</code> 会被替换成上游实体正文文件的路径，<code>{entity.output}</code> 会被替换成正在写出的实体目录。命令把源文件复制到这个实体目录中，然后 <code>Command</code> 读取复制出来的文件作为正文。由于命令不经过 shell，参数中不能直接使用管道 <code>|</code> 或重定向 <code>&gt;</code>；如果确实需要，可以显式写成 <code>["sh", "-c", "..."]</code>，但这时要注意，替换进命令行的值会被 shell 解释，如果这些值来自不可信的输入，可能带来命令注入的风险。</p>
+<p>以下情况会以 <code>FatalError</code> 错误失败，不会重试：命令找不到；<code>argv</code> 为空；<code>capture</code> 的值无法识别；<code>capture</code> 为 <code>file</code> 却没有设置 <code>output_file</code>；占位符引用了一个不存在的名字。以下情况会抛出普通的异常，并按 <code>retry</code> 参数重试：命令返回了非零的退出码；<code>capture</code> 为 <code>file</code> 时命令没有写出 <code>output_file</code>。</p>
+<h4 id="prompttollm">PromptToLLM</h4>
+<p><code>PromptToLLM</code> 的完整写法是 <code>docorder.functions.impl.prompt_to_llm:PromptToLLM</code>。它把上游实体的正文作为提示词，交给一个以命令行形式运行的大模型工具。工具返回后，如果目标实体目录里已经有 <code>data</code> 文件，这份文件就是正文：它必须是非空的 UTF-8 文本，通过检查后不再改写，只补上 <code>tag.json</code>。没有这份文件时，工具在标准输出中打印的内容就是正文。输出实体的附加信息是上游附加信息的副本。调用开始前若已有 <code>data</code>，会先删掉。docorder 不附带任何大模型工具的预设配置，工具需要由使用者自己定义。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>workspace</code></td>
+<td>必须</td>
+<td>一个已经存在的目录，作为大模型工具进程的工作目录</td>
+</tr>
+<tr>
+<td><code>tool</code></td>
+<td>可选</td>
+<td>要使用的工具，可以是工具名、工具定义文件的路径，或者直接写一个工具定义对象；不填时读取环境变量 <code>DOCORDER_LLM</code></td>
+</tr>
+</tbody>
+</table>
+<p>当 <code>tool</code> 是一个字符串时，docorder 首先在算子 home 中寻找 <code>tools/&lt;名字&gt;.json</code> 文件，找不到时再把这个字符串当作一个文件路径。工具定义是一个 JSON 对象，包含以下字段：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run</code></td>
+<td>必须</td>
+<td>一个非空的字符串列表，表示要运行的命令及其参数；其中的 <code>{workspace}</code> 会被替换成工作目录</td>
+</tr>
+<tr>
+<td><code>prompt</code></td>
+<td>可选</td>
+<td>提示词的传递方式：<code>stdin</code>（默认）表示通过标准输入传入，<code>arg</code> 表示追加为命令的最后一个参数</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>可选</td>
+<td>工具的名字，出现在错误信息中，便于辨认</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">{ &quot;name&quot;: &quot;my-llm&quot;, &quot;run&quot;: [&quot;my-llm-cli&quot;, &quot;--cwd&quot;, &quot;{workspace}&quot;], &quot;prompt&quot;: &quot;stdin&quot; }
+</code></pre>
+<p>上面的 <code>my-llm-cli</code> 只是一个占位的名字，实际使用时要换成你所用的大模型命令行工具。以下情况会以 <code>FatalError</code> 错误失败：没有设置 <code>workspace</code> 或者它指向的目录不存在；找不到指定的工具；工具定义的格式不正确；工具的可执行文件不在 <code>PATH</code> 中。如果工具运行后返回了非零的退出码，会抛出普通的异常，并按 <code>retry</code> 参数重试。由于大模型接口偶尔会因为限流或网络问题出错，使用 <code>PromptToLLM</code> 的算子通常都应该在 <code>props.json</code> 中配置 <code>retry</code>。</p>
+<h4 id="entitytemplatetollm">EntityTemplateToLLM</h4>
+<p><code>EntityTemplateToLLM</code> 的完整写法是 <code>docorder.functions.impl.template_to_llm:EntityTemplateToLLM</code>。它为每个上游实体渲染一份 Jinja 模板，把渲染结果交给大模型工具，再把回复写成该实体的正文。它不走 <code>RenderedMap</code> 的三步流程，一次调用同时得到正文和附加信息。</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>是否必须</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>template</code></td>
+<td>必须</td>
+<td>模板文件相对于算子 home 的路径</td>
+</tr>
+<tr>
+<td><code>workspace</code></td>
+<td>必须</td>
+<td>一个已经存在的目录，作为大模型工具进程的工作目录</td>
+</tr>
+<tr>
+<td><code>tool</code></td>
+<td>可选</td>
+<td>与 <code>PromptToLLM</code> 相同</td>
+</tr>
+<tr>
+<td><code>header</code></td>
+<td>可选</td>
+<td>从回复中抽取正文的表头行，含义与 <code>TemplateToLLM</code> 相同</td>
+</tr>
+<tr>
+<td><code>tag_template</code></td>
+<td>可选</td>
+<td>一段 Jinja 字符串，渲染结果是实体的附加信息</td>
+</tr>
+</tbody>
+</table>
+<p>模板里能看到 <code>source</code>，它有 <code>name</code>、<code>path</code> 和 <code>tag</code> 三个字段。<code>path</code> 是上游实体的 <code>data</code> 文件路径。模板还可以调用 <code>staging(name)</code>，得到作业 <code>.staging</code> 目录下一个已存在文件的路径。模板拿不到文件正文，提示词里写路径，让大模型自己去读。</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_llm:EntityTemplateToLLM&quot;,
+  &quot;template&quot;: &quot;lib/prompt.jinja&quot;,
+  &quot;header&quot;: &quot;root_id|member_id|member_zh&quot;,
+  &quot;tag_template&quot;: &quot;{\&quot;root_id\&quot;: {{ (source.tag.get('root_id') or source.name)|tojson }}}&quot;,
+  &quot;workspace&quot;: &quot;/data/workspace&quot;
+}
+</code></pre>
+<pre><code class="language-jinja">root_id: {{ source.tag.get('root_id') or source.name }}
+{{ source.path }}
+</code></pre>
+<p>模板引用了不存在的变量、找不到工具、工具定义不合法、或者 <code>header</code> 在回复里找不到对应行时，这一段会以 <code>FatalError</code> 错误失败；工具返回非零退出码时按 <code>retry</code> 重试。</p>
+<h3 id="reduce-算子">reduce 算子</h3>
+<p>reduce 算子把上游在本 epoch 中的全部实体合并成一个输出实体，输出实体的名字由参数 <code>output</code> 决定，未设置时为 <code>result</code>。function 会收到一个按实体名字排序的上游实体列表，以及这一个目标实体。由于这个输出依赖全部上游实体，上游中任何一个实体的正文发生变化、新增了实体或者删除了实体，都会导致这个输出被重新计算。</p>
+<p>内置 function 是 <code>docorder.functions.impl.template_to_llm:TemplateToLLM</code>。它把上游全部实体渲染进一份 Jinja 模板，把渲染结果交给大模型工具，再把回复写成那一个输出实体的正文。模板里能看到 <code>sources</code>，它是按 reduce 收到的顺序排列的列表，每项有 <code>name</code>、<code>path</code> 和 <code>tag</code>；<code>path</code> 是该实体的 <code>data</code> 文件路径。模板还可以调用 <code>staging(name)</code>，得到作业 <code>.staging</code> 目录下一个已存在文件的路径。<code>header</code> 有值时，正文从回复里这一行表头开始；<code>tag_template</code> 是一段可选的 Jinja 字符串，渲染结果是实体的附加信息；<code>min_sources</code> 与 <code>max_sources</code> 限制上游个数。</p>
+<p>其它 reduce 转换可以自己编写，第九章给出了编写方法和示例。</p>
+<h3 id="fanout-算子">fanout 算子</h3>
+<p>fanout 算子把上游的每一个实体拆分成多个输出实体。拆分出哪些输出实体，由 function 的 <code>output_names(source)</code> 方法决定：它接收一个上游实体，返回一个由输出实体名字组成的列表，默认只返回上游实体自己的名字。整个 stage 中，所有上游实体拆分出的名字必须互不相同，否则会以 <code>OperatorValidationError</code> 错误失败。<code>output_names</code> 方法在主进程中调用，而且在一次运行中可能被调用不止一次，因此它的结果应该只取决于传入的上游实体，也不应该产生写文件之类的副作用。docorder 没有自带 fanout 类型的 function，第九章给出了编写示例。</p>
+<h3 id="apply-算子">apply 算子</h3>
+<p>apply 算子对上游本 epoch 的每个实体调用一次 function 的 <code>apply</code>，全部结束后再调用一次 <code>finish</code>。两个方法都必须返回 <code>None</code>。它不写实体，作业图里也不能再有节点把它当作上游；它自己必须有上游。上游为空时不调用 <code>apply</code>，仍然调用 <code>finish</code>。</p>
+<p>内置 function 是 <code>docorder.functions.impl.output:Output</code>。它由 apply 算子调用，把每个实体的正文写成作业根目录 <code>.staging</code> 里的一个文件，作为作业整体的输出。参数 <code>directory</code> 可以换成别的路径，相对路径相对算子 home 解析。文件名由 <code>rename(entity)</code> 决定，缺省是实体名；参数 <code>filename</code> 换成固定文件名，子类覆盖这个方法来按实体改名。返回值必须是一层文件名。两个实体得到同一个文件名时，这一段以 <code>FatalError</code> 失败。这个 function 上次写出、这次不再产生的文件会在 <code>finish</code> 里删掉。</p>
+<h3 id="失败与重试">失败与重试</h3>
+<p>下表汇总了各种失败情况会抛出的异常，以及这些异常是否会按节点的 <code>retry</code> 参数重试。</p>
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>异常</th>
+<th>是否按 <code>retry</code> 重试</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>作业图中有循环依赖、上游节点不存在、输出目录冲突</td>
+<td><code>JobValidationError</code></td>
+<td>不适用，在开始执行前就失败</td>
+</tr>
+<tr>
+<td>function 类找不到，或者不是对应基类的子类</td>
+<td><code>OperatorValidationError</code></td>
+<td>不适用，在开始执行前就失败</td>
+</tr>
+<tr>
+<td>找不到算子 home</td>
+<td><code>FileNotFoundError</code></td>
+<td>不适用，在构建作业时就失败</td>
+</tr>
+<tr>
+<td>配置缺失、模板错误、模板变量缺失、输入格式不正确</td>
+<td><code>FatalError</code></td>
+<td>否</td>
+</tr>
+<tr>
+<td>外部命令、jsonnet 或大模型工具返回非零退出码</td>
+<td><code>DocorderError</code></td>
+<td>是</td>
+</tr>
+<tr>
+<td>function 抛出的其它异常</td>
+<td>原来的异常</td>
+<td>是</td>
+</tr>
+</tbody>
+</table>
+<p>这些异常类都定义在 <code>docorder.utils.errors</code> 中，其中 <code>DocorderError</code> 是 <code>JobValidationError</code>、<code>OperatorValidationError</code> 和 <code>FatalError</code> 的共同父类。</p>
+<h4 id="各个内置-function-的失败情形">各个内置 function 的失败情形</h4>
+<p><code>FatalError</code> 表示配置或输入本身有问题，再试一次也不会好，因此直接让这一段失败。其余异常，包括外部进程返回非零状态，都会在等待 <code>backoff_seconds × 已尝试次数</code> 秒之后再试，直到用完 <code>max_attempts</code>。判断一个错误该不该重试时，可以直接对照下表。</p>
+<table>
+<thead>
+<tr>
+<th>function</th>
+<th>立即失败，不重试</th>
+<th>按 <code>retry</code> 重试</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DirectorySource</code>、<code>FilteredDirectorySource</code>、<code>FileHashSource</code></td>
+<td>缺 <code>directory</code>、目录不存在、<code>filter</code> 写错、<code>paths</code> 写错、占位符没有值、路径指向的文件不存在、<code>data</code> 不是 UTF-8、<code>tag.json</code> 不是对象</td>
+<td>无</td>
+</tr>
+<tr>
+<td><code>TemplateToPrompt</code></td>
+<td>缺 <code>template</code>、模板文件不在 home 里、模板引用了不存在的变量</td>
+<td>无</td>
+</tr>
+<tr>
+<td><code>JinjaToJsonnet</code></td>
+<td>缺 <code>template</code>、上游正文为空或不是 JSON 对象、渲染结果只有空白</td>
+<td>无</td>
+</tr>
+<tr>
+<td><code>JsonnetToPrompt</code></td>
+<td>找不到 <code>jsonnet</code></td>
+<td>编译器返回非零状态</td>
+</tr>
+<tr>
+<td><code>Command</code></td>
+<td>缺 <code>argv</code>、找不到第一项命令、花括号变量不存在、<code>capture</code> 取值不对</td>
+<td>进程返回非零状态、命令没有写出 <code>output_file</code></td>
+</tr>
+<tr>
+<td><code>PromptToLLM</code></td>
+<td>缺 <code>workspace</code> 或目录不存在、找不到工具、工具定义不合法、找不到第一项命令</td>
+<td>进程返回非零状态、写出的 <code>data</code> 为空、不是 UTF-8，或 <code>data</code> 不是文件</td>
+</tr>
+<tr>
+<td><code>TemplateToLLM</code>、<code>EntityTemplateToLLM</code></td>
+<td>缺 <code>template</code>、<code>workspace</code> 或目录不存在、<code>header</code> / <code>tag_template</code> 写错、模板引用了不存在的变量、<code>staging</code> 的文件名不合法或文件不存在、回复里没有 <code>header</code>、找不到工具、工具定义不合法、找不到第一项命令。<code>TemplateToLLM</code> 还会在上游个数写错时立即失败</td>
+<td>进程返回非零状态</td>
+</tr>
+<tr>
+<td><code>Output</code></td>
+<td><code>directory</code> 不是非空字符串、<code>filename</code> 不是非空字符串、<code>rename</code> 得到的文件名不合法、两个实体得到同一个文件名</td>
+<td>写出 <code>.staging</code> 文件时的瞬时错误</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/6-configuration.html">
+          <span class="label">上一篇</span>
+          <span class="name">六、配置</span>
+        </a>
+        <a class="next" href="../guide/8-rendering-functions-and-template-variables.html">
+          <span class="label">下一篇</span>
+          <span class="name">八、渲染类 function 与模板变量</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#五种算子">五种算子</a>
+      <a href="#source-算子">source 算子</a>
+      <a href="#directorysource">DirectorySource</a>
+      <a href="#filtereddirectorysource">FilteredDirectorySource</a>
+      <a href="#filehashsource">FileHashSource</a>
+      <a href="#map-算子">map 算子</a>
+      <a href="#templatetoprompt">TemplateToPrompt</a>
+      <a href="#jinjatojsonnet">JinjaToJsonnet</a>
+      <a href="#jsonnettoprompt">JsonnetToPrompt</a>
+      <a href="#command">Command</a>
+      <a href="#prompttollm">PromptToLLM</a>
+      <a href="#entitytemplatetollm">EntityTemplateToLLM</a>
+      <a href="#reduce-算子">reduce 算子</a>
+      <a href="#fanout-算子">fanout 算子</a>
+      <a href="#apply-算子">apply 算子</a>
+      <a href="#失败与重试">失败与重试</a>
+      <a href="#各个内置-function-的失败情形">各个内置 function 的失败情形</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>二、核心概念与术语 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="current" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>二、核心概念与术语</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="二核心概念与术语">二、核心概念与术语</h1>
+<p>本章给出 docorder 中每个概念的准确定义。第一章的例子已经让这些概念各自露过面，这里会进一步说明它们由谁创建、保存在哪里、能存在多久，以及彼此之间是什么关系。</p>
+<h3 id="实体">实体</h3>
+<p>实体是 docorder 处理的基本单位，它表示「某一个对象在某一个步骤中的结果」。同一个对象经过三个步骤，就会在三个节点下各有一个实体。在磁盘上，一个实体就是一个目录，它位于某个节点的输出目录下、某个 epoch 子目录之中，目录的名字就是实体的名字。</p>
+<pre><code class="language-text">&lt;输出根目录&gt;/&lt;节点名&gt;/&lt;epoch&gt;/&lt;实体名&gt;/
+  data            正文，UTF-8 编码的文本
+  tag.json        附加信息，一个 JSON 对象；有上游时含 upstream 快照
+</code></pre>
+<p><code>data</code> 文件保存实体的正文。正文的含义取决于产生它的步骤：在读取目录的步骤里，它是原始文件的内容；在渲染模板的步骤里，它是渲染出来的文本；在运行外部命令的步骤里，它是命令的输出。docorder 在调度时只要求正文是一段文本，并不关心其中的格式，所以正文可以是普通文字、Markdown、JSON 或者任何其它文本格式，但不能是图片这样的二进制数据。</p>
+<p><code>tag.json</code> 保存实体的附加信息，它必须是一个 JSON 对象，也就是由若干「键: 值」组成的结构。附加信息里有哪些键，主要由产生这个实体的 function 决定，它的主要用途是给下游步骤提供额外的数据，例如在模板中引用原始文件名，或者根据某个字段做筛选。docorder 自己还管理两个键。<code>upstream</code> 是直接上游实体此刻的快照；下游实体会带上上游的整份附加信息，所以写出前一定要重置这个键，并丢掉可能残留的 <code>current</code>。<code>global_prop</code> 则把一些数据沿着作业图一路传到末端。第三章「填写与写出」一节会详细说明。</p>
+<p>实体的名字必须能够安全地作为一层目录名使用，因此有以下要求：名字不能为空；名字的开头和结尾不能有空白字符；名字中不能含有斜杠 <code>/</code> 或反斜杠 <code>\</code>；名字不能是 <code>.</code> 或 <code>..</code>；名字也不能以 <code>.</code> 或 <code>_</code> 开头，因为以这两个字符开头的名字被留给了 docorder 的标记文件和运行时的临时文件。此外，只有包含 <code>data</code> 文件或 <code>tag.json</code> 文件的目录才会被认作实体，空目录和更深层的目录都不算。</p>
+<h3 id="上游快照">上游快照</h3>
+<p>上游快照写在 <code>tag.json</code> 的 <code>upstream</code> 里，它记录了「这个实体是根据哪些上游实体的哪个版本计算出来的」。一个上游时是一条记录，没有或多个上游时是列表。每条记录有四个字段：<code>operator</code> 是上游节点的名字，<code>name</code> 是上游实体的名字，<code>epoch</code> 是读取时所在的 epoch，<code>hash</code> 是那份上游实体的正文连同用户 tag（不含 <code>upstream</code> 和残留的 <code>current</code>）算出的 sha256 哈希值，写成十六进制。大多数步骤的每个输出只依赖一个上游实体，所以快照里只有一条记录；只有把一批实体合并成一个的 reduce 类步骤，快照里才会有多条记录，每个参与合并的上游实体各占一条。</p>
+<p>快照只覆盖上游的正文和用户 tag。手动改上游实体的 <code>data</code> 或 <code>tag.json</code>，下一次运行会让依赖它的下游重做；而本算子的参数或模板变了、function 的代码变了，都不会让快照失配——这正是下一节「算子本身变了怎么办」要处理的情况。</p>
+<p>上游快照是 docorder 判断一个结果是否仍然有效的唯一依据。对于有上游的实体，只有当 <code>tag.json</code> 里的 <code>upstream</code> 已经写下，并且其中的记录与上游的当前状态完全吻合时，这个实体才被视为已经完成；即使正文已经写好，只要 tag 里还没有这份快照，这个实体仍然被视为未完成。有一种特殊情况需要留意：如果上游的正文是一个空字符串，记录中的哈希值也会是空的，而空的哈希值在比较时永远不会被认为一致，因此依赖空正文的实体在每次运行时都会被重新处理。</p>
+<h3 id="算子与算子-home">算子与算子 home</h3>
+<p>算子是一种可以重复使用的步骤，例如「读取一个目录中的文件」或者「用某个模板渲染文本」。描述一个算子所需要的文件都放在同一个目录中，这个目录称为算子 home。算子 home 里至少要有一份 <code>props.json</code>，其中写明算子的类型 <code>type</code>、负责转换的 Python 类 <code>class</code>、控制执行方式的调度参数，以及交给转换类使用的默认参数。除此之外，算子 home 里还可以放置这个算子需要的其它文件，按习惯，模板文件放在 <code>lib/</code> 子目录中，外部工具的定义放在 <code>tools/</code> 子目录中，使用者自己编写的转换代码放在 <code>primary.py</code> 文件中。</p>
+<p>算子 home 只描述「这一步怎么做」，不记录结果写到哪里，也不属于某一次具体的运行，所以同一个算子 home 可以被很多作业重复使用。docorder 的安装包里不包含任何算子 home，使用者需要把算子 home 放在环境变量 <code>DOCORDER_HOMES</code> 所列出的目录中，docorder 会在这些目录里按名字查找它们，具体规则见第六章。</p>
+<p>查找规则有两个细节。一个 home 可以直接放在某个列出的目录下，也可以放在其下一层分类目录中，例如 <code>homes/sources/table_source</code>；名字以 <code>.</code> 或 <code>_</code> 开头的分类目录会被跳过。判断一个目录是不是 home，看它里面有没有 <code>props.json</code>。查找发生在 <code>add_operator_node</code> 被调用的那一刻，因此环境变量必须在这之前设好；找不到时抛出 <code>FileNotFoundError</code>，错误信息里会列出搜过的目录。</p>
+<p>算子分为五种类型。source 类型没有上游，它从外部数据产生最初的一批实体；map 类型为上游的每一个实体产生一个同名的输出实体；reduce 类型把上游的全部实体合并成一个输出实体；fanout 类型把上游的每一个实体拆分成若干个输出实体；apply 类型不写实体，对上游的每一个实体调用一次 function，function 不能返回值，这个节点也不能再有下游。第七章会逐一介绍这五种类型。</p>
+<h3 id="function">function</h3>
+<p>function 是算子 home 的 <code>props.json</code> 中 <code>class</code> 所指向的那个 Python 类，它承担真正的转换工作。在处理每个实体时，runner 会创建一个新的 function 对象，把上游实体和一个还没有填写内容的目标实体交给它；function 负责为目标实体填好正文和附加信息，然后由 runner 把它们写入磁盘。每种算子类型都有一个对应的 function 基类，使用者编写自己的转换时需要继承相应的基类。docorder 还自带了几个可以直接通过配置使用的 function，例如读取目录的 <code>DirectorySource</code> 和渲染 Jinja 模板的 <code>TemplateToPrompt</code>，第七章会完整列出它们。</p>
+<h3 id="作业与节点">作业与节点</h3>
+<p>作业描述的是「这一次要执行哪些步骤、它们之间的先后关系如何、结果写到哪里」，它是一张有向无环图。有向无环图的意思是：图中的每条连线都有方向，从上游指向下游，并且沿着连线的方向走，永远不会回到出发的地方，也就是说步骤之间不存在循环依赖。作业通过 <code>Job(name, root)</code> 创建，其中 <code>root</code> 是输出根目录。</p>
+<p>作业中的每一个点称为节点，节点通过 <code>add_operator_node</code> 方法加入作业。每个节点引用一个算子 home，并且除 source 节点以外，必须指定唯一的一个上游节点。节点还可以通过 <code>config</code> 参数覆盖算子 home 中的转换参数，通过 <code>parallelism</code> 和 <code>retry</code> 参数覆盖调度参数。节点的输出目录总是「输出根目录/节点名」，不能另外指定。同一个算子 home 可以在同一个作业里被多个节点引用，例如用同一个模板算子分别处理两个不同的上游。同一个节点名再次添加时，后一次会替换前一次，不报错。</p>
+<p>节点构造时，传入的 <code>config</code> 会覆盖到 home 的 function 参数上，写进节点的 <code>props</code>。<code>config</code> 里的 <code>class</code> 会被丢掉，不能用它更换 function。构造完成之后节点不再保留 <code>config</code>，对外只暴露 <code>props</code>；<code>parallelism</code> 和 <code>retry</code> 写进 <code>config</code> 只会成为 function 参数，调度仍然按 home 里的值或 <code>add_operator_node</code> 的同名参数来。</p>
+<p>作业对象只存在于一次 Python 进程的内存中，它本身不保存任何处理进度，进度全部保存在各个实体的目录里。正因为进度在实体目录里，换一个进程、甚至换一份作业脚本，只要输出路径和 epoch 相同，都能接着上一次的进度跑。</p>
+<h3 id="epoch-与-stage">epoch 与 stage</h3>
+<p>epoch 是调用 <code>execute</code> 时传入的一个名字，通常使用日期或版本号，例如 <code>2026-10-16</code> 或 <code>v3</code>。它决定了每个节点输出目录下的那一层子目录，在同一次运行中，所有节点都使用同一个 epoch。换一个新的 epoch，相当于换了一套全新的空目录，所有结果从头计算；使用同一个 epoch 再次运行，则是在上一次的结果和进度上继续工作。</p>
+<p>stage 指的是一个节点在一次运行中的执行过程。一次运行会按照作业图中的依赖顺序，依次执行每个节点的 stage；一个 stage 必须处理完本 epoch 中的全部实体，下一个 stage 才会开始。</p>
+<h3 id="runner-与应得名单">runner 与应得名单</h3>
+<p>runner 是 docorder 中负责调度的部分，调用 <code>docorder.core.runner.execute</code> 就是让 runner 开始工作。每个非 source 节点的 stage 开始时，runner 会先读取上游节点在本 epoch 中已有的全部实体，并据此列出应得名单。应得名单回答的问题是：「按照上游当前的状态，这个节点应该有哪些输出实体，每个输出实体又依赖哪些上游实体？」随后，runner 把应得名单与这个节点目录中已经存在的实体逐一比较，决定每个实体应该新建、重做、保留还是删除。第三章会详细讲解这个过程。</p>
+<h3 id="概念之间的关系">概念之间的关系</h3>
+<p>下面这张图先画出概念的层次关系，再用第一章的最小例子对照一遍。</p>
+<!-- figure:concepts:start -->
+<figure class="figure" id="fig-concepts">
+<svg role="img" aria-labelledby="concepts-title concepts-desc" viewBox="0 0 900 560" width="100%" style="max-width:900px">
+  <title id="concepts-title">docorder 概念之间的关系</title>
+  <desc>算子 home 被作业节点引用，节点在一次运行中写出输出目录，输出目录里包含实体，下游实体的上游快照指回上游实体。</desc>
+  <defs>
+    <marker id="concepts-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="concepts-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="concepts-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="560" fill="#f6f1e8"/>
+  <path d="M 135 112 L 135 180 L 135 180 L 135 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 395 112 L 395 180 L 427 180 Q 435 180 435 188 L 435 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 135 252 L 135 330" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 435 252 L 435 330" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 135 382 L 135 450" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 435 382 L 435 450" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 230 226 L 260 226 L 260 182 Q 260 174 268 174 L 302 174 Q 310 174 310 182 L 310 218 Q 310 226 318 226 L 340 226" fill="none" stroke="#1b4744" stroke-width="1" marker-end="url(#concepts-arrow-teal)"/>
+  <path d="M 340 476 L 310 476 L 310 430 Q 310 422 302 422 L 278 422 Q 270 422 270 430 L 270 468 Q 270 476 262 476 L 230 476" fill="none" stroke="#1b4744" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#concepts-arrow-teal)"/>
+  <rect x="120" y="128" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="135" y="140" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">引用</text>
+  <rect x="380" y="128" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="395" y="140" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">引用</text>
+  <rect x="120" y="266" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="135" y="278" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">写出</text>
+  <rect x="120" y="396" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="135" y="408" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">包含</text>
+  <rect x="274" y="148" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="304" y="160" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">上游</text>
+  <rect x="257" y="396" width="66" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="290" y="408" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">快照指回上游</text>
+  <rect x="40" y="60" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="60" width="190" height="52" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <rect x="48" y="67" width="28" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="62" y="77" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">静态</text>
+  <text x="135" y="84" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">算子 home</text>
+  <text x="135" y="101" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">notes_source</text>
+  <rect x="300" y="60" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="60" width="190" height="52" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <rect x="308" y="67" width="28" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="322" y="77" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">静态</text>
+  <text x="395" y="84" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">算子 home</text>
+  <text x="395" y="101" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">prompt</text>
+  <rect x="40" y="200" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="200" width="190" height="52" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <rect x="48" y="207" width="28" height="14" rx="2" fill="transparent" stroke="#1b4744" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="62" y="217" fill="#1b4744" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">作业</text>
+  <text x="135" y="224" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">节点 notes</text>
+  <text x="135" y="241" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">source · 无上游</text>
+  <rect x="340" y="200" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="340" y="200" width="190" height="52" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <rect x="348" y="207" width="28" height="14" rx="2" fill="transparent" stroke="#1b4744" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="362" y="217" fill="#1b4744" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">作业</text>
+  <text x="435" y="224" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">节点 prompt</text>
+  <text x="435" y="241" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">map · 上游 notes</text>
+  <rect x="40" y="330" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="330" width="190" height="52" rx="6" fill="#fffdf8" stroke="#5e584e" stroke-width="1"/>
+  <text x="135" y="360" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">runs/notes/demo/</text>
+  <rect x="340" y="330" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="340" y="330" width="190" height="52" rx="6" fill="#fffdf8" stroke="#5e584e" stroke-width="1"/>
+  <text x="435" y="360" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">runs/prompt/demo/</text>
+  <rect x="40" y="450" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="450" width="190" height="52" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="48" y="457" width="28" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="62" y="467" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">结果</text>
+  <text x="135" y="474" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">实体 hello</text>
+  <text x="135" y="491" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">data · tag.json</text>
+  <rect x="340" y="450" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="340" y="450" width="190" height="52" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="348" y="457" width="28" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="362" y="467" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">结果</text>
+  <text x="435" y="474" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">实体 hello</text>
+  <text x="435" y="491" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">data · tag.json</text>
+  <text x="888" y="90" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">算子 home</text>
+  <text x="888" y="230" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">作业节点</text>
+  <text x="888" y="360" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">输出目录</text>
+  <text x="888" y="480" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">实体</text>
+</svg>
+<figcaption><span class="fig-label">图 1</span> 概念之间的关系：算子 home 被节点引用，节点写出输出目录，输出目录里是实体，下游实体的上游快照指回上游。</figcaption>
+</figure>
+<!-- figure:concepts:end -->
+
+<pre><code class="language-text">DOCORDER_HOMES = homes/
+  homes/notes_source/   算子 home：props.json（type=source, class=DirectorySource）
+  homes/prompt/         算子 home：props.json（type=map, class=TemplateToPrompt）, lib/note.jinja
+                          │ 被节点引用
+                          ▼
+作业 Job(&quot;hello&quot;, runs/)
+  ├─ 节点 notes   ── 算子 home: notes_source ── config: directory ── 输出: runs/notes/
+  └─ 节点 prompt  ── 算子 home: prompt       ── 上游: notes        ── 输出: runs/prompt/
+
+execute(job, &quot;demo&quot;)      epoch 为 demo，每个节点各执行一个 stage
+  runs/notes/demo/hello/        实体：data, tag.json
+  runs/prompt/demo/hello/       实体：data, tag.json（含 upstream）
+                                  └─ 上游快照：记录 runs/notes/demo/hello 正文的哈希值
+</code></pre>
+<h3 id="术语对照">术语对照</h3>
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>英文或代码中的名字</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>实体</td>
+<td>entity</td>
+<td>一个对象在某个节点、某个 epoch 下的结果，在磁盘上是一个目录</td>
+</tr>
+<tr>
+<td>正文</td>
+<td><code>data</code></td>
+<td>实体的主要内容，一段文本</td>
+</tr>
+<tr>
+<td>tag</td>
+<td><code>tag.json</code></td>
+<td>实体的附加信息，一个 JSON 对象</td>
+</tr>
+<tr>
+<td>上游快照</td>
+<td><code>tag.json</code> 的 <code>upstream</code></td>
+<td>实体读取过的上游实体，以及当时上游正文与用户 tag 的哈希值</td>
+</tr>
+<tr>
+<td>算子</td>
+<td>operator</td>
+<td>一种可以重复使用的步骤，属于五种类型之一</td>
+</tr>
+<tr>
+<td>算子 home</td>
+<td>operator home</td>
+<td>存放一个算子全部文件的目录，必须包含 <code>props.json</code></td>
+</tr>
+<tr>
+<td>function</td>
+<td>function</td>
+<td><code>props.json</code> 中 <code>class</code> 指向的、执行转换的 Python 类</td>
+</tr>
+<tr>
+<td>作业</td>
+<td><code>Job</code></td>
+<td>一次运行要执行的步骤及其先后关系</td>
+</tr>
+<tr>
+<td>节点</td>
+<td>node</td>
+<td>作业中引用某个算子的一个步骤</td>
+</tr>
+<tr>
+<td>epoch</td>
+<td>epoch</td>
+<td>一批结果的名字，也是输出目录中的一层子目录</td>
+</tr>
+<tr>
+<td>stage</td>
+<td>stage</td>
+<td>一个节点在一次运行中的完整执行</td>
+</tr>
+<tr>
+<td>runner</td>
+<td>runner</td>
+<td>docorder 中负责调度的部分</td>
+</tr>
+<tr>
+<td>应得名单</td>
+<td>expected names</td>
+<td>一个节点按上游当前状态应有的输出实体，以及每个输出依赖的上游实体</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/1-background.html">
+          <span class="label">上一篇</span>
+          <span class="name">一、背景</span>
+        </a>
+        <a class="next" href="../guide/3-how-a-run-works.html">
+          <span class="label">下一篇</span>
+          <span class="name">三、工作流程</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#实体">实体</a>
+      <a href="#上游快照">上游快照</a>
+      <a href="#算子与算子-home">算子与算子 home</a>
+      <a href="#function">function</a>
+      <a href="#作业与节点">作业与节点</a>
+      <a href="#epoch-与-stage">epoch 与 stage</a>
+      <a href="#runner-与应得名单">runner 与应得名单</a>
+      <a href="#概念之间的关系">概念之间的关系</a>
+      <a href="#术语对照">术语对照</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

@@ -15,6 +15,32 @@ from docorder.utils.errors import DocorderError, FatalError
 
 @dataclass(frozen=True)
 class LLMTool:
+    """One command-line tool that turns a prompt into text on stdout.
+
+    ``name`` is only used in error messages. ``run`` is the argv, and each
+    argument may contain the literal ``{workspace}``, replaced with the
+    workspace path before the process starts. ``prompt`` is ``stdin`` or
+    ``arg``. ``stdin`` writes the prompt to the process standard input.
+    ``arg`` appends the prompt as the final argument and passes no input.
+
+    ``resolve`` picks the definition in this order:
+
+    1. ``config["tool"]``, which is the function's ``tool`` parameter.
+    2. The ``DOCORDER_LLM`` environment variable, when ``tool`` is missing
+       or empty.
+
+    A string looks first for ``tools/<name>.json`` inside the operator home,
+    then for that string as a filesystem path. A mapping is an inline tool
+    object and does not touch the home. Anything else, or a name that
+    matches neither place, raises ``FatalError``.
+
+    The JSON object needs a non-empty ``run`` list of strings. ``prompt``
+    defaults to ``stdin``. ``name`` defaults to the preset name, the file
+    stem, or ``custom`` for an inline object. A missing executable is
+    ``FatalError``. A non-zero exit is ``DocorderError``, so the operator
+    retry policy still applies. Standard output is the completion.
+    """
+
     name: str
     run: tuple[str, ...]
     prompt: str
@@ -44,6 +70,11 @@ class LLMTool:
         raise FatalError("llm tool must be a preset name, a JSON file path, or an object")
 
     def complete(self, prompt: str, workspace: Path) -> str:
+        """Run the tool on ``prompt`` and return its standard output.
+
+        ``{workspace}`` in ``run`` is replaced with ``workspace``. The
+        process working directory is that same path.
+        """
         argv = [arg.replace("{workspace}", str(workspace)) for arg in self.run]
         if self.prompt == "arg":
             argv.append(prompt)
@@ -55,6 +86,7 @@ class LLMTool:
 
     @classmethod
     def from_text(cls, text: str, label: str, *, default_name: str) -> LLMTool:
+        """Parse a tool JSON document. ``label`` names the file in errors."""
         try:
             loaded = json.loads(text)
         except json.JSONDecodeError as exc:
@@ -65,6 +97,7 @@ class LLMTool:
 
     @classmethod
     def from_mapping(cls, raw: dict[str, Any], *, default_name: str) -> LLMTool:
+        """Build a tool from ``run``, optional ``prompt``, and optional ``name``."""
         run = raw.get("run")
         if not isinstance(run, list) or not run or not all(isinstance(item, str) for item in run):
             raise FatalError(f"llm tool {default_name} needs a non-empty run argv")
@@ -84,6 +117,12 @@ class LLMTool:
         prompt: str | None,
         cwd: Path | None,
     ) -> subprocess.CompletedProcess[str]:
+        """Run ``argv``. ``prompt`` is the standard input, or ``None`` when unused.
+
+        A missing executable is ``FatalError``. A non-zero status is
+        ``DocorderError`` and includes the tail of stderr, or stdout when
+        stderr is empty.
+        """
         try:
             completed = subprocess.run(
                 argv,

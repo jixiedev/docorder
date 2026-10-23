@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2. Core concepts and terms | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="current" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>2. Core concepts and terms</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="2-core-concepts-and-terms">2. Core concepts and terms</h1>
+<p>This chapter gives the precise definition of every concept in docorder. The example in chapter 1 has already introduced each of them; here they are described further: who creates them, where they are stored, how long they live, and how they relate to one another.</p>
+<h3 id="entity">Entity</h3>
+<p>An entity is the basic unit docorder works on: it is "the result of one object at one step". The same object that goes through three steps has one entity under each of the three nodes. On disk an entity is one directory, inside an epoch subdirectory of some node's output directory, and the name of the directory is the name of the entity.</p>
+<pre><code class="language-text">&lt;output root&gt;/&lt;node name&gt;/&lt;epoch&gt;/&lt;entity name&gt;/
+  data            the body, UTF-8 encoded text
+  tag.json        the tag, a JSON object; with an upstream it holds the upstream snapshot
+</code></pre>
+<p>The <code>data</code> file holds the body of the entity. What the body means depends on the step that produced it: in a step that reads a directory it is the content of the original file; in a step that renders a template it is the rendered text; in a step that runs an external command it is the output of the command. docorder only requires the body to be a piece of text while scheduling and does not care about its format, so the body can be plain text, Markdown, JSON, or any other text format, but not binary data such as an image.</p>
+<p><code>tag.json</code> holds the tag of the entity. It has to be a JSON object, that is, a structure of so many "key: value" pairs. Which keys the tag has is decided mainly by the function that produced the entity, and its main purpose is to give the downstream steps extra data, for example to refer to the original file name in a template, or to filter on some field. docorder itself manages two keys. <code>upstream</code> is a live snapshot of the direct upstream entity; a downstream entity carries the whole tag of the upstream, so this key has to be reset before writing, and a leftover <code>current</code> has to be dropped. <code>global_prop</code> carries some data along the job graph all the way to the end. The section "Filling and writing" in chapter 3 describes this in detail.</p>
+<p>The name of an entity has to be safe to use as one directory level, so there are these requirements: the name must not be empty; it must not begin or end with whitespace; it must not contain a slash <code>/</code> or a backslash <code>\</code>; it must not be <code>.</code> or <code>..</code>; and it must not start with <code>.</code> or <code>_</code>, because names starting with those two characters are reserved for docorder's marker files and runtime temporary files. In addition, only a directory that holds a <code>data</code> file or a <code>tag.json</code> file is recognized as an entity; empty directories and deeper directories do not count.</p>
+<h3 id="upstream-snapshot">Upstream snapshot</h3>
+<p>The upstream snapshot is written in <code>tag.json</code> under <code>upstream</code>, and it records "which version of which upstream entities this entity was computed from". One upstream is one record; no upstream or several upstreams are a list. Each record has four fields: <code>operator</code> is the name of the upstream node, <code>name</code> is the name of the upstream entity, <code>epoch</code> is the epoch it was read in, and <code>hash</code> is the sha256 hash of the body of that upstream entity together with its user tag (excluding <code>upstream</code> and a leftover <code>current</code>), written in hexadecimal. Most steps depend on one upstream entity per output, so the snapshot holds only one record; only a reduce step, which merges a batch of entities into one, has several records, one for each upstream entity that took part in the merge.</p>
+<p>The snapshot covers only the upstream body and user tag. Editing the <code>data</code> or <code>tag.json</code> of an upstream entity by hand makes the dependent downstream redo on the next run; a change to this operator's parameters or template, or to the function code, does not make the snapshot mismatch — that is exactly the case the section "The operator itself changed" in chapter 3 handles.</p>
+<p>The upstream snapshot is the only thing docorder uses to decide whether a result is still valid. For an entity that has an upstream, it counts as finished only when the <code>upstream</code> in <code>tag.json</code> has been written and its record matches the current state of the upstream exactly; even if the body is already written, an entity whose tag has no snapshot yet still counts as unfinished. One special case deserves attention: if the body of the upstream is an empty string, the hash in the record is empty as well, and an empty hash never passes the comparison, so entities that depend on an empty body are processed again on every run.</p>
+<h3 id="operator-and-operator-home">Operator and operator home</h3>
+<p>An operator is a reusable step, for example "read the files in a directory" or "render text with a certain template". All the files needed to describe one operator live in one directory, and that directory is called the operator home. An operator home has to contain at least a <code>props.json</code>, which holds the type of the operator <code>type</code>, the Python class that performs the transform <code>class</code>, the scheduling parameters that control how it runs, and the default parameters handed to the function. Besides that, an operator home can hold the other files the operator needs; by convention, template files go in the <code>lib/</code> subdirectory, external tool definitions in the <code>tools/</code> subdirectory, and your own transform code in the <code>primary.py</code> file.</p>
+<p>An operator home only describes "how this step is done". It does not record where the results are written and does not belong to any one particular run, so the same operator home can be used by many jobs. The docorder package contains no operator homes; you have to put them in the directories listed by the environment variable <code>DOCORDER_HOMES</code>, and docorder looks for them there by name. The exact rules are in chapter 6.</p>
+<p>Lookup has two details. A home can sit directly in one of the listed directories, or in a category directory one level below it, for example <code>homes/sources/table_source</code>; category directories whose names start with <code>.</code> or <code>_</code> are skipped. A directory is a home when it contains <code>props.json</code>. The lookup happens at the moment <code>add_operator_node</code> is called, so the environment variable has to be set before that; when the home is not found, a <code>FileNotFoundError</code> is raised, and the message lists the directories that were searched.</p>
+<p>There are five types of operator. A source has no upstream and produces the first batch of entities from external data; a map produces one same-named output entity for each upstream entity; a reduce merges all upstream entities into one output entity; a fanout splits each upstream entity into several output entities; an apply writes no entities, calls the function once for each upstream entity, the function must not return a value, and no node can be placed downstream of it. Chapter 7 introduces the five types one by one.</p>
+<h3 id="function">Function</h3>
+<p>A function is the Python class that the <code>class</code> key of the operator home's <code>props.json</code> points at, and it does the actual transformation. While processing each entity, the runner creates a new function object and hands it the upstream entity and a target entity that has no content yet; the function fills in the body and the tag of the target entity, and the runner then writes them to disk. Every operator type has a corresponding function base class, and you inherit the right one when you write your own transform. docorder also ships several functions that can be used straight from the configuration, for example the <code>DirectorySource</code> that reads a directory and the <code>TemplateToPrompt</code> that renders a Jinja template. Chapter 7 lists them all.</p>
+<h3 id="job-and-node">Job and node</h3>
+<p>A job describes "which steps this run executes, in what order they relate to each other, and where the results are written". It is a directed acyclic graph. A directed acyclic graph means that every edge has a direction, from upstream to downstream, and following the edges never brings you back to where you started, in other words there are no cyclic dependencies between the steps. A job is created with <code>Job(name, root)</code>, where <code>root</code> is the output root.</p>
+<p>Every point in the job is called a node, and nodes are added to the job with the <code>add_operator_node</code> method. Each node refers to one operator home and, except for a source node, must name exactly one upstream node. A node can also override the function parameters of the operator home through its <code>config</code> argument, and override the scheduling parameters through its <code>parallelism</code> and <code>retry</code> arguments. The output directory of a node is always "output root/node name" and cannot be specified otherwise. The same operator home can be referenced by several nodes in the same job, for example to process two different upstreams with the same template operator. Adding the same node name again replaces the earlier node, without an error.</p>
+<p>When a node is constructed, the <code>config</code> that was passed in is applied over the function parameters of the home and stored in the node's <code>props</code>. A <code>class</code> key in <code>config</code> is dropped, so it cannot swap the function. After construction the node no longer keeps <code>config</code>; the public object is <code>props</code>. Writing <code>parallelism</code> and <code>retry</code> into <code>config</code> only turns them into function parameters; scheduling still follows the values in the home, or the same-named arguments of <code>add_operator_node</code>.</p>
+<p>A job object only exists in the memory of one Python process. It does not keep any processing progress itself; all progress is stored in the directories of the individual entities. Precisely because the progress lives in the entity directories, another process, or even another job script, can continue where the last run stopped as long as the output paths and the epoch are the same.</p>
+<h3 id="epoch-and-stage">Epoch and stage</h3>
+<p>An epoch is a name passed to <code>execute</code>, usually a date or a version number, such as <code>2026-10-16</code> or <code>v3</code>. It decides the level of subdirectory under the output directory of every node, and within one run all nodes use the same epoch. Switching to a new epoch means switching to a completely new set of empty directories, with every result computed from scratch; running again with the same epoch continues on the results and the progress of the last run.</p>
+<p>A stage is the execution of one node in one run. One run executes the stage of every node in turn, following the dependency order of the job graph; a stage has to finish all the entities of this epoch before the next stage begins.</p>
+<h3 id="runner-and-expected-names">Runner and expected names</h3>
+<p>The runner is the part of docorder that handles scheduling; calling <code>docorder.core.runner.execute</code> is what makes the runner start working. At the beginning of the stage of every non-source node, the runner first reads all the entities the upstream node already has in this epoch, and uses them to list the expected names. The expected names answer the question: "given the current state of the upstream, which output entities should this node have, and which upstream entities does each output entity depend on?" The runner then compares the expected names with the entities that already exist in this node's directory, one by one, and decides for each entity whether it should be created, redone, kept, or deleted. Chapter 3 describes this process in detail.</p>
+<h3 id="how-the-concepts-relate">How the concepts relate</h3>
+<p>The diagram below first draws the layers of the concepts, and then walks through the minimal example from chapter 1 again.</p>
+<!-- figure:concepts:start -->
+<figure class="figure" id="fig-concepts">
+<svg role="img" aria-labelledby="concepts-title concepts-desc" viewBox="0 0 900 560" width="100%" style="max-width:900px">
+  <title id="concepts-title">How docorder's concepts relate</title>
+  <desc>An operator home is referenced by a job node; the node writes an output directory during a run; the directory holds entities; the upstream snapshot of a downstream entity points back to its upstream.</desc>
+  <defs>
+    <marker id="concepts-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="concepts-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="concepts-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="560" fill="#f6f1e8"/>
+  <path d="M 135 112 L 135 180 L 135 180 L 135 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 395 112 L 395 180 L 427 180 Q 435 180 435 188 L 435 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 135 252 L 135 330" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 435 252 L 435 330" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 135 382 L 135 450" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 435 382 L 435 450" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#concepts-arrow)"/>
+  <path d="M 230 226 L 260 226 L 260 182 Q 260 174 268 174 L 302 174 Q 310 174 310 182 L 310 218 Q 310 226 318 226 L 340 226" fill="none" stroke="#1b4744" stroke-width="1" marker-end="url(#concepts-arrow-teal)"/>
+  <path d="M 340 476 L 310 476 L 310 430 Q 310 422 302 422 L 278 422 Q 270 422 270 430 L 270 468 Q 270 476 262 476 L 230 476" fill="none" stroke="#1b4744" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#concepts-arrow-teal)"/>
+  <rect x="104.25" y="128" width="61.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="135" y="140" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">referenced</text>
+  <rect x="364.25" y="128" width="61.5" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="395" y="140" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">referenced</text>
+  <rect x="114.15" y="266" width="41.7" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="135" y="278" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">writes</text>
+  <rect x="116.625" y="396" width="36.75" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="135" y="408" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">holds</text>
+  <rect x="252.4" y="148" width="51.6" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="304" y="160" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">upstream</text>
+  <rect x="234.5" y="396" width="111" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="290" y="408" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">snapshot points back</text>
+  <rect x="40" y="60" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="60" width="190" height="52" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <rect x="48" y="67" width="38.4" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="67.2" y="77" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">static</text>
+  <text x="135" y="84" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">operator home</text>
+  <text x="135" y="101" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">notes_source</text>
+  <rect x="300" y="60" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="60" width="190" height="52" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <rect x="308" y="67" width="38.4" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="327.2" y="77" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">static</text>
+  <text x="395" y="84" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">operator home</text>
+  <text x="395" y="101" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">prompt</text>
+  <rect x="40" y="200" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="200" width="190" height="52" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <rect x="48" y="207" width="25.2" height="14" rx="2" fill="transparent" stroke="#1b4744" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="60.6" y="217" fill="#1b4744" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">job</text>
+  <text x="135" y="224" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">node notes</text>
+  <text x="135" y="241" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">source · no upstream</text>
+  <rect x="340" y="200" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="340" y="200" width="190" height="52" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <rect x="348" y="207" width="25.2" height="14" rx="2" fill="transparent" stroke="#1b4744" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="360.6" y="217" fill="#1b4744" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">job</text>
+  <text x="435" y="224" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">node prompt</text>
+  <text x="435" y="241" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">map · upstream notes</text>
+  <rect x="40" y="330" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="330" width="190" height="52" rx="6" fill="#fffdf8" stroke="#5e584e" stroke-width="1"/>
+  <text x="135" y="360" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">runs/notes/demo/</text>
+  <rect x="340" y="330" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="340" y="330" width="190" height="52" rx="6" fill="#fffdf8" stroke="#5e584e" stroke-width="1"/>
+  <text x="435" y="360" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">runs/prompt/demo/</text>
+  <rect x="40" y="450" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="450" width="190" height="52" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="48" y="457" width="38.4" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="67.2" y="467" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">result</text>
+  <text x="135" y="474" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">entity hello</text>
+  <text x="135" y="491" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">data · tag.json</text>
+  <rect x="340" y="450" width="190" height="52" rx="6" fill="#f6f1e8"/>
+  <rect x="340" y="450" width="190" height="52" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <rect x="348" y="457" width="38.4" height="14" rx="2" fill="transparent" stroke="#5e584e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <text x="367.2" y="467" fill="#5e584e" font-size="8" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle" letter-spacing="0.08em" fill-opacity="0.85">result</text>
+  <text x="435" y="474" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">entity hello</text>
+  <text x="435" y="491" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">data · tag.json</text>
+  <text x="888" y="90" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">operator home</text>
+  <text x="888" y="230" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">job node</text>
+  <text x="888" y="360" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">output directory</text>
+  <text x="888" y="480" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="end">entity</text>
+</svg>
+<figcaption><span class="fig-label">Figure 1</span> How the concepts fit together: an operator home is referenced by a node, the node writes an output directory, the directory holds entities, and a downstream entity's upstream snapshot points back to its upstream.</figcaption>
+</figure>
+<!-- figure:concepts:end -->
+
+<pre><code class="language-text">DOCORDER_HOMES = homes/
+  homes/notes_source/   operator home: props.json (type=source, class=DirectorySource)
+  homes/prompt/         operator home: props.json (type=map, class=TemplateToPrompt), lib/note.jinja
+                          │ referenced by a node
+                          ▼
+job Job(&quot;hello&quot;, runs/)
+  ├─ node notes   ── operator home: notes_source ── config: directory ── output: runs/notes/
+  └─ node prompt  ── operator home: prompt       ── upstream: notes        ── output: runs/prompt/
+
+execute(job, &quot;demo&quot;)      the epoch is demo, each node runs one stage
+  runs/notes/demo/hello/        entity: data, tag.json
+  runs/prompt/demo/hello/       entity: data, tag.json (with upstream)
+                                  └─ upstream snapshot: records the hash of the body of runs/notes/demo/hello
+</code></pre>
+<h3 id="terminology">Terminology</h3>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Name in English or in the code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Entity</td>
+<td>entity</td>
+<td>The result of one object under one node and one epoch; on disk it is a directory</td>
+</tr>
+<tr>
+<td>Body</td>
+<td><code>data</code></td>
+<td>The main content of an entity, a piece of text</td>
+</tr>
+<tr>
+<td>Tag</td>
+<td><code>tag.json</code></td>
+<td>The additional information of an entity, a JSON object</td>
+</tr>
+<tr>
+<td>Upstream snapshot</td>
+<td><code>upstream</code> in <code>tag.json</code></td>
+<td>The upstream entities an entity read, and the hash of the upstream body and user tag at that time</td>
+</tr>
+<tr>
+<td>Operator</td>
+<td>operator</td>
+<td>A reusable step, of one of the five types</td>
+</tr>
+<tr>
+<td>Operator home</td>
+<td>operator home</td>
+<td>The directory that holds all the files of one operator; it must contain <code>props.json</code></td>
+</tr>
+<tr>
+<td>Function</td>
+<td>function</td>
+<td>The Python class that performs the transform, named by <code>class</code> in <code>props.json</code></td>
+</tr>
+<tr>
+<td>Job</td>
+<td><code>Job</code></td>
+<td>The steps one run executes and the order between them</td>
+</tr>
+<tr>
+<td>Node</td>
+<td>node</td>
+<td>One step of the job that refers to an operator</td>
+</tr>
+<tr>
+<td>Epoch</td>
+<td>epoch</td>
+<td>The name of a batch of results, and one level of subdirectory in the output directory</td>
+</tr>
+<tr>
+<td>Stage</td>
+<td>stage</td>
+<td>The complete execution of one node in one run</td>
+</tr>
+<tr>
+<td>Runner</td>
+<td>runner</td>
+<td>The part of docorder that handles scheduling</td>
+</tr>
+<tr>
+<td>Expected names</td>
+<td>expected names</td>
+<td>The output entities a node should have given the current state of the upstream, and the upstream entities each output depends on</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/1-background.en.html">
+          <span class="label">Previous</span>
+          <span class="name">1. Background</span>
+        </a>
+        <a class="next" href="../guide/3-how-a-run-works.en.html">
+          <span class="label">Next</span>
+          <span class="name">3. How a run works</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#entity">Entity</a>
+      <a href="#upstream-snapshot">Upstream snapshot</a>
+      <a href="#operator-and-operator-home">Operator and operator home</a>
+      <a href="#function">Function</a>
+      <a href="#job-and-node">Job and node</a>
+      <a href="#epoch-and-stage">Epoch and stage</a>
+      <a href="#runner-and-expected-names">Runner and expected names</a>
+      <a href="#how-the-concepts-relate">How the concepts relate</a>
+      <a href="#terminology">Terminology</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

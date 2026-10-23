@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>十二、最佳实践 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="current" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>十二、最佳实践</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="十二最佳实践">十二、最佳实践</h1>
+<p>这一章不讲 docorder 的机制，讲怎么用它才稳。前面的章节说明「它会怎样做」，这一章说明「你应该怎样组织项目和作业」。这些约定不是强制的，但每一条都对应一类实际踩过的坑。</p>
+<h3 id="先想清楚这件事适不适合-docorder">先想清楚这件事适不适合 docorder</h3>
+<p>docorder 的核心假设是：被处理的对象形状相同、可以放在磁盘上、可以重复处理，而且处理一次的代价高于读一次磁盘。因此它擅长「一批表各生成一段说明」「一批文档各切一段摘要」「一批配置各渲染一份产物」这类事。</p>
+<p>如果任务不符合这个形状，就不该硬套。典型的反例：</p>
+<ul>
+<li>一次性的任务，写个脚本跑一次就完了。为了断点续跑去搭一套目录和算子，是额外成本。</li>
+<li>对象数量很少但每一步都很重。docorder 的目录、快照和比较会带来固定的复杂度开销。</li>
+<li>需要全局视野的一次性聚合。reduce 可以做，但只能把上游整批交给一次调用，输入太大时不如直接写脚本。</li>
+</ul>
+<p>先按第五章「使用场景」对一遍，再决定要不要用。</p>
+<h3 id="目录与命名">目录与命名</h3>
+<p><strong>输入目录按实体形状准备。</strong> <code>DirectorySource</code> 只认「一个子目录里有 <code>data</code> 或 <code>tag.json</code>」这种形状。输入是散落的普通文件时，先写一个 source 把它们整理成实体目录，而不是去改 <code>DirectorySource</code> 的读法。</p>
+<p><strong>实体名守规矩。</strong> 非空、不含 <code>/</code> 和 <code>\</code>，不以 <code>.</code> 或 <code>_</code> 开头。名字会直接变成目录名，也会进模板和命令行参数。带空格、中文或 shell 特殊字符的名字虽然能用，但排查问题时很难受，建议只用小写字母、数字和下划线。</p>
+<p><strong>epoch 用一层目录名。</strong> epoch 会被直接拼进路径，<code>2026/10</code> 会建出两层目录。用 <code>2026-10-16</code>、<code>v3</code> 这样的单层名字。它是版本标识，不是时间路径。</p>
+<p><strong>输出根目录保持稳定。</strong> 同一个作业固定写到一个输出根目录，中断后重跑才能接上进度。放在临时目录或带随机数的路径里，续跑就无从谈起。</p>
+<p><strong>输出目录不要提交。</strong> 它是进度和产物，不是源码。把输出根目录（<code>runs/</code> 之类）写进 <code>.gitignore</code>。作业的输入数据如果来自真实业务，同样不要提交。</p>
+<h3 id="增量与幂等">增量与幂等</h3>
+<p>这是 docorder 最容易用错的地方。</p>
+<p><strong>同一件事用同一个 epoch。</strong> 续跑就是用同一个 epoch 再执行一次。换个 epoch 等于从头再来一遍，之前算过的全部白算。epoch 的作用是「这批数据的一个版本」，不是「每次运行的标识」。</p>
+<p><strong>改逻辑要显式作废旧结果。</strong> 改了模板、参数、function 代码或外部工具，而上游实体没变时，上游快照仍然吻合，旧结果会被原样保留。这时要么删掉该节点的 epoch 目录，要么只删需要重做的实体目录，要么换 epoch。docorder 不会替你判断「代码变了」。</p>
+<p><strong>改了输入要传 <code>--scratch</code>。</strong> source 节点的 <code>start_from_scratch=True</code> 是输入数据进入作业的开关。不传它，源文件的改动不会进入 source 的实体，下游自然看不到。</p>
+<p><strong>不要手改上游实体目录。</strong> 直接改已经写出的 <code>data</code> 或 <code>tag.json</code> 会让依赖它的下游重做，这在调试时有用，但把它当成常规工作流会让「谁是上游」变得不可追踪。要改就改源头。</p>
+<p><strong>别让正文为空。</strong> 上游正文是空字符串时，它的哈希每次都是空值，与快照永远对不上，依赖它的实体每次运行都会重做。大模型调用一次不便宜，这等于每次运行都重新付一遍钱。实在拿不到内容时，写一个占位符也好。</p>
+<p><strong>作业脚本要能重复执行。</strong> 同一个 epoch 跑两遍应该得到同样的结果，而不是报错或叠加。写脚本时把 epoch 当参数传进来，而不是写死在代码里。</p>
+<h3 id="算子-home-的组织">算子 home 的组织</h3>
+<p><strong>home 按角色命名，不要按项目命名。</strong> <code>table_source</code>、<code>ask_llm</code>、<code>render_prompt</code> 这类名字可以跨项目复用；<code>my_project_table_source</code> 就只能用一个项目。项目的差异用节点的 <code>config</code> 传。</p>
+<p><strong>home 里放静态文件，代码放 <code>primary.py</code>。</strong> 模板、工具定义这类纯文件直接放在 home 目录里；需要写代码时用 <code>class: "primary:类名"</code>，代码写在 home 的 <code>primary.py</code> 里。</p>
+<p><strong>用 <code>config</code> 传差异，用 home 传共性。</strong> <code>props.json</code> 里的自定义键是这套 home 的默认参数，节点 <code>config</code> 覆盖同名键。一个 home 服务多个项目时，项目相关的值都应该走 <code>config</code>。</p>
+<p><strong><code>DOCORDER_HOMES</code> 的顺序就是优先级。</strong> 靠前的目录先被搜索，同名 home 以靠前的为准。这条在本地调试时很好用：把自己的 home 目录放在最前面，改坏了也不影响别人。</p>
+<p><strong>环境变量要在建作业之前设好。</strong> home 的查找发生在 <code>add_operator_node</code> 被调用的那一刻。</p>
+<h3 id="错误处理">错误处理</h3>
+<p><strong>配置错误用 <code>FatalError</code>。</strong> 缺参数、模板写错、输入格式不对这类问题，重试多少次都一样，应该立刻失败。函数里抛普通的异常则会触发重试，把时间浪费在必然失败的调用上。</p>
+<p><strong>外部进程的失败用普通异常。</strong> 大模型接口超时、外部命令返回非零状态这类问题，值得重试。<code>PromptToLLM</code> 这类 function 已经内置了这个区分，你只要在包装自己的 function 时保持同样的判断。</p>
+<p><strong>给调用大模型的节点配上 <code>retry</code> 和 <code>parallelism</code>。</strong> 默认的并发度对外部接口来说往往太激进，容易触发限流。先用小一点的并发度跑通，再按接口的配额往上调。</p>
+<p><strong>失败的实体会留下现场。</strong> 一个失败的实体会留下一个只有空 <code>tag.json</code>、没有 <code>data</code> 的目录，里面没有 <code>upstream</code> 快照。修好问题后用同一个 epoch 重跑，它会被重做，之前成功的实体不会重来。所以排查问题时可以直接去看那个目录。</p>
+<h3 id="调用大模型">调用大模型</h3>
+<p><strong>选对 function。</strong> 一批对象各要一段结果，用 <code>EntityTemplateToLLM</code>（map）；整批对象要一份汇总，用 <code>TemplateToLLM</code>（reduce）；上游已经是一段提示词，直接用 <code>PromptToLLM</code>。</p>
+<p><strong>尽量把调用放在 map 上。</strong> map 的粒度是单个实体，失败只影响一个对象，续跑的成本最低。reduce 的粒度是整批，一次失败整批重来。</p>
+<p><strong>用 <code>tag_template</code> 保留元信息。</strong> 大模型返回的正文之外，让 function 顺便把结构化的结果写进 tag，后续步骤就不用再解析正文。</p>
+<p><strong>用 <code>header</code> 约束输出格式。</strong> 给 <code>PromptToLLM</code> 配上 <code>header</code>，模型回复里的表格就能被稳定地截出来当正文，下游不用再处理模型可能加的寒暄。</p>
+<p><strong>把大模型的输入写成路径而不是内容。</strong> <code>EntityTemplateToLLM</code> 和 <code>TemplateToLLM</code> 的模板里能拿到上游 <code>data</code> 文件的路径，让模型自己去读，比把大段内容塞进提示词更省 token，也更不容易超长。</p>
+<p><strong>用 <code>fingerprint.depend</code> 跟踪外部文件。</strong> 如果一段结果依赖某个不在上游实体里的文件（例如表定义旁边的 <code>.sql</code>），用 <code>depend</code> 声明它，文件变了对应的实体才会重做。</p>
+<h3 id="常见反模式">常见反模式</h3>
+<table>
+<thead>
+<tr>
+<th>反模式</th>
+<th>问题</th>
+<th>更好的做法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每个对象起一个子进程单独处理</td>
+<td>丢掉了批量、重试和续跑能力</td>
+<td>用 map 算子，交给 runner 调度</td>
+</tr>
+<tr>
+<td>在 function 里自己写重试或线程池</td>
+<td>和 runner 的机制重复，失败语义不一致</td>
+<td>抛普通异常让 runner 重试，用 <code>parallelism</code> 控制并发</td>
+</tr>
+<tr>
+<td>在 function 里创建作业或调用 <code>execute</code></td>
+<td>进度无处存放，续跑失效</td>
+<td>function 只处理一个实体，作业由脚本构建</td>
+</tr>
+<tr>
+<td>把大块数据塞进 tag</td>
+<td>快照的哈希随数据变大，比较变慢</td>
+<td>tag 只放标识和路径，正文放文件</td>
+</tr>
+<tr>
+<td>每次运行换一个 epoch</td>
+<td>每次都从头算</td>
+<td>固定 epoch，用目录清理来控制重做范围</td>
+</tr>
+<tr>
+<td>改了模板却不清理旧结果</td>
+<td>旧结果被原样保留，看起来「没生效」</td>
+<td>删掉该节点的 epoch 目录，或换 epoch</td>
+</tr>
+<tr>
+<td>用一个 epoch 装互不相关的实体</td>
+<td>一个实体失败牵连整批，多个作业互相干扰</td>
+<td>一个作业一个输出根目录，一个 epoch 一批数据</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/11-a-data-governance-case-study.html">
+          <span class="label">上一篇</span>
+          <span class="name">十一、数据治理案例</span>
+        </a>
+        <a class="next" href="../guide/appendix-a-the-built-in-functions.html">
+          <span class="label">下一篇</span>
+          <span class="name">附录 A：内置 function 一览</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#先想清楚这件事适不适合-docorder">先想清楚这件事适不适合 docorder</a>
+      <a href="#目录与命名">目录与命名</a>
+      <a href="#增量与幂等">增量与幂等</a>
+      <a href="#算子-home-的组织">算子 home 的组织</a>
+      <a href="#错误处理">错误处理</a>
+      <a href="#调用大模型">调用大模型</a>
+      <a href="#常见反模式">常见反模式</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

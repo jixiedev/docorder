@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>六、配置 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="current" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>六、配置</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="六配置">六、配置</h1>
+<p>本章集中介绍使用 docorder 时需要配置的所有内容，包括 docorder 如何找到算子 home、<code>props.json</code> 中每个键的含义、创建作业和添加节点时的参数、运行函数 <code>execute</code> 的参数，以及 function 和模板分别能读到哪些配置。</p>
+<h3 id="让-docorder-找到算子-home">让 docorder 找到算子 home</h3>
+<p>docorder 通过环境变量 <code>DOCORDER_HOMES</code> 寻找算子 home。这个环境变量的值是一个或多个目录，多个目录之间的分隔符与系统环境变量 <code>PATH</code> 相同，在 macOS 和 Linux 上是冒号 <code>:</code>，在 Windows 上是分号 <code>;</code>。查找时，docorder 按列出的顺序依次搜索这些目录，排在前面的目录优先，一旦找到就不再继续搜索。</p>
+<p>算子 home 既可以直接放在列出的目录下面，也可以放在列出的目录下的某个分类子目录里，但不能嵌套得更深。分类子目录可以帮助你按用途整理很多个算子 home，名字以 <code>.</code> 或 <code>_</code> 开头的分类子目录会被跳过。一个目录只要包含 <code>props.json</code> 文件，就会被认作算子 home，算子 home 的名字就是这个目录的名字，添加节点时就用这个名字引用它。</p>
+<pre><code class="language-text">homes/                        DOCORDER_HOMES 指向这里
+  sources/                    分类子目录，可以没有
+    table_source/             名为 table_source 的算子 home
+      props.json
+  render/
+    table_prompt/             名为 table_prompt 的算子 home
+      props.json
+      lib/table.jinja
+</code></pre>
+<p>docorder 是在调用 <code>add_operator_node</code> 添加节点的那一刻查找算子 home 的，因此环境变量必须在构建作业之前设置好。如果找不到指定名字的算子 home，会抛出 <code>FileNotFoundError</code> 错误，错误信息中会列出搜索过的所有目录，便于排查。最简单的做法是在启动脚本中用 <code>os.environ["DOCORDER_HOMES"] = ...</code> 设置这个环境变量，并行线程在同一个进程里，会读到同一份环境变量。</p>
+<h3 id="propsjson">props.json</h3>
+<p><code>props.json</code> 是一个 JSON 对象。下表列出了 docorder 自己会解读的键，表中没有列出的其它键都会作为参数交给 function 使用。表中最后一列说明这个键的值能否在作业中被覆盖，以及用什么方式覆盖。</p>
+<table>
+<thead>
+<tr>
+<th>键</th>
+<th>类型与默认值</th>
+<th>含义</th>
+<th>作业中能否覆盖</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>必须填写</td>
+<td>算子类型，取 <code>source</code>、<code>map</code>、<code>reduce</code>、<code>fanout</code>、<code>apply</code> 之一</td>
+<td>不能</td>
+</tr>
+<tr>
+<td><code>class</code></td>
+<td>必须填写</td>
+<td>function 类，写成 <code>模块路径:类名</code>；写成 <code>primary:类名</code> 表示算子 home 中 <code>primary.py</code> 文件里的类</td>
+<td>不能</td>
+</tr>
+<tr>
+<td><code>parallelism</code></td>
+<td>整数，默认为 1</td>
+<td>map 和 fanout 节点最多同时使用的线程数</td>
+<td>用 <code>add_operator_node</code> 的 <code>parallelism</code> 参数</td>
+</tr>
+<tr>
+<td><code>retry.max_attempts</code></td>
+<td>整数，默认为 1</td>
+<td>每个实体最多尝试的次数，不能小于 1；默认值 1 表示不重试</td>
+<td>用 <code>add_operator_node</code> 的 <code>retry</code> 参数</td>
+</tr>
+<tr>
+<td><code>retry.backoff_seconds</code></td>
+<td>数字，默认为 0</td>
+<td>每次重试前等待的基础秒数，实际等待 <code>backoff_seconds × 已尝试次数</code> 秒</td>
+<td>同上</td>
+</tr>
+<tr>
+<td><code>output</code></td>
+<td>字符串，默认为 <code>result</code></td>
+<td>只对 reduce 节点有效，指定唯一那个输出实体的名字</td>
+<td>用节点的 <code>config</code></td>
+</tr>
+<tr>
+<td><code>fingerprint</code></td>
+<td>对象</td>
+<td>声明这个算子依赖哪些外部文件，分 <code>record</code> 和 <code>depend</code> 两段，见第三章「指纹」一节</td>
+<td>用节点的 <code>config</code></td>
+</tr>
+<tr>
+<td>其它键</td>
+<td>任意 JSON 值</td>
+<td>function 的参数，例如 <code>template</code>、<code>directory</code></td>
+<td>用节点的 <code>config</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>retry</code> 写成一个嵌套的对象，例如 <code>"retry": {"max_attempts": 3, "backoff_seconds": 5}</code>，表示每个实体最多尝试三次，第一次失败后等待 5 秒，第二次失败后等待 10 秒。如果 <code>props.json</code> 不是一个 JSON 对象、<code>class</code> 中没有冒号，或者 <code>type</code> 不是上述五种之一，<code>add_operator_node</code> 会以 <code>JobValidationError</code> 错误失败。</p>
+<h3 id="作业与节点">作业与节点</h3>
+<p><code>Job(name, root)</code> 用于创建一个作业，<code>name</code> 是作业的名字，<code>root</code> 是输出根目录。输出根目录建议使用绝对路径，这样无论从哪个目录启动脚本，结果都会写到同一个地方。节点通过下面的方法加入作业：</p>
+<pre><code class="language-python">job.add_operator_node(
+    name,                 # 节点名，同时也是输出根目录下的子目录名
+    operator_home,        # 算子 home 的名字，在 DOCORDER_HOMES 列出的目录中查找
+    upstream=None,        # 上游节点名；source 节点不填，其它节点必须填，且只能是一个字符串
+    config=None,          # 一个字典，覆盖算子 home 中的 function 参数
+    parallelism=None,     # 覆盖 props.json 中的 parallelism
+    retry=None,           # 覆盖 props.json 中的 retry，写成 RetryPolicy(max_attempts=..., backoff_seconds=...)
+)
+</code></pre>
+<p><code>RetryPolicy</code> 需要从 <code>docorder.utils.retry</code> 导入。使用这个方法时有几点需要注意：<code>upstream</code> 只能是一个字符串，传入列表或元组会被拒绝，这对应着「每个节点只有一个上游」的限制；如果用同一个节点名添加了两次节点，后一次会替换前一次，而且不会报错，所以要确保节点名互不相同；节点名会直接拼接到输出路径中，不做任何检查，应该使用由字母、数字、连字符或下划线组成的简单名字。</p>
+<p>节点在构造时会把传入的 <code>config</code> 覆盖到算子 home 的 function 参数上，并写进 <code>props</code>。遇到同名的键时以 <code>config</code> 中的值为准，<code>config</code> 中的 <code>class</code> 会被忽略，因此不能通过 <code>config</code> 更换 function。构造完成之后节点不再保留 <code>config</code>，之后读参数都从 <code>props</code> 来。作业开始运行时，runner 会为每个节点构造一个算子，并把节点上的公开字段抬到算子上。此后读名字、参数、输出路径和上游，都走算子，不再回头去读节点。还有一点容易混淆：如果把 <code>parallelism</code> 或 <code>retry</code> 写进 <code>config</code>，并不会改变节点的并行度或重试策略，它们只会成为一个普通的 function 参数；要在作业中修改这两项调度参数，只能使用 <code>add_operator_node</code> 的同名参数。</p>
+<h3 id="execute">execute</h3>
+<pre><code class="language-python">from docorder.core.runner import execute
+
+execute(job, epoch, start_from_scratch=False)
+</code></pre>
+<p><code>epoch</code> 会被直接用作一层目录名，docorder 不检查它的内容，所以应该使用日期、版本号这样的简单名字；如果传入 <code>2026/10</code> 这样带斜杠的名字，会建出两层目录。<code>start_from_scratch=True</code> 要求 source 节点调用 function 重新产生实体；不传入时，source 节点保持上一次留下的实体不变。在一个新的 epoch 上第一次运行时，通常都需要传入这个参数，否则 source 节点的目录是空的，整个作业也就没有任何输入。</p>
+<h3 id="function-读到的参数与模板读到的算子信息">function 读到的参数与模板读到的算子信息</h3>
+<p>同一份参数会以两种形式提供给使用者，一种供 function 的代码读取，另一种供模板读取。两者包含的参数完全相同，都遵循「节点的 <code>config</code> 覆盖 <code>props.json</code>」这一约定，区别只在于模板读到的那一份还多了几项由 runner 填入的运行信息。</p>
+<p>function 的代码通过 <code>self.environment.operator_props</code> 读取参数。它的内容是 <code>props.json</code> 去掉 <code>type</code>、<code>class</code>、<code>parallelism</code>、<code>retry</code>、<code>home</code> 这几个键之后剩下的部分，再用节点的 <code>config</code> 覆盖同名的键。function 根据这份参数决定具体怎么运行，例如 <code>TemplateToPrompt</code> 从这里读取 <code>template</code>，以确定使用哪个模板文件。模板读 <code>self.environment.template_env</code>，里面是 <code>operator</code>、<code>job</code>、<code>entity</code>。</p>
+<p>模板通过名为 <code>operator</code> 的变量读取算子信息。它以 function 读到的那份参数为基础，也就是 <code>props.json</code> 中的参数被节点 <code>config</code> 覆盖之后的结果；在此之上，runner 还会填入本次运行的几项信息，包括 <code>name</code>、<code>home</code>、<code>function_class</code>、<code>type</code> 和 <code>operator_home</code>，它们会覆盖同名的参数，具体含义见第八章的变量表。因此，在节点的 <code>config</code> 中覆盖了 <code>template</code> 之后，实际使用的模板文件和模板里 <code>{{ operator.template }}</code> 显示的值会一起改变；只写在节点 <code>config</code> 中、<code>props.json</code> 里没有的键，在模板里同样可以通过 <code>operator.&lt;键&gt;</code> 读到。runner 填入的那几项是唯一的例外：即使在 <code>config</code> 中写了 <code>name</code>，模板读到的仍然是节点名。<code>parallelism</code> 和 <code>retry</code> 是 <code>props.json</code> 的保留键，不会作为 function 参数传下去，因此 <code>operator</code> 里没有这两项；本次运行的 epoch 在 <code>job.epoch</code> 中，不在 <code>operator</code> 中。</p>
+<h3 id="环境变量">环境变量</h3>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>由谁读取</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCORDER_HOMES</code></td>
+<td><code>add_operator_node</code></td>
+<td>寻找算子 home 的目录列表</td>
+</tr>
+<tr>
+<td><code>DOCORDER_LLM</code></td>
+<td><code>PromptToLLM</code></td>
+<td>节点没有配置 <code>tool</code> 参数时使用的大模型工具，值是工具名或工具定义文件的路径</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/5-use-cases.html">
+          <span class="label">上一篇</span>
+          <span class="name">五、使用场景</span>
+        </a>
+        <a class="next" href="../guide/7-operator-types-and-the-built-in-functions.html">
+          <span class="label">下一篇</span>
+          <span class="name">七、算子分类与内置 function</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#让-docorder-找到算子-home">让 docorder 找到算子 home</a>
+      <a href="#propsjson">props.json</a>
+      <a href="#作业与节点">作业与节点</a>
+      <a href="#execute">execute</a>
+      <a href="#function-读到的参数与模板读到的算子信息">function 读到的参数与模板读到的算子信息</a>
+      <a href="#环境变量">环境变量</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

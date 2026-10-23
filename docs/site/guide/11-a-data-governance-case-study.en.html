@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>11. A data governance case study | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="current" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>11. A data governance case study</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="11-a-data-governance-case-study">11. A data governance case study</h1>
+<h3 id="where-the-case-lives-in-the-repository">Where the case lives in the repository</h3>
+<p><code>examples/data-governance/</code> holds three runnable jobs, all of them real data governance work:</p>
+<table>
+<thead>
+<tr>
+<th>Directory</th>
+<th>What the job does</th>
+<th>Size</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>documentation/</code></td>
+<td>Renders table definitions into prompts and hands them to a model to write descriptions</td>
+<td>The smallest one; this is what <code>make quality</code> runs</td>
+</tr>
+<tr>
+<td><code>dbt_model/</code></td>
+<td>Generates dbt models (SQL and YAML) from table documentation</td>
+<td>Medium; needs an external model tool</td>
+</tr>
+<tr>
+<td><code>semantic_layer/</code></td>
+<td>Builds a root catalogue, assigns roots to models, and fills in member attributes</td>
+<td>The most complete one, and the one this chapter covers</td>
+</tr>
+</tbody>
+</table>
+<p>The code of each job is in its own <code>job.py</code>, and the operator homes live under <code>.op_home/</code>. Chapter 10 showed how to build a job from scratch; this chapter looks at a job that is already built, and that is considerably more involved than the tutorial.</p>
+<h3 id="the-problem">The problem</h3>
+<p>The warehouse holds several hundred Hive tables, each described by a dbt model. The yml of a model lists its metrics: the metric name, its description, and how it is aggregated. A model called <code>fct_refund</code> has a metric such as <code>refund_amount</code>, while another model may have <code>gmv_refunded</code>.</p>
+<p>The question data governance has to answer is: are these metrics talking about the same thing? If they are, they should share one name, one definition, and one set of aliases, so that an analyst writing SQL does not have to guess what "refund amount" is called downstream.</p>
+<p>Doing this by hand means reading several hundred yml files, keeping a catalogue of roots, and then filling in an assignment for every metric of every model. It is a lot of work, and it has to be redone whenever a model changes.</p>
+<p>This case uses four jobs in sequence, each handing its result to the next one:</p>
+<!-- figure:pipeline:start -->
+<figure class="figure" id="fig-pipeline">
+<svg role="img" aria-labelledby="pipeline-title pipeline-desc" viewBox="0 0 900 500" width="100%" style="max-width:900px">
+  <title id="pipeline-title">The four jobs of the data governance case</title>
+  <desc>Four jobs in sequence: build the root catalogue, correct it, assign roots to the models and fill in the member attributes. Each job writes its result into .staging, where the next job reads it.</desc>
+  <defs>
+    <marker id="pipeline-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="pipeline-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="pipeline-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="500" fill="#f6f1e8"/>
+  <path d="M 540 92 L 600 92" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 540 200 L 600 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 540 308 L 600 308" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 540 416 L 600 416" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 730 136 L 730 144 L 296 144 Q 290 144 290 150 L 290 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 730 244 L 730 252 L 296 252 Q 290 252 290 258 L 290 264" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <path d="M 730 352 L 730 360 L 296 360 Q 290 360 290 366 L 290 372" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#pipeline-arrow)"/>
+  <rect x="549.15" y="68" width="41.7" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="80" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">writes</text>
+  <rect x="549.15" y="176" width="41.7" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="188" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">writes</text>
+  <rect x="549.15" y="284" width="41.7" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="296" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">writes</text>
+  <rect x="549.15" y="392" width="41.7" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="570" y="404" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">writes</text>
+  <rect x="40" y="48" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="48" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="71" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">raw_root job：build the root catalogue</text>
+  <text x="54" y="93" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source → librarian → taxonomist_root → publish</text>
+  <rect x="40" y="156" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="156" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">refine_root job：correct the root catalogue</text>
+  <text x="54" y="201" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source → optimizer_root → merge_root → publish_final</text>
+  <rect x="40" y="264" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="264" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="287" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">root_assigner job：assign roots to the models</text>
+  <text x="54" y="309" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_assign → root_assigner → reduce_assigner → publish_assigner</text>
+  <text x="54" y="327" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">→ extract_root → taxonomist_member → combine_root_member → publish_root_member</text>
+  <rect x="40" y="372" width="500" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="372" width="500" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="54" y="395" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">member_attribute job：fill in the member attributes</text>
+  <text x="54" y="417" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_member → assign_member → combine_assign_member → publish_assign_member</text>
+  <rect x="600" y="48" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="48" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="71" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">raw_root.csv</text>
+  <text x="614" y="93" fill="#5e584e" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">the first draft of the catalogue</text>
+  <rect x="600" y="156" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="156" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="179" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">final_root.csv</text>
+  <text x="614" y="201" fill="#5e584e" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">the final catalogue</text>
+  <rect x="600" y="264" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="264" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="287" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">root_assign.json</text>
+  <text x="614" y="309" fill="#5e584e" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">the assignment table</text>
+  <text x="614" y="327" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">root_member.csv</text>
+  <rect x="600" y="372" width="260" height="88" rx="6" fill="#f6f1e8"/>
+  <rect x="600" y="372" width="260" height="88" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="614" y="395" fill="#1c1915" font-size="11" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">member attributes</text>
+  <text x="614" y="417" fill="#1c1915" font-size="9.5" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">root_member_assign.json</text>
+</svg>
+<figcaption><span class="fig-label">Figure 8</span> The four jobs of the case: each result lands in .staging and the next job reads it.</figcaption>
+</figure>
+<!-- figure:pipeline:end -->
+
+<h3 id="the-first-job-building-the-root-catalogue">The first job: building the root catalogue</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Type</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td>source</td>
+<td>Reads the one-input-per-model directory <code>.input/</code> and produces entities</td>
+</tr>
+<tr>
+<td><code>librarian</code></td>
+<td>map</td>
+<td>Reads the yml of the model, extracts the metric list, and writes it as JSON</td>
+</tr>
+<tr>
+<td><code>taxonomist_root</code></td>
+<td>reduce</td>
+<td>Renders the JSON of every model into one prompt, calls the model once, and gets the root catalogue</td>
+</tr>
+<tr>
+<td><code>publish</code></td>
+<td>apply</td>
+<td>Writes the root catalogue to <code>.staging/raw_root.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>source</code> uses the built-in <code>FileHashSource</code>. Every child directory of <code>.input/</code> is one entity, and its <code>tag.json</code> names the database and the table:</p>
+<pre><code class="language-json">{
+  &quot;db&quot;: &quot;core_data&quot;,
+  &quot;table&quot;: &quot;fct_refund&quot;
+}
+</code></pre>
+<p>The <code>paths</code> of <code>FileHashSource</code> turn those two fields into the absolute path of the model files and write them into the tag of the entity:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:FileHashSource&quot;,
+  &quot;paths&quot;: {
+    &quot;sql&quot;: &quot;{model_home}/{db}/{table}.sql&quot;,
+    &quot;yml&quot;: &quot;{model_home}/{db}/{table}.yml&quot;
+  },
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+      &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p><code>{model_home}</code> is a string parameter of the operator that points at the directory holding the model files. <code>librarian</code> reads the yml at that absolute path and parses the metric list out of it. It is an ordinary map function that only extends <code>MapFunction</code> and never calls a model, so it is fast.</p>
+<p><code>taxonomist_root</code> is a reduce: it renders the JSON of every upstream entity into one prompt, calls the model once, and gets a CSV back. The first line is the header:</p>
+<pre><code class="language-text">root_id|root_zh|kind|definition|not_a|aliases
+product_click_count|商品点击次数|count|Count of product click events, one per user, ...|已归因点击次数, 未归因点击次数|how many product clicks, ...
+</code></pre>
+<p>Every line is one root: an English ID, a Chinese name, a kind (<code>count</code>, <code>rate</code>, <code>amount</code>, <code>score</code>, <code>duration</code>), a definition, a note about what it is definitely not, and the aliases.</p>
+<p><code>publish</code> is an apply. The built-in <code>Output</code> writes that entity to <code>.staging/raw_root.csv</code>. An apply writes no entity, it only calls the function, so it has no downstream.</p>
+<h3 id="the-second-job-correcting-the-root-catalogue">The second job: correcting the root catalogue</h3>
+<p>A first draft of a root catalogue is rarely perfect: the definition is off, an alias is missing, or two roots are really the same thing. This job has the model propose corrections for each model, and then folds the proposals into the catalogue.</p>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Type</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td>source</td>
+<td>The same node the first job uses</td>
+</tr>
+<tr>
+<td><code>optimizer_root</code></td>
+<td>map</td>
+<td>One model call per model; it edits <code>raw_root_patch_log.csv</code> only when the catalogue does not fit</td>
+</tr>
+<tr>
+<td><code>merge_root</code></td>
+<td>reduce</td>
+<td>One model call that folds that file into the catalogue</td>
+</tr>
+<tr>
+<td><code>publish_final</code></td>
+<td>apply</td>
+<td>Writes <code>.staging/final_root.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p>The operator home of <code>optimizer_root</code> declares two sections of fingerprint:</p>
+<pre><code class="language-json">{
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{staging}/raw_root_patch_log.csv&quot;: &quot;&quot;
+    },
+    &quot;depend&quot;: {
+      &quot;{staging}/raw_root.csv&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p>The <code>depend</code> points at <code>.staging/raw_root.csv</code>, which is what the first job produced. When the catalogue changes, every entity of this operator is redone; when neither the model definitions nor the catalogue changed, not one of them is redone and not a cent is spent on the model.</p>
+<p>The <code>record</code> names <code>.staging/raw_root_patch_log.csv</code>. The prompt tells the model to change that file from <code>raw_root.csv</code>: create it when it is missing, edit it in place when it exists, and leave a row untouched when the catalogue already fits.</p>
+<p><code>merge_root</code> reads both files directly. Its <code>depend</code> lists <code>.staging/raw_root.csv</code> and <code>.staging/raw_root_patch_log.csv</code>, so a change to either file makes it run again.</p>
+<h3 id="the-third-job-assigning-roots-to-models">The third job: assigning roots to models</h3>
+<p>With a final catalogue in hand, the next step is to find the root of every metric of every model.</p>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>Type</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source_assign</code></td>
+<td>source</td>
+<td>A source of its own, with a different node name from the <code>source</code> of the first job</td>
+</tr>
+<tr>
+<td><code>root_assigner</code></td>
+<td>map</td>
+<td>One model call per model, deciding which roots the metrics of that model belong to</td>
+</tr>
+<tr>
+<td><code>reduce_assigner</code></td>
+<td>reduce</td>
+<td>Combines the assignments of every model into one JSON</td>
+</tr>
+<tr>
+<td><code>publish_assigner</code></td>
+<td>apply</td>
+<td>Writes <code>.staging/root_assign.json</code></td>
+</tr>
+<tr>
+<td><code>extract_root</code></td>
+<td>fanout</td>
+<td>Splits the assignment JSON by root, one entity per root</td>
+</tr>
+<tr>
+<td><code>taxonomist_member</code></td>
+<td>map</td>
+<td>One model call per root, writing the member list of that root</td>
+</tr>
+<tr>
+<td><code>combine_root_member</code></td>
+<td>reduce</td>
+<td>Joins the member lists of every root into one CSV</td>
+</tr>
+<tr>
+<td><code>publish_root_member</code></td>
+<td>apply</td>
+<td>Writes <code>.staging/root_member.csv</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>source_assign</code> declares a <code>record</code> that covers both the model files and the catalogue:</p>
+<pre><code class="language-python">job.add_operator_node(
+    &quot;source_assign&quot;,
+    &quot;source&quot;,
+    config={
+        &quot;directory&quot;: incoming,
+        &quot;model_home&quot;: model_home,
+        &quot;catalog&quot;: str(catalog),
+        &quot;fingerprint&quot;: {
+            &quot;record&quot;: {
+                &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+                &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;,
+                &quot;{catalog}&quot;: &quot;&quot;,
+            }
+        },
+    },
+)
+</code></pre>
+<p>The <code>catalog</code> here points at <code>.staging/final_root.csv</code>, so when the catalogue changes this source writes a new hash into the entity and the downstream follows.</p>
+<p>Note that the <code>fingerprint</code> in the node's <code>config</code> replaces the one of the operator home as a whole, which is why the two entries of the home are written out again above. Chapter 4, "Fingerprints and hashes", describes that rule.</p>
+<p><code>extract_root</code> is the only fanout in this case. Its <code>output_names</code> reads the root IDs out of the assignment JSON and skips <code>unassigned</code>:</p>
+<pre><code class="language-python">class ExtractRoot(FanoutFunction):
+    def output_names(self, source_entity):
+        payload = _document(source_entity.read_text(), self.operator_name, source_entity.name)
+        names: set[str] = set()
+        for model in payload[&quot;models&quot;]:
+            for metric in model[&quot;metrics&quot;]:
+                root_id = metric.get(&quot;root_id&quot;)
+                if isinstance(root_id, str) and root_id and root_id != &quot;unassigned&quot;:
+                    names.add(root_id)
+        return sorted(names)
+</code></pre>
+<p>There is one upstream entity, the assignment JSON, and the output is one entity per root. How many entities a fanout produces has nothing to do with how many entities it has upstream, and that is exactly why it exists. The input in this repository produces fourteen root entities.</p>
+<h3 id="the-fourth-job-filling-in-member-attributes">The fourth job: filling in member attributes</h3>
+<p>The last job adds descriptions to the members of every root. Its shape is the simplest of the four: <code>source_member</code>, <code>assign_member</code>, <code>combine_assign_member</code> and <code>publish_assign_member</code>, a source, a map, a reduce and an apply.</p>
+<h3 id="the-mechanisms-this-case-uses">The mechanisms this case uses</h3>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Where it shows up</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The five operator types</td>
+<td>source, map, reduce, fanout and apply are all used</td>
+</tr>
+<tr>
+<td><code>fingerprint.record</code></td>
+<td>Records the model files, the catalogue and the intermediate products</td>
+</tr>
+<tr>
+<td><code>fingerprint.depend</code></td>
+<td>Carries a change of the catalogue downstream</td>
+</tr>
+<tr>
+<td><code>.staging</code></td>
+<td>Passes data from one job to the next</td>
+</tr>
+<tr>
+<td><code>retry</code></td>
+<td>Retries a failed model call</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-to-run-it">How to run it</h3>
+<pre><code class="language-bash">cd examples/data-governance/semantic_layer
+uv run python job.py                   # build the root catalogue
+uv run python job.py refine            # correct the root catalogue
+uv run python job.py assign            # assign roots to the models
+uv run python job.py member_attribute  # fill in the member attributes
+</code></pre>
+<p>The <code>.env</code> of the project holds nothing but <code>DOCORDER_HOMES</code>, which points at the <code>.op_home</code> of this directory. The location of the model files is given by the environment variable <code>SEMANTIC_LAYER_MODELS</code>, the input directory by <code>SEMANTIC_LAYER_INPUT</code>. The model tool is chosen with <code>DOCORDER_LLM</code>; without it the default tool configured in the script is used.</p>
+<p>These jobs need a model tool installed on the machine and model files to read, so they are not run in CI. CI runs the smallest job, the one under <code>documentation/</code>.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/10-using-docorder-in-your-own-project.en.html">
+          <span class="label">Previous</span>
+          <span class="name">10. Using docorder in your own project</span>
+        </a>
+        <a class="next" href="../guide/12-best-practices.en.html">
+          <span class="label">Next</span>
+          <span class="name">12. Best practices</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#where-the-case-lives-in-the-repository">Where the case lives in the repository</a>
+      <a href="#the-problem">The problem</a>
+      <a href="#the-first-job-building-the-root-catalogue">The first job: building the root catalogue</a>
+      <a href="#the-second-job-correcting-the-root-catalogue">The second job: correcting the root catalogue</a>
+      <a href="#the-third-job-assigning-roots-to-models">The third job: assigning roots to models</a>
+      <a href="#the-fourth-job-filling-in-member-attributes">The fourth job: filling in member attributes</a>
+      <a href="#the-mechanisms-this-case-uses">The mechanisms this case uses</a>
+      <a href="#how-to-run-it">How to run it</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

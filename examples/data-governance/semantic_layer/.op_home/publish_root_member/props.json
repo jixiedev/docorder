@@ -1,0 +1,5 @@
+{
+  "type": "apply",
+  "class": "docorder.functions.impl.output:Output",
+  "filename": "root_member.csv"
+}

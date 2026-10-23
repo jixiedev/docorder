@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>6. Configuration | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="current" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>6. Configuration</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="6-configuration">6. Configuration</h1>
+<p>This chapter gathers everything that has to be configured when you use docorder: how docorder finds the operator homes, what every key in <code>props.json</code> means, the arguments of creating a job and adding a node, the arguments of the run function <code>execute</code>, and which configuration the functions and the templates read.</p>
+<h3 id="letting-docorder-find-the-operator-homes">Letting docorder find the operator homes</h3>
+<p>docorder looks for operator homes through the environment variable <code>DOCORDER_HOMES</code>. Its value is one or more directories, separated by the same separator as the system environment variable <code>PATH</code>: a colon <code>:</code> on macOS and Linux, and a semicolon <code>;</code> on Windows. When it looks, docorder searches the directories in the order they are listed, and the earlier ones win; once a home is found the search stops.</p>
+<p>An operator home can sit directly in one of the listed directories, or in a category subdirectory of one of them, but not deeper than that. Category subdirectories help you organize many operator homes by purpose, and those whose names start with <code>.</code> or <code>_</code> are skipped. A directory is recognized as an operator home as soon as it contains a <code>props.json</code> file; the name of the operator home is the name of that directory, and that is the name you use to refer to it when you add a node.</p>
+<pre><code class="language-text">homes/                        DOCORDER_HOMES points here
+  sources/                    category subdirectory, optional
+    table_source/             operator home named table_source
+      props.json
+  render/
+    table_prompt/             operator home named table_prompt
+      props.json
+      lib/table.jinja
+</code></pre>
+<p>docorder looks for the operator home at the moment <code>add_operator_node</code> adds the node, so the environment variable has to be set before the job is built. When no operator home of the given name is found, a <code>FileNotFoundError</code> is raised, and the message lists all the directories that were searched, which makes it easy to troubleshoot. The simplest approach is to set the environment variable in the start script with <code>os.environ["DOCORDER_HOMES"] = ...</code>; the parallel threads are in the same process and read the same environment variable.</p>
+<h3 id="propsjson">props.json</h3>
+<p><code>props.json</code> is a JSON object. The table below lists the keys that docorder itself interprets; every other key is passed to the function as a parameter. The last column of the table says whether the value of the key can be overridden in the job, and how.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type and default</th>
+<th>Meaning</th>
+<th>Can it be overridden in the job</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>Required</td>
+<td>The operator type, one of <code>source</code>, <code>map</code>, <code>reduce</code>, <code>fanout</code>, <code>apply</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>class</code></td>
+<td>Required</td>
+<td>The function class, written as <code>module path:ClassName</code>; written as <code>primary:ClassName</code> it means the class in the <code>primary.py</code> file of the operator home</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>parallelism</code></td>
+<td>Integer, default 1</td>
+<td>The maximum number of threads a map or fanout node uses at the same time</td>
+<td>With the <code>parallelism</code> argument of <code>add_operator_node</code></td>
+</tr>
+<tr>
+<td><code>retry.max_attempts</code></td>
+<td>Integer, default 1</td>
+<td>The maximum number of attempts per entity, not less than 1; the default of 1 means no retry</td>
+<td>With the <code>retry</code> argument of <code>add_operator_node</code></td>
+</tr>
+<tr>
+<td><code>retry.backoff_seconds</code></td>
+<td>Number, default 0</td>
+<td>The base number of seconds to wait before each retry; the actual wait is <code>backoff_seconds × attempts so far</code> seconds</td>
+<td>The same</td>
+</tr>
+<tr>
+<td><code>output</code></td>
+<td>String, default <code>result</code></td>
+<td>Only effective for reduce nodes, and it names the single output entity</td>
+<td>With the node's <code>config</code></td>
+</tr>
+<tr>
+<td><code>fingerprint</code></td>
+<td>Object</td>
+<td>Declares which external files this operator depends on, in the two sections <code>record</code> and <code>depend</code>; see the section "Fingerprints" in chapter 3</td>
+<td>With the node's <code>config</code></td>
+</tr>
+<tr>
+<td>Other keys</td>
+<td>Any JSON value</td>
+<td>Function parameters, such as <code>template</code> and <code>directory</code></td>
+<td>With the node's <code>config</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>retry</code> is written as a nested object, for example <code>"retry": {"max_attempts": 3, "backoff_seconds": 5}</code>, which means each entity is tried at most three times, waiting 5 seconds after the first failure and 10 seconds after the second. If <code>props.json</code> is not a JSON object, <code>class</code> has no colon, or <code>type</code> is not one of the five above, <code>add_operator_node</code> fails with a <code>JobValidationError</code>.</p>
+<h3 id="job-and-node">Job and node</h3>
+<p><code>Job(name, root)</code> creates a job, where <code>name</code> is the job name and <code>root</code> is the output root. An absolute path is recommended for the output root, so that the results are written to the same place no matter which directory the script is started from. Nodes are added to the job with this method:</p>
+<pre><code class="language-python">job.add_operator_node(
+    name,                 # node name, also the subdirectory name under the output root
+    operator_home,        # name of the operator home, looked up in the directories listed by DOCORDER_HOMES
+    upstream=None,        # upstream node name; a source node leaves it empty, every other node must set it, and it can only be one string
+    config=None,          # a dict that overrides the function parameters of the operator home
+    parallelism=None,     # overrides the parallelism in props.json
+    retry=None,           # overrides the retry in props.json, written as RetryPolicy(max_attempts=..., backoff_seconds=...)
+)
+</code></pre>
+<p><code>RetryPolicy</code> has to be imported from <code>docorder.utils.retry</code>. There are a few things to keep in mind when you use this method: <code>upstream</code> can only be one string, and a list or a tuple is rejected, which corresponds to the limit that every node has exactly one upstream; if you add a node with the same name twice, the second one replaces the first without an error, so make sure the node names differ; the node name is joined into the output path without any check, so use a simple name made of letters, digits, hyphens, or underscores.</p>
+<p>When a node is constructed, the <code>config</code> that was passed in is applied over the function parameters of the operator home and written into <code>props</code>. On a shared key the value in <code>config</code> wins, and the <code>class</code> in <code>config</code> is ignored, so you cannot swap the function through <code>config</code>. After construction the node no longer keeps <code>config</code>, and the parameters are read from <code>props</code> from then on. When the job starts running, the runner constructs an operator for every node and lifts the public fields of the node onto the operator. After that the name, the parameters, the output path, and the upstream are all read from the operator and never from the node again. One thing is easy to confuse: putting <code>parallelism</code> or <code>retry</code> into <code>config</code> does not change the parallelism or the retry policy of the node, they only become ordinary function parameters; to change these two scheduling parameters in a job you have to use the same-named arguments of <code>add_operator_node</code>.</p>
+<h3 id="execute">execute</h3>
+<pre><code class="language-python">from docorder.core.runner import execute
+
+execute(job, epoch, start_from_scratch=False)
+</code></pre>
+<p>The <code>epoch</code> is used directly as one directory level, and docorder does not check its content, so use a simple name such as a date or a version number; a name with a slash like <code>2026/10</code> creates two directory levels. <code>start_from_scratch=True</code> asks the source nodes to call the function and produce the entities again; without it, the source nodes keep the entities they left the last time. On the first run with a new epoch you normally need to pass this flag, or the source node's directory is empty and the whole job has no input.</p>
+<h3 id="what-a-function-reads-and-what-a-template-reads">What a function reads and what a template reads</h3>
+<p>The same set of parameters is handed to you in two forms: one for the code of the function to read, and one for the template to read. Both contain exactly the same parameters and both follow the rule that the node's <code>config</code> overrides <code>props.json</code>. The only difference is that the one the template reads has a few more pieces of runtime information filled in by the runner.</p>
+<p>The code of a function reads the parameters through <code>self.environment.operator_props</code>. Its content is what is left of <code>props.json</code> after removing the keys <code>type</code>, <code>class</code>, <code>parallelism</code>, <code>retry</code>, and <code>home</code>, with the same-named keys of the node's <code>config</code> applied over it. The function uses these parameters to decide how it runs, for example <code>TemplateToPrompt</code> reads <code>template</code> from here to know which template file to use. A template reads <code>self.environment.template_env</code>, which holds <code>operator</code>, <code>job</code>, and <code>entity</code>.</p>
+<p>A template reads the operator information through a variable named <code>operator</code>. It is based on the parameters the function reads, that is, the parameters of <code>props.json</code> after the node's <code>config</code> has overridden them; on top of that the runner fills in a few pieces of information about this run, namely <code>name</code>, <code>home</code>, <code>function_class</code>, <code>type</code>, and <code>operator_home</code>, which override the parameters of the same name. The meaning of each is in the variable table in chapter 8. So after you override <code>template</code> in the node's <code>config</code>, the template file that is actually used and the value that <code>{{ operator.template }}</code> shows in the template both change; a key that is only in the node's <code>config</code> and not in <code>props.json</code> can be read in the template the same way, as <code>operator.&lt;key&gt;</code>. The pieces the runner fills in are the only exception: even if you write <code>name</code> in <code>config</code>, the template still reads the node name. <code>parallelism</code> and <code>retry</code> are reserved keys of <code>props.json</code> and are not passed down as function parameters, so <code>operator</code> does not have them; the epoch of this run is in <code>job.epoch</code>, not in <code>operator</code>.</p>
+<h3 id="environment-variables">Environment variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Read by</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCORDER_HOMES</code></td>
+<td><code>add_operator_node</code></td>
+<td>The list of directories in which operator homes are looked for</td>
+</tr>
+<tr>
+<td><code>DOCORDER_LLM</code></td>
+<td><code>PromptToLLM</code></td>
+<td>The model tool used when a node has no <code>tool</code> parameter; the value is a tool name or the path of a tool definition file</td>
+</tr>
+</tbody>
+</table>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/5-use-cases.en.html">
+          <span class="label">Previous</span>
+          <span class="name">5. Use cases</span>
+        </a>
+        <a class="next" href="../guide/7-operator-types-and-the-built-in-functions.en.html">
+          <span class="label">Next</span>
+          <span class="name">7. Operator types and the built-in functions</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#letting-docorder-find-the-operator-homes">Letting docorder find the operator homes</a>
+      <a href="#propsjson">props.json</a>
+      <a href="#job-and-node">Job and node</a>
+      <a href="#execute">execute</a>
+      <a href="#what-a-function-reads-and-what-a-template-reads">What a function reads and what a template reads</a>
+      <a href="#environment-variables">Environment variables</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

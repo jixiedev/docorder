@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1. Background | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="current" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>1. Background</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="1-background">1. Background</h1>
+<h3 id="the-problem-to-solve">The problem to solve</h3>
+<p>Many batch jobs have the same shape: you have a batch of objects, for example the definitions of several hundred data tables, a set of notes, or the configurations of a group of services, and each object has to go through a few processing steps, for example rendering the table definition into a prompt, handing the prompt to a model to produce a description, and finally collecting the descriptions of all the tables into one list. Such tasks have two problems in common. The first is that every step can be slow and can fail: calling an external command can time out, a model API can rate-limit or return an error, and a template can contain a mistake. The second is that the input keeps changing: today you change the definition of one table, tomorrow you add a few more tables, and after every change the results have to be updated.</p>
+<p>If you only write an ordinary script that loops over the objects, then when the three hundredth object fails, fixing the problem usually means running the whole thing again from the start, and the time already spent and the model calls already paid for are wasted. To avoid that, many people keep their own record of "which objects are already done", but a record in a database means one more component to deploy and maintain, and a record in memory is lost as soon as the process exits. The harder problem is deciding whether "a result that has already been computed can still be used": after an input file changes, which downstream results have to be recomputed and which can be kept? An ordinary script has no reliable basis for that answer, so it either recomputes everything or leaves it to human judgement.</p>
+<p>docorder's answer is to write the result of each object at each step as a directory on disk, and to record in that directory the hash of the upstream content this step read. A hash is a fixed-length string computed from a piece of content; as soon as the content changes in any way the hash is completely different, so it can be used to tell whether the content was modified. On the next run docorder only has to compare the hash recorded in the directory with the hash of the current upstream content, and it knows which objects have not been processed yet, which results are out of date and have to be redone, and which results are still valid and can be kept. The whole decision depends only on files on disk: no database, and no state left in memory by the previous run.</p>
+<h3 id="a-minimal-example">A minimal example</h3>
+<p>The job below reads the note entities in a directory, puts the body of each note into a template, and produces a prompt. It has only two steps, but it already contains every basic part of docorder, and the later chapters keep using it to explain the concepts. To actually run this example, install docorder first, as described in the first step of chapter 10.</p>
+<h4 id="prepare-the-files">Prepare the files</h4>
+<p>Create the directory structure below anywhere you like. <code>notes/</code> is the input data, <code>homes/</code> holds the configuration that describes "what each step does", and <code>run.py</code> is the Python script that starts the whole job.</p>
+<pre><code class="language-text">hello-docorder/
+  run.py                    start script
+  notes/
+    hello/
+      data                  input body, the content is hello
+      tag.json              input tag
+  homes/                    directory that holds the operators
+    notes_source/
+      props.json
+    prompt/
+      props.json
+      lib/note.jinja        template file, the content is Note: {{ entity.source_data }}
+</code></pre>
+<p>In docorder, every kind of step in a job is called an operator, and the directory that describes one operator is called the operator home. <code>homes/notes_source/</code> and <code>homes/prompt/</code> above are two operator homes: the first describes the step "read the files in a directory", the second describes the step "produce a prompt with a template". The docorder package ships no operator homes; you always put them in your own project. Every operator home must contain a JSON configuration file named <code>props.json</code>, and it is exactly through this file that docorder recognizes a directory as an operator home and learns how the operator is supposed to run.</p>
+<p>The content of <code>homes/notes_source/props.json</code> is:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.directory_source:DirectorySource&quot;
+}
+</code></pre>
+<p>The content of <code>homes/prompt/props.json</code> is:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;template&quot;: &quot;lib/note.jinja&quot;
+}
+</code></pre>
+<p><code>type</code> says which kind the operator is. A <code>source</code> operator sits at the start of the job: it does not read the results of other steps but produces the first batch of objects from outside, for example from a directory on disk. A <code>map</code> operator reads the result of the previous step and transforms each of its objects once, so each input object has one output object. <code>class</code> points at the Python class that performs the transform, written as "module path:ClassName"; this class is called a function in docorder. Both functions used here ship with docorder: <code>DirectorySource</code> turns the subdirectories of a directory that are already shaped like entities into objects, and <code>TemplateToPrompt</code> renders a piece of text for each object with a Jinja template. Jinja is a template language commonly used in Python; the part of a template between two pairs of braces, such as <code>{{ entity.source_data }}</code>, is replaced by the value of the matching variable at render time. Every key in <code>props.json</code> other than <code>type</code> and <code>class</code> is passed to the function as a parameter: <code>template</code>, for example, tells <code>TemplateToPrompt</code> which template file to use, and that path is relative to the operator home.</p>
+<h4 id="configure-and-run-the-job">Configure and run the job</h4>
+<p>The content of <code>run.py</code> is:</p>
+<pre><code class="language-python">import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+ROOT = Path(__file__).resolve().parent
+
+
+def main() -&gt; None:
+    os.environ[&quot;DOCORDER_HOMES&quot;] = str(ROOT / &quot;homes&quot;)
+
+    job = Job(&quot;hello&quot;, ROOT / &quot;runs&quot;)
+    job.add_operator_node(&quot;notes&quot;, &quot;notes_source&quot;, config={&quot;directory&quot;: str(ROOT / &quot;notes&quot;)})
+    job.add_operator_node(&quot;prompt&quot;, &quot;prompt&quot;, upstream=&quot;notes&quot;)
+
+    execute(job, &quot;demo&quot;, start_from_scratch=True)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p>The first real line of the script sets the environment variable <code>DOCORDER_HOMES</code>, which tells docorder where to look for operator homes. It is set to the <code>homes/</code> directory of the project, so the two names used below, <code>notes_source</code> and <code>prompt</code>, refer to <code>homes/notes_source/</code> and <code>homes/prompt/</code>.</p>
+<p><code>Job("hello", ROOT / "runs")</code> creates a job. A job describes "which steps this run connects, in what order, and where the results are written". The first argument is the job name; the second is the output root, under which the results of every step of this job are written.</p>
+<p><code>add_operator_node</code> adds a node to the job. A node is a point in the job graph: it means "in this job, one step is executed with this operator". The first call adds a node named <code>notes</code>, which uses the <code>notes_source</code> operator home; the <code>config</code> argument gives that node an extra parameter named <code>directory</code>, which names the input directory to read. The location of the input directory belongs to the concrete project and not to the step "read a directory", which can be reused in many projects, so it is not written into <code>props.json</code> but passed in through the job. The second call adds a node named <code>prompt</code>, which uses the <code>prompt</code> operator home; <code>upstream="notes"</code> says that this node reads the result of the <code>notes</code> node as its input, in other words <code>notes</code> is upstream of <code>prompt</code>.</p>
+<p><code>execute(job, "demo", start_from_scratch=True)</code> actually starts the job. The second argument, <code>"demo"</code>, is called the epoch; you can think of it as "the name of this batch of results", and it becomes one level of subdirectory in the output directories. If you run again later with the same epoch, docorder continues on the basis of the results that are already there; with a new epoch, docorder starts from an empty directory and the previous batch of results stays untouched. <code>start_from_scratch=True</code> asks the source nodes to reread the external input; without it, a source node keeps what it read last time and does not reread the input directory.</p>
+<p>In an environment where docorder is installed, enter the <code>hello-docorder/</code> directory and run <code>uv run python run.py</code> to run the job. The <code>if __name__ == "__main__":</code> at the end of the script is the ordinary way to write a script. Parallel execution uses threads; it does not start another subprocess.</p>
+<h4 id="what-the-run-leaves-on-disk">What the run leaves on disk</h4>
+<p>After the run finishes, the output root <code>runs/</code> contains these files:</p>
+<pre><code class="language-text">runs/
+  notes/
+    demo/                             epoch directory
+      hello/                          one entity, the name comes from the input directory hello
+        data                          hello
+        tag.json                      the tag.json of the input entity
+  prompt/
+    demo/
+      hello/
+        data                          Note: hello
+        tag.json                      the same as the upstream tag.json, plus upstream
+                                      {&quot;operator&quot;: &quot;notes&quot;, &quot;name&quot;: &quot;hello&quot;,
+                                       &quot;epoch&quot;: &quot;demo&quot;, &quot;hash&quot;: &quot;5891b5b5…&quot;}
+</code></pre>
+<p>Every node has a directory under the output root named after the node, for example <code>runs/notes/</code> and <code>runs/prompt/</code>; inside the node directory are the directories named after the epochs, here <code>demo/</code>; inside the epoch directory each processed object has one subdirectory of its own, and docorder calls such a directory an entity. In this example the input directory holds a single entity directory, <code>hello</code>, so each node produces a single entity named <code>hello</code>.</p>
+<p>The <code>data</code> file in the entity directory is called the body, and it holds the main result of this step: in the <code>notes</code> node it is the original content of <code>data</code> in the input entity directory; in the <code>prompt</code> node it is the rendered text <code>Note: hello</code>. <code>tag.json</code> holds the information beyond the body, in the form of a JSON object: <code>DirectorySource</code> reads the <code>tag.json</code> of the input directory; <code>TemplateToPrompt</code> produces no new information of its own but copies the <code>tag.json</code> of the upstream entity over unchanged, so the next step can use it.</p>
+<p>The <code>upstream</code> key in <code>tag.json</code> appears only in the entities of the <code>prompt</code> node, and docorder calls it the upstream snapshot. It records which upstream entity this entity was computed from: the upstream node is <code>notes</code>, the upstream entity is <code>hello</code>, the epoch at the time of reading was <code>demo</code>, and the sha256 hash of that upstream entity's body together with its user tag (sha256 is a common hash algorithm; its result is 64 hexadecimal characters, and only the first few are shown above). Whether this result is still valid is decided by exactly this record. The <code>notes</code> node is of type source, so it has no upstream and its entities do not have this key.</p>
+<h4 id="running-it-again">Running it again</h4>
+<p>If you change nothing and run <code>run.py</code> again, the following happens: the <code>notes</code> node rereads the input directory, and the body and tag of <code>hello</code> are still unchanged; when the <code>prompt</code> node comes, docorder compares the hash recorded in <code>upstream</code> in <code>tag.json</code> with the hash of the current body and user tag of <code>runs/notes/demo/hello</code>, finds that the two match, and therefore treats the existing result as still valid, keeps it as it is, and does not render the template again.</p>
+<p>If you change the already written <code>runs/notes/demo/hello/data</code> to <code>changed</code>, or change the <code>tag.json</code> in the same directory, and then run again without <code>start_from_scratch</code>, the <code>notes</code> node does not reread the input directory, but the <code>prompt</code> node finds that the hashes differ while comparing, so it deletes the old <code>hello</code> entity and processes it again. If what you change is a source file in the input directory, you have to pass <code>start_from_scratch=True</code> for <code>notes</code> to read the new content. If you put a <code>bye</code> entity directory into the input directory and read from scratch, both nodes create an entity named <code>bye</code>, and the unchanged <code>hello</code> stays as it is.</p>
+<p>The opposite case deserves special attention: if you only change the template and the upstream entities stay the same, the result of the <code>prompt</code> node is not updated, because the <code>upstream</code> in <code>tag.json</code> records only the body and user tag of the upstream entity, not the content of the template. This is an important boundary of the current version, and the section "The boundaries of this version" below talks about it again. The same holds when a run fails halfway: entities that already wrote a valid <code>upstream</code> are kept on the next run because the comparison passes, and only the entities that are not finished yet are processed again.</p>
+<p>The terms that appear in this example, including operator, operator home, <code>props.json</code>, function, job, node, epoch, entity, body, tag, and upstream snapshot, are all defined more fully in chapter 2, and the later chapters build on them.</p>
+<h3 id="design-trade-offs">Design trade-offs</h3>
+<p>The first trade-off is to keep the processing progress in each entity's own directory instead of in a centralized state database. In the example above, whether the <code>hello</code> entity of the <code>prompt</code> node has to be redone depends only on the <code>upstream</code> in its <code>tag.json</code> and the current body and user tag of the upstream entity; docorder does not query any database and does not depend on anything the previous run left in memory. The benefit is that even in another process, or with another job script, as long as the output root and the epoch are the same, the run continues on the progress of the last run. You can also open the <code>runs/</code> directory directly and look at the intermediate result of every step and every object, which makes troubleshooting very convenient. The cost is that all state has to be expressed in files: docorder uses the <code>upstream</code> in <code>tag.json</code> as the mark of a finished entity, and it is written last, so if the body is already written and the process exits before the tag is written, the entity is treated as unfinished on the next run and processed again.</p>
+<p>The second trade-off is to put the transform logic in a reusable operator home instead of writing it directly into the job script. In the example above, both the template file and <code>props.json</code> live in <code>homes/prompt/</code>, and <code>run.py</code> only says which operator home is used, which node is upstream, and where the results are written. The same operator home can therefore be referenced by many different jobs, and each job can override some of its parameters through the node's <code>config</code> argument; the input directory in the example is passed in exactly this way.</p>
+<p>The third trade-off is to separate scheduling from transformation. A function such as <code>TemplateToPrompt</code> does one thing: it takes an upstream entity and computes the body and tag of the target entity. Reading and writing entity directories, comparing the <code>upstream</code> in <code>tag.json</code>, clearing outdated results, parallel execution, and retry are all done by the part of docorder that handles scheduling, which is called the runner. Because of this split, writing a new transform usually means implementing one or two methods, without worrying about progress records, concurrency, and retry.</p>
+<h3 id="the-boundaries-of-this-version">The boundaries of this version</h3>
+<p>When you design a job, you need to know the following limits of the current version.</p>
+<p>Every node has exactly one upstream node, so the whole job graph is a set of trees rooted at source nodes, and no node can read the results of two upstream nodes at once. If a step really needs to merge two branches, you have to read the files of the other branch yourself in the code of the function, and that read is not recorded in the snapshot, so when the other branch changes docorder does not automatically redo the entity.</p>
+<p>docorder executes one node at a time; one complete execution of a node is called a stage. A node must finish all the entities of this epoch before its downstream node starts; docorder does not support a pipelined execution where the downstream starts as soon as one upstream entity is done.</p>
+<p>Parallel execution happens only on one machine, and it relies on the thread pool of the Python standard library, that is, on starting a number of threads inside the current process to share the work. docorder does not distribute tasks across several machines.</p>
+<p>The upstream snapshot covers the upstream body and user tag, but not the template, the parameters, or the code. If you change the template, a parameter in <code>props.json</code>, the code of the function, or an external tool it calls, while the upstream entities stay the same, docorder does not notice the change and the old result is kept. To make such a change take effect, you have to delete the corresponding output directory by hand, or run with a new epoch.</p>
+<p>Switching to a new epoch means that every node starts computing again from empty directories. The results under the old epoch are neither reused by the new epoch nor cleaned up automatically; when they are no longer needed you have to delete them yourself.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/document-structure.en.html">
+          <span class="label">Previous</span>
+          <span class="name">Document structure</span>
+        </a>
+        <a class="next" href="../guide/2-core-concepts-and-terms.en.html">
+          <span class="label">Next</span>
+          <span class="name">2. Core concepts and terms</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#the-problem-to-solve">The problem to solve</a>
+      <a href="#a-minimal-example">A minimal example</a>
+      <a href="#prepare-the-files">Prepare the files</a>
+      <a href="#configure-and-run-the-job">Configure and run the job</a>
+      <a href="#what-the-run-leaves-on-disk">What the run leaves on disk</a>
+      <a href="#running-it-again">Running it again</a>
+      <a href="#design-trade-offs">Design trade-offs</a>
+      <a href="#the-boundaries-of-this-version">The boundaries of this version</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

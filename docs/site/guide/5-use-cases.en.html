@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>5. Use cases | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="current" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>5. Use cases</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="5-use-cases">5. Use cases</h1>
+<p>docorder is at its best with this kind of task: a batch of objects that are independent of each other, each of which has to go through a few processing steps, where some of those steps are slow, expensive, or prone to failure. In such tasks docorder can guarantee that only the failed part is redone after a failure, and only the affected part is redone after the input changes. Below are several typical job graphs; they all need nothing more than the functions that ship with docorder, or very little code of your own.</p>
+<h3 id="batch-prompt-generation-and-a-model-call">Batch prompt generation and a model call</h3>
+<p>This is the most typical use of docorder. The first step of the job is a source node that reads a directory and turns every subdirectory that follows the entity convention into an entity. The second step is a map node that uses <code>TemplateToPrompt</code> and applies the template to each entity to produce a prompt. The third step is a map node that uses <code>PromptToLLM</code> and hands each prompt to a command line model tool; whatever the tool prints on standard output, or writes itself into the <code>data</code> of the target entity, becomes the body of this step. Finally you can add a reduce node that uses <code>TemplateToLLM</code> to collect all the answers into one list. The node that calls the model usually needs a <code>retry</code> configuration, so that an occasional API error is retried automatically, and a <code>parallelism</code> to control how many requests are in flight at the same time. If a few objects still fail after several retries, fix the problem and run the same epoch again: docorder only redoes those few objects, and the objects that already have an answer are not sent to the model again. The example project in chapter 10 is built in this shape.</p>
+<h3 id="generating-configuration-files-from-structured-data">Generating configuration files from structured data</h3>
+<p>If the body of an upstream entity is a JSON object, for example the field definitions of a table or the description of a service, you can first use a map node with <code>JinjaToJsonnet</code> to treat every key of the JSON object as a template variable and render a jsonnet program, then use a map node with <code>JsonnetToPrompt</code> to compile it with the locally installed <code>jsonnet</code> program and get the final JSON or text. jsonnet is a language made for generating JSON configuration; it supports variables, functions, and list comprehensions, and is more flexible than writing JSON by hand. This combination suits generating configuration files of a uniform format from a batch of table definitions or service descriptions.</p>
+<h3 id="running-a-command-line-tool-for-each-entity">Running a command line tool for each entity</h3>
+<p>A map node with <code>Command</code> runs an external command once for each entity. The arguments of the command can refer to the tag, the body, and the output directory of the entity, and the result of the command can be what it prints on standard output or what it writes to a file on disk. This function starts the command directly, without a shell, so spaces and special characters in the arguments are not interpreted again by a shell. It suits calling code formatters, format converters, or scripts of your own team in bulk.</p>
+<h3 id="gathering-and-splitting">Gathering and splitting</h3>
+<p>A reduce node merges a batch of entities into one entity, which suits results that have to combine all the objects, such as an index, a table of contents, or a statistical report. The built-in <code>TemplateToLLM</code> can render the whole upstream batch into one prompt for the model and write the reply as that one output entity. A fanout node splits one entity into several, which suits cutting a long document into paragraphs or chapters and then handling them separately in later steps. Fanout has no built-in function; you write it yourself as described in chapter 9, and it usually takes a dozen lines of code.</p>
+<h3 id="cases-that-do-not-fit">Cases that do not fit</h3>
+<p>Some tasks do not suit docorder. If a step has to read the results of two different upstream nodes at the same time and wants the entity to be redone whenever either of them changes, the current version cannot express such a dependency. If you need to distribute the work across several machines, or want the downstream to start on an object as soon as the upstream has finished it, docorder cannot do that either. It is equally unsuitable when the content of the objects is binary data such as images or audio, because the body can only be text. And if there are only a few objects, every step is fast, and running everything again from the start after a failure costs nothing, then writing an ordinary Python script is simpler.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/4-fingerprints-and-hashes.en.html">
+          <span class="label">Previous</span>
+          <span class="name">4. Fingerprints and hashes</span>
+        </a>
+        <a class="next" href="../guide/6-configuration.en.html">
+          <span class="label">Next</span>
+          <span class="name">6. Configuration</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#batch-prompt-generation-and-a-model-call">Batch prompt generation and a model call</a>
+      <a href="#generating-configuration-files-from-structured-data">Generating configuration files from structured data</a>
+      <a href="#running-a-command-line-tool-for-each-entity">Running a command line tool for each entity</a>
+      <a href="#gathering-and-splitting">Gathering and splitting</a>
+      <a href="#cases-that-do-not-fit">Cases that do not fit</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

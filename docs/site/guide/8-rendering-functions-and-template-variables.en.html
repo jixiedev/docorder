@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>8. Rendering functions and template variables | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="current" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>8. Rendering functions and template variables</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="8-rendering-functions-and-template-variables">8. Rendering functions and template variables</h1>
+<p>This chapter explains which data the map functions that ship with docorder can use when they render a template or substitute the arguments of a command, and how to add new template variables when the built-in data is not enough.</p>
+<h3 id="the-three-steps-of-renderedmap">The three steps of RenderedMap</h3>
+<p>The full name of <code>RenderedMap</code> is <code>docorder.functions.rendered_map:RenderedMap</code>. It is a subclass of <code>MapFunction</code> and splits the processing of one entity into three steps that follow one another. The first step is <code>read_source</code>, which reads the upstream entity and by default returns the body of the upstream entity. The second step is <code>apply_render</code>, which turns what the first step read into the body of the output entity; this is an abstract method that every subclass has to implement, for example <code>TemplateToPrompt</code> renders the template here and <code>Command</code> runs the command here. The third step is <code>generate_props</code>, which generates the tag of the output entity from the result of the second step, and by default it is a copy of the tag of the upstream entity. All three steps receive the same object named <code>Environment</code>, which is called the rendering environment; it gathers all the data that can be used while rendering.</p>
+<p>An ordinary <code>MapFunction</code> has to implement the two methods <code>transform_data</code> and <code>transform_props</code> separately, and the runner calls them one after the other. <code>RenderedMap</code> already implements those two methods for its subclasses, and it guarantees that the three steps above run only once for the same upstream entity and target entity, so that the body and the tag both come from the same execution. Therefore a slow call, such as an external command or a model, happens only once per entity.</p>
+<h3 id="the-rendering-environment">The rendering environment</h3>
+<p>The rendering environment is <code>environment.template_env</code>, a nested dictionary that both the template and the command read.</p>
+<pre><code class="language-text">template_env
+  operator                        the function parameters, plus this run's name and home
+  job                             name, epoch
+  entity                          the entity being rendered
+    source_name, source_data, source_tag, source_data_path
+    target_name, target_data_path, output
+</code></pre>
+<p><code>TemplateToPrompt</code> hands this dictionary to Jinja. <code>Command</code> substitutes dotted paths such as <code>{operator.home}</code> and <code>{entity.output}</code>. <code>JinjaToJsonnet</code> uses it as well and additionally puts <code>home</code> at the top level. The tag of the entity is in <code>entity.source_tag</code>, and is no longer lifted to the top level.</p>
+<h3 id="built-in-template-variables">Built-in template variables</h3>
+<p>The table below lists the variables that the template of <code>TemplateToPrompt</code> and the placeholders of <code>Command</code> can use. Jinja writes them as <code>{{ operator.name }}</code>, <code>Command</code> writes them as <code>{operator.home}</code>.</p>
+<!-- figure:variables:start -->
+<figure class="figure" id="fig-variables">
+<svg role="img" aria-labelledby="variables-title variables-desc" viewBox="0 0 900 560" width="100%" style="max-width:900px">
+  <title id="variables-title">The built-in template variables</title>
+  <desc>The top level of template_env holds exactly three names: operator, job and entity. operator carries the function arguments overridden by config plus a few values filled in by the runner, job carries the job name and the epoch of this run, and entity is split between the upstream entity and the one being written.</desc>
+  <defs>
+    <marker id="variables-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="variables-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="variables-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="560" fill="#f6f1e8"/>
+  <path d="M 450 104 L 450 128 L 173 128 Q 165 128 165 136 L 165 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 450 104 L 450 128 L 418 128 Q 410 128 410 136 L 410 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 450 104 L 450 128 L 687 128 Q 695 128 695 136 L 695 156" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 165.0 332 L 165.0 396" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 410.0 332 L 410.0 396" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <path d="M 695.0 332 L 695.0 396" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#variables-arrow)"/>
+  <rect x="280" y="40" width="340" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="40" width="340" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="70" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">template_env</text>
+  <text x="450" y="87" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">templates read {{…}}, Command reads {…}</text>
+  <rect x="30" y="156" width="270" height="176" rx="6" fill="#f6f1e8"/>
+  <rect x="30" y="156" width="270" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="44" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">operator</text>
+  <text x="44" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name   home   function_class</text>
+  <text x="44" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">type   operator_home</text>
+  <text x="44" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">Function arguments: props.json without</text>
+  <text x="44" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">the reserved keys, then overridden by config</text>
+  <text x="44" y="281" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">e.g. template · directory</text>
+  <rect x="320" y="156" width="180" height="176" rx="6" fill="#f6f1e8"/>
+  <rect x="320" y="156" width="180" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="334" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">job</text>
+  <text x="334" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name</text>
+  <text x="334" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">epoch</text>
+  <text x="334" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">The job's name and the</text>
+  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">epoch of this run</text>
+  <rect x="520" y="156" width="350" height="176" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="156" width="350" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="534" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity</text>
+  <text x="534" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_name    source_data</text>
+  <text x="534" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">source_tag     source_data_path</text>
+  <text x="534" y="237" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">target_name    target_data_path</text>
+  <text x="534" y="255" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">output</text>
+  <text x="534" y="281" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">The first four describe the upstream</text>
+  <text x="534" y="299" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity, the last three the one being written</text>
+  <rect x="30" y="396" width="270" height="84" rx="6" fill="#f6f1e8"/>
+  <rect x="30" y="396" width="270" height="84" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="44" y="419" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">where the arguments come from</text>
+  <text x="44" y="441" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">props.json + 节点 config</text>
+  <text x="44" y="459" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">runner adds name, home and type</text>
+  <rect x="320" y="396" width="180" height="84" rx="6" fill="#f6f1e8"/>
+  <rect x="320" y="396" width="180" height="84" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="334" y="419" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">where the job comes from</text>
+  <text x="334" y="441" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">execute(job, epoch)</text>
+  <text x="334" y="459" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">the two arguments of the call</text>
+  <rect x="520" y="396" width="350" height="84" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="396" width="350" height="84" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="534" y="419" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">where the entities come from</text>
+  <text x="534" y="441" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">the upstream entity + the one being written</text>
+  <text x="534" y="459" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity.source_tag is the upstream tag.json</text>
+  <text x="40" y="516" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">JinjaToJsonnet differs at the top level: the upstream JSON keys, the variables argument, plus operator, job, entity and home.</text>
+</svg>
+<figcaption><span class="fig-label">Figure 6</span> The built-in template variables: three names at the top level, each with its own origin.</figcaption>
+</figure>
+<!-- figure:variables:end -->
+
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>operator.name</code></td>
+<td>The name of the current node</td>
+</tr>
+<tr>
+<td><code>operator.home</code></td>
+<td>The absolute path of the current operator home</td>
+</tr>
+<tr>
+<td><code>operator.&lt;parameter name&gt;</code></td>
+<td>The parameters of the function, for example <code>operator.template</code></td>
+</tr>
+<tr>
+<td><code>job.name</code>, <code>job.epoch</code></td>
+<td>The job name and the epoch of this run</td>
+</tr>
+<tr>
+<td><code>entity.source_name</code>, <code>entity.source_data</code>, <code>entity.source_tag</code>, <code>entity.source_data_path</code></td>
+<td>The upstream entity</td>
+</tr>
+<tr>
+<td><code>entity.target_name</code>, <code>entity.target_data_path</code>, <code>entity.output</code></td>
+<td>The entity being written</td>
+</tr>
+</tbody>
+</table>
+<p>The different rendering functions use these variables in different ways, and the following sections explain them one by one.</p>
+<p><code>TemplateToPrompt</code> renders the template with Jinja, so it can use the whole Jinja syntax, for example <code>{% for column in entity.source_tag.columns %} ... {% endfor %}</code> to walk a list, or <code>{{ entity.source_name | upper }}</code> to turn the text into upper case. As chapter 7 said, it uses strict mode, so referring to a variable that does not exist fails.</p>
+<p><code>Command</code> does not use Jinja; it only recognizes placeholders of the form <code>{name}</code>. A name can walk into nested objects with dots, for example <code>{entity.source_tag.global_prop.project}</code> means the <code>project</code> key inside the <code>global_prop</code> object of the upstream tag. A placeholder name can only consist of letters, digits, underscores, and dots, and the dictionary it resolves is the same as the one the template uses, that is <code>template_env</code>, so only the three top-level names <code>operator</code>, <code>job</code>, and <code>entity</code> are available. <code>Command</code> substitutes every item of <code>argv</code> and <code>output_file</code>, but not <code>cwd</code>. When a placeholder refers to a name that does not exist, the stage fails with <code>FatalError</code>.</p>
+<p><code>JinjaToJsonnet</code> also uses Jinja, but the top-level variables are different: the top level holds the keys of the JSON object in the upstream body and the keys of the <code>variables</code> parameter, plus the four keys <code>operator</code>, <code>job</code>, <code>entity</code>, and <code>home</code>, where <code>home</code> is <code>operator.home</code>. The keys of the upstream tag are not at the top level and have to be reached as <code>entity.source_tag.&lt;key&gt;</code>. If the upstream JSON happens to have a key named <code>operator</code>, <code>job</code>, <code>entity</code>, or <code>home</code>, it is overridden by these four built-in keys. It also provides the extra <code>jsonnet</code> filter.</p>
+<p><code>JsonnetToPrompt</code> renders no template at all. <code>PromptToLLM</code> does not render a prompt either; it substitutes only one placeholder, <code>{workspace}</code>, in the <code>run</code> of the tool definition.</p>
+<h3 id="adding-a-template-variable">Adding a template variable</h3>
+<p>When the built-in variables do not meet your needs, you can add new ones in the six ways below. They are listed in the order of how much you have to change, and you should usually prefer the ones earlier in the list.</p>
+<h4 id="add-a-parameter-in-propsjson-or-in-the-node-config">Add a parameter in props.json or in the node config</h4>
+<p>Every key of the function parameters that is not a reserved key appears in <code>operator</code>. For example, if you write <code>"audience": "business analyst"</code> in <code>props.json</code>, the template can refer to it with <code>{{ operator.audience }}</code>, and <code>Command</code> can refer to it with <code>{operator.audience}</code>. The same key can also be given when you add the node through <code>config</code>, overriding the default in <code>props.json</code>, for example <code>config={"audience": "data engineer"}</code>, and the template then reads <code>data engineer</code>. This method suits data that does not change: written into <code>props.json</code> it suits "the same template takes a different value in a different operator home"; written into the node's <code>config</code> it suits "the same operator home takes a different value in a different job or node".</p>
+<h4 id="let-the-upstream-write-data-into-tagjson">Let the upstream write data into tag.json</h4>
+<p>Every key of the tag of an upstream entity appears under <code>entity.source_tag</code> in the downstream template, so you can let the upstream step write the data you need into its <code>tag.json</code>. If the upstream is a source node, you can write a subclass of <code>DirectorySource</code> and override the <code>extract_tag</code> method to put the fields parsed out of the file content into the tag, and the downstream template can then refer to those fields. The <code>TableSource</code> in chapter 10, for example, parses a JSON table definition into the three keys <code>table</code>, <code>description</code>, and <code>columns</code>, so the downstream template can write <code>{% for column in entity.source_tag.columns %}</code> directly.</p>
+<h4 id="produce-new-keys-with-generate_props">Produce new keys with generate_props</h4>
+<p>If the upstream is itself a rendering map node, you can override its <code>generate_props</code> method and add new keys to a copy of the upstream tag, and then the template of its downstream can read those new keys. The example below counts the words in the upstream body, uses that number as the body, and records it in the <code>words</code> key of the tag:</p>
+<pre><code class="language-python">from docorder.functions.rendered_map import RenderedMap
+
+
+class WordCount(RenderedMap):
+    def apply_render(self, source, source_entity, environment):
+        return str(len(source.split()))
+
+    def generate_props(self, rendered, source, source_entity, environment):
+        props = source_entity.carried_tag()
+        props[&quot;words&quot;] = int(rendered)
+        return props
+</code></pre>
+<p>Downstream of this node, the template can write <code>{{ entity.source_tag.words }}</code>. The <code>carried_tag()</code> here returns a copy of the upstream tag, and changing the copy does not affect the upstream entity itself.</p>
+<h4 id="pass-data-across-several-steps-with-global_prop">Pass data across several steps with global_prop</h4>
+<p>The <code>global_prop</code> object in the tag is merged by the runner into every downstream entity automatically, even when the tag produced by some function in between does not contain it, for example the tag produced by <code>JinjaToJsonnet</code> is an empty object and it is not lost either. This method suits data that is needed "from the start of the job, possibly at every step after it", for example a project name or a batch number. Writing <code>"global_prop": {"project": "orders domain"}</code> into the tag of a source node lets the template of any downstream node refer to it with <code>{{ entity.source_tag.global_prop.project }}</code>, and <code>Command</code> writes it as <code>{entity.source_tag.global_prop.project}</code>.</p>
+<h4 id="use-the-upstream-json-and-the-variables-parameter-of-jinjatojsonnet">Use the upstream JSON and the variables parameter of JinjaToJsonnet</h4>
+<p>For <code>JinjaToJsonnet</code>, every key of the JSON object in the upstream body is a top-level variable, and the <code>variables</code> parameter provides default values for them. So to add a new variable you can let the upstream write one more key in the JSON, or add an entry to <code>variables</code> in <code>props.json</code> or in the node's <code>config</code>. <code>variables</code> is an ordinary function parameter, so the node's <code>config</code> can override it.</p>
+<h4 id="inherit-a-rendering-function-and-override-apply_render">Inherit a rendering function and override apply_render</h4>
+<p>If the value you need can only be computed while rendering, for example the date of the day, the number of lines of the body, or data that has to be looked up somewhere else, you can write a subclass of <code>TemplateToPrompt</code> and override the <code>apply_render</code> method: first call <code>environment.template_env</code> to get all the built-in variables, then add the new keys to it, and then hand it to the <code>render</code> method provided by the parent class to finish the render.</p>
+<pre><code class="language-python">from datetime import date
+
+from docorder.functions.impl.template_to_prompt import TemplateToPrompt
+
+
+class DatedPrompt(TemplateToPrompt):
+    def apply_render(self, source, source_entity, environment):
+        values = environment.template_env
+        values[&quot;today&quot;] = date.today().isoformat()
+        values[&quot;line_count&quot;] = len(source.splitlines())
+        template = self.artifact.read_text(self.environment.operator_props[&quot;template&quot;])
+        return self.render(template, values, source_entity.name)
+</code></pre>
+<p>Put this class into the <code>primary.py</code> file of the operator home, write <code>"class": "primary:DatedPrompt"</code> and <code>"template": "lib/p.jinja"</code> in <code>props.json</code>, and the template can use <code>{{ today }}</code> and <code>{{ line_count }}</code>, and the original built-in variables still work as before. The <code>source</code> in the method is the upstream body returned by <code>read_source</code>, and <code>self.artifact.read_text</code> reads a file from the operator home, which chapter 9 introduces. Note that the values injected while rendering are not recorded in the upstream snapshot: for example, when the date changes, the entities that are already done are not processed again because of it.</p>
+<p>For <code>JinjaToJsonnet</code> the approach is similar: write a subclass and override the <code>read_source</code> method, and add the new keys to the dictionary it returns, because the keys of that dictionary are the top-level variables of the template.</p>
+<h3 id="which-value-wins-when-names-collide">Which value wins when names collide</h3>
+<p>When variables from different sources share a name, the value that takes effect is decided by these rules. In <code>entity</code>, the names <code>source_name</code>, <code>source_data</code>, <code>source_tag</code>, <code>source_data_path</code>, <code>target_name</code>, <code>target_data_path</code>, and <code>output</code> are fixed, and a key of the same name in the upstream tag does not appear here; it only exists in <code>entity.source_tag</code>. In <code>operator</code>, the parameters in the node's <code>config</code> first override the parameters of the same name in <code>props.json</code>, and then the runner fills in <code>name</code>, <code>home</code>, <code>function_class</code>, <code>type</code>, and <code>operator_home</code>, and these keys override the ones before them. <code>class</code>, <code>parallelism</code>, <code>retry</code>, <code>type</code>, and <code>home</code> are reserved keys of <code>props.json</code> and are not passed down as function parameters. In <code>JinjaToJsonnet</code>, the keys of the upstream JSON override the keys of the same name in <code>variables</code>, and the four built-in keys <code>operator</code>, <code>job</code>, <code>entity</code>, and <code>home</code> override the keys of the same name in the upstream JSON.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/7-operator-types-and-the-built-in-functions.en.html">
+          <span class="label">Previous</span>
+          <span class="name">7. Operator types and the built-in functions</span>
+        </a>
+        <a class="next" href="../guide/9-writing-your-own-function.en.html">
+          <span class="label">Next</span>
+          <span class="name">9. Writing your own function</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#the-three-steps-of-renderedmap">The three steps of RenderedMap</a>
+      <a href="#the-rendering-environment">The rendering environment</a>
+      <a href="#built-in-template-variables">Built-in template variables</a>
+      <a href="#adding-a-template-variable">Adding a template variable</a>
+      <a href="#add-a-parameter-in-propsjson-or-in-the-node-config">Add a parameter in props.json or in the node config</a>
+      <a href="#let-the-upstream-write-data-into-tagjson">Let the upstream write data into tag.json</a>
+      <a href="#produce-new-keys-with-generate_props">Produce new keys with generate_props</a>
+      <a href="#pass-data-across-several-steps-with-global_prop">Pass data across several steps with global_prop</a>
+      <a href="#use-the-upstream-json-and-the-variables-parameter-of-jinjatojsonnet">Use the upstream JSON and the variables parameter of JinjaToJsonnet</a>
+      <a href="#inherit-a-rendering-function-and-override-apply_render">Inherit a rendering function and override apply_render</a>
+      <a href="#which-value-wins-when-names-collide">Which value wins when names collide</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

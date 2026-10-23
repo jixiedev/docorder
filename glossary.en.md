@@ -2,7 +2,7 @@
 
 [中文](glossary.md)
 
-This page fixes the names that the documents and the code keep using. How an entity is stored, and how one stage advances, is in [docs/design.en.md](docs/design.en.md). How each function is configured is in [docs/functions.en.md](docs/functions.en.md).
+This page fixes the names that the documents and the code keep using. How an entity is stored, how one stage advances, and how each function is configured are all in [docs/guide.en.md](docs/guide.en.md).
 
 ## Entity
 
@@ -14,7 +14,7 @@ The upstream snapshot is the `upstream` key in `tag.json`. It records every upst
 
 ## Operator and operator home
 
-An operator is a reusable transform. Its static files live in an operator home, found through `DOCORDER_HOMES`, and the home does not record the output path of any one run. `type` and `class` in `props.json` decide the kind and the function to load, and a job cannot change those two. `type` is one of `source`, `map`, `reduce`, `fanout`, and `output`. An `output` node writes upstream bodies as files under `.job_result` at the job root.
+An operator is a reusable transform. Its static files live in an operator home, found through `DOCORDER_HOMES`, and the home does not record the output path of any one run. `type` and `class` in `props.json` decide the kind and the function to load, and a job cannot change those two. `type` is one of `source`, `map`, `reduce`, `fanout`, and `apply`. An `apply` node calls the function on each upstream entity. The function returns nothing, and the node writes no entities.
 
 ## Function
 

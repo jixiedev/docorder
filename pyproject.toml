@@ -31,19 +31,22 @@ dependencies = [
 docorder = "docorder.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.11"]
+dev = [
+    "markdown>=3.10.3",
+    "pytest>=8",
+    "ruff>=0.11",
+]
 
 [build-system]
 requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
+[[tool.uv.index]]
+url = "https://pypi.infra.wish.com/simple/"
+default = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-docorder = [
-    "homes/**/*",
-]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

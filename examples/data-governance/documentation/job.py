@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -8,6 +9,8 @@ from docorder.core.runner import execute
 REPO_PATH = Path(__file__).resolve().parents[1]
 JOB_ROOT = REPO_PATH / "documentation"
 load_dotenv(JOB_ROOT / ".env")
+# .env 里没有写 DOCORDER_HOMES 时，用本目录下的 .op_home。
+os.environ.setdefault("DOCORDER_HOMES", str(JOB_ROOT / ".op_home"))
 
 
 def main() -> None:

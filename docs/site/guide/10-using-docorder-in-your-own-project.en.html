@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>10. Using docorder in your own project | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="current" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>10. Using docorder in your own project</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="10-using-docorder-in-your-own-project">10. Using docorder in your own project</h1>
+<p>This chapter uses one complete example to show all the steps of using docorder in your own project. Suppose the project is called <code>my-docs</code> and holds a batch of data table definitions described in JSON files, and that you want to produce a prompt for each table, hand it to a command line model tool, and have it write a description of that table, and finally collect all the tables into one list. The job has four nodes, in turn a source, a map, a map, and a reduce, and it uses two functions that ship with docorder and two functions you write yourself. All the files and commands in this chapter have actually been run and verified.</p>
+<h3 id="step-1-install-docorder">Step 1: install docorder</h3>
+<p>docorder has not been published to PyPI, so you cannot install it with <code>pip install docorder</code>; you have to build the package from the source repository first. The commands below clone the repository and build the package with uv. uv is a tool for Python packages and projects; its website explains how to install it.</p>
+<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+cd docorder
+uv build
+</code></pre>
+<p>After the build, the <code>dist/</code> directory of the repository holds a file named <code>docorder-0.1.0-py3-none-any.whl</code>, which is the standard Python package format. Next create your own project and install this package into it:</p>
+<pre><code class="language-bash">mkdir my-docs &amp;&amp; cd my-docs
+uv init --bare
+uv add /path/to/docorder/dist/docorder-0.1.0-py3-none-any.whl
+</code></pre>
+<p><code>uv init --bare</code> only generates a minimal <code>pyproject.toml</code>, the configuration file of a Python project, in the current directory; <code>uv add</code> creates the virtual environment of the project, installs docorder into it, and records this dependency in <code>pyproject.toml</code>. The <code>/path/to/docorder</code> in the commands has to be replaced with the location where you actually cloned the repository.</p>
+<p>If you modify the code of docorder itself while you use it, you can use <code>uv add --editable /path/to/docorder</code> instead; docorder installed this way points straight at the source directory, so a change to the source takes effect at once, with no rebuild and reinstall. If you do not use uv, you can also run <code>pip install /path/to/docorder-0.1.0-py3-none-any.whl</code> in your own virtual environment. docorder requires Python 3.10 or newer, and its dependencies jinja2, python-dotenv, pyyaml, and tqdm are installed along with it.</p>
+<h3 id="step-2-plan-the-directories">Step 2: plan the directories</h3>
+<p>Before you start writing files, plan the directory structure of the project. This is what the example project looks like when it is finished:</p>
+<pre><code class="language-text">my-docs/
+  pyproject.toml
+  run.py                          start script: builds the job and runs it
+  data/
+    tables/                       input data, one entity directory per table
+      orders/
+        data                      the table definition, the body
+        tag.json                  the tag of the table
+      users/
+        data
+        tag.json
+  homes/                          DOCORDER_HOMES points here
+    sources/
+      table_source/               source operator: reads data/tables
+        props.json
+        primary.py                a function you wrote yourself: TableSource
+    render/
+      table_prompt/               map operator: renders the prompt
+        props.json
+        lib/table.jinja
+    llm/
+      ask_llm/                    map operator: calls the model tool
+        props.json
+        tools/echo.json
+    summary/
+      table_index/                reduce operator: collects the table list
+        props.json
+        primary.py                a function you wrote yourself: TableIndex
+  workspace/                      working directory of the model tool, created by run.py
+  runs/                           output root, not under version control
+</code></pre>
+<p>Every part of this structure has its own job. The input data lives in <code>data/</code>, belongs to the project itself, and is read by the source node; docorder does not modify any file in it. The operators live in <code>homes/</code>, sorted into a few category subdirectories, one directory per operator home, and the functions you write yourself live in the <code>primary.py</code> file of their own operator home. All the run results are written to <code>runs/</code>, which is fully managed by docorder and can be deleted and regenerated at any time. <code>run.py</code> is the only entry point of the whole job; it sets <code>DOCORDER_HOMES</code>, builds the job, and starts the run.</p>
+<h3 id="step-3-prepare-the-input-data">Step 3: prepare the input data</h3>
+<p><code>DirectorySource</code> reads the subdirectories that are already shaped like entities: each subdirectory is one table, the directory name is the entity name, and it has to hold the two files <code>data</code> and <code>tag.json</code>. The structure under <code>data/tables/</code> is therefore:</p>
+<pre><code class="language-text">data/tables/
+  orders/
+    data                          the table definition, the body
+    tag.json                      the tag of the table
+  users/
+    data
+    tag.json
+</code></pre>
+<p>The content of <code>data/tables/orders/data</code> is the definition of this table:</p>
+<pre><code class="language-json">{
+  &quot;table&quot;: &quot;orders&quot;,
+  &quot;description&quot;: &quot;one row per order&quot;,
+  &quot;columns&quot;: [
+    {&quot;name&quot;: &quot;order_id&quot;, &quot;type&quot;: &quot;bigint&quot;, &quot;comment&quot;: &quot;order id&quot;},
+    {&quot;name&quot;: &quot;user_id&quot;, &quot;type&quot;: &quot;bigint&quot;, &quot;comment&quot;: &quot;the user who placed the order&quot;},
+    {&quot;name&quot;: &quot;amount&quot;, &quot;type&quot;: &quot;decimal(10,2)&quot;, &quot;comment&quot;: &quot;order amount&quot;}
+  ]
+}
+</code></pre>
+<p>The content of <code>data/tables/orders/tag.json</code> is the tag of this table; at the very least, write an empty object:</p>
+<pre><code class="language-json">{}
+</code></pre>
+<p>The structure of <code>users</code> is the same as that of <code>orders</code>, only it describes the users table, with the two fields <code>user_id</code> and <code>city</code>. The entity name is the directory name itself, so the directory name has to follow the entity naming rules: not empty, no <code>/</code> or <code>\</code>, and not starting with <code>.</code> or <code>_</code>. Ordinary files in this directory, for example a README, are not entities and are not read.</p>
+<h3 id="step-4-write-the-operator-homes">Step 4: write the operator homes</h3>
+<h4 id="table_source-read-the-table-definitions">table_source: read the table definitions</h4>
+<p>This operator reads the entity directories in <code>data/tables/</code> and parses the fields out of the body into the tag of the entity, for the templates downstream to use.</p>
+<p>The content of <code>homes/sources/table_source/props.json</code> is:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;source&quot;,
+  &quot;class&quot;: &quot;primary:TableSource&quot;,
+  &quot;project&quot;: &quot;orders domain&quot;
+}
+</code></pre>
+<p>The content of <code>homes/sources/table_source/primary.py</code> is:</p>
+<pre><code class="language-python">import json
+
+from docorder.functions.impl.directory_source import FilteredDirectorySource
+from docorder.utils.errors import FatalError
+
+
+class TableSource(FilteredDirectorySource):
+    def extract_tag(self, name, content, tag):
+        tag = dict(tag)
+        try:
+            spec = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise FatalError(f&quot;{name} is not valid JSON: {exc}&quot;) from exc
+        tag[&quot;table&quot;] = spec[&quot;table&quot;]
+        tag[&quot;description&quot;] = spec.get(&quot;description&quot;, &quot;&quot;)
+        tag[&quot;columns&quot;] = spec.get(&quot;columns&quot;, [])
+        tag[&quot;global_prop&quot;] = {&quot;project&quot;: self.environment.operator_props.get(&quot;project&quot;, &quot;&quot;)}
+        return tag
+</code></pre>
+<p><code>TableSource</code> inherits <code>FilteredDirectorySource</code>, so the behaviour of "reading entity directories" is taken over from the parent class. This example configures no <code>filter</code>, so the filtering rules of the parent class do not apply and every entity directory under <code>data/tables/</code> is collected into a record. It overrides only the <code>extract_tag</code> method: it first takes the <code>tag.json</code> from the input directory, then parses the JSON of <code>data</code> and adds the three fields <code>table</code>, <code>description</code>, and <code>columns</code>; if the body is not valid JSON, it raises <code>FatalError</code>, because such an error cannot be solved by retrying. Finally it puts the custom parameter <code>project</code> from <code>props.json</code> into <code>global_prop</code>, so that the project name travels all the way through the runner to the final reduce node. You may have noticed that there is no <code>directory</code> parameter in <code>props.json</code>, because the input directory belongs to the project and not to the operator; it is passed in by <code>run.py</code> through the node's <code>config</code>, so that this operator home can be copied unchanged into other projects.</p>
+<h4 id="table_prompt-render-the-prompt">table_prompt: render the prompt</h4>
+<p>This operator uses the <code>TemplateToPrompt</code> that ships with docorder directly and needs no code at all; you only have to prepare <code>props.json</code> and the template file.</p>
+<p>The content of <code>homes/render/table_prompt/props.json</code> is:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;template&quot;: &quot;lib/table.jinja&quot;,
+  &quot;audience&quot;: &quot;business analyst&quot;
+}
+</code></pre>
+<p>The content of <code>homes/render/table_prompt/lib/table.jinja</code> is:</p>
+<pre><code class="language-text">Write a short description of the {{ entity.source_tag.table }} table for {{ operator.audience }}.
+
+Project: {{ entity.source_tag.global_prop.project }}
+Purpose: {{ entity.source_tag.description }}
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+{% for column in entity.source_tag.columns -%}
+| {{ column.name }} | {{ column.type }} | {{ column.comment }} |
+{% endfor %}
+</code></pre>
+<p>The variables used in the template come from three different places. <code>entity.source_tag.table</code>, <code>entity.source_tag.description</code>, and <code>entity.source_tag.columns</code> come from the tag of the upstream entity, that is, the fields <code>TableSource</code> parsed; <code>entity.source_tag.global_prop.project</code> also comes from the upstream tag, from its <code>global_prop</code>; <code>operator.audience</code> comes from the custom parameter <code>audience</code> in the <code>props.json</code> of this operator home. The <code>{% for column in entity.source_tag.columns -%}</code> in the template walks the list of columns and writes one table row per column; the minus sign in <code>-%}</code> removes the newline after that tag, so that no blank line is left between the rows of the table.</p>
+<h4 id="ask_llm-call-the-model-tool">ask_llm: call the model tool</h4>
+<p>This operator uses the <code>PromptToLLM</code> that ships with docorder and hands the prompt produced by the previous step to the model tool.</p>
+<p>The content of <code>homes/llm/ask_llm/props.json</code> is:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.prompt_to_llm:PromptToLLM&quot;,
+  &quot;tool&quot;: &quot;echo&quot;,
+  &quot;retry&quot;: { &quot;max_attempts&quot;: 3, &quot;backoff_seconds&quot;: 5 }
+}
+</code></pre>
+<p>The content of <code>homes/llm/ask_llm/tools/echo.json</code> is:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;echo&quot;,
+  &quot;run&quot;: [&quot;cat&quot;],
+  &quot;prompt&quot;: &quot;stdin&quot;
+}
+</code></pre>
+<p>The value <code>echo</code> of the <code>tool</code> parameter makes <code>PromptToLLM</code> read <code>tools/echo.json</code> from this operator home. This tool definition uses the system command <code>cat</code> and prints the prompt it received on standard input unchanged; it is only there so that this example can run completely without depending on any real model service. In real use you have to create another tool definition file in the <code>tools/</code> directory, replace its <code>run</code> with the command line model tool you actually use, and change the <code>tool</code> in <code>props.json</code> to the name of that new tool. The <code>retry</code> configuration means each entity is tried at most three times, which is very useful for a model API that fails now and then. The <code>workspace</code> parameter that <code>PromptToLLM</code> requires is passed in by <code>run.py</code> through the node's <code>config</code> as well.</p>
+<h4 id="table_index-collect-the-table-list">table_index: collect the table list</h4>
+<p>This operator is a reduce function you write yourself; it collects the information of all the tables into one table list in Markdown format.</p>
+<p>The content of <code>homes/summary/table_index/props.json</code> is:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;reduce&quot;,
+  &quot;class&quot;: &quot;primary:TableIndex&quot;,
+  &quot;output&quot;: &quot;index&quot;,
+  &quot;title&quot;: &quot;Table list&quot;
+}
+</code></pre>
+<p>The content of <code>homes/summary/table_index/primary.py</code> is:</p>
+<pre><code class="language-python">from docorder.functions.reduce_function import ReduceFunction
+
+
+class TableIndex(ReduceFunction):
+    def transform_data(self, sources, target):
+        lines = [f&quot;# {self.environment.operator_props.get('title', 'Table list')}&quot;, &quot;&quot;]
+        for entity in sources:
+            lines.append(f&quot;- {entity.tag.get('table', entity.name)}: {entity.tag.get('description', '')}&quot;)
+        target.staging_data = &quot;\n&quot;.join(lines) + &quot;\n&quot;
+
+    def transform_props(self, sources, target):
+        target.tag = {&quot;tables&quot;: [entity.name for entity in sources]}
+</code></pre>
+<p>The upstream of this reduce node is the <code>ask_llm</code> node. Because <code>TemplateToPrompt</code> and <code>PromptToLLM</code> both copy the tag of the upstream over unchanged, the <code>table</code> and <code>description</code> that <code>TableSource</code> parsed at the very beginning have been carried all the way here, so <code>TableIndex</code> can read them straight from the <code>tag</code> of every upstream entity. <code>title</code> is a parameter this function defines itself, used as the title of the list. The name of the output entity is decided by the <code>output</code> parameter, which is <code>index</code>.</p>
+<h3 id="step-5-write-the-start-script">Step 5: write the start script</h3>
+<p>The content of <code>run.py</code> is:</p>
+<pre><code class="language-python">import argparse
+import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+ROOT = Path(__file__).resolve().parent
+
+
+def build_job() -&gt; Job:
+    job = Job(&quot;table-docs&quot;, ROOT / &quot;runs&quot;)
+    job.add_operator_node(
+        &quot;tables&quot;,
+        &quot;table_source&quot;,
+        config={&quot;directory&quot;: str(ROOT / &quot;data&quot; / &quot;tables&quot;)},
+    )
+    job.add_operator_node(&quot;prompts&quot;, &quot;table_prompt&quot;, upstream=&quot;tables&quot;, parallelism=2)
+    job.add_operator_node(
+        &quot;answers&quot;,
+        &quot;ask_llm&quot;,
+        upstream=&quot;prompts&quot;,
+        config={&quot;workspace&quot;: str(ROOT / &quot;workspace&quot;)},
+    )
+    job.add_operator_node(&quot;index&quot;, &quot;table_index&quot;, upstream=&quot;answers&quot;)
+    return job
+
+
+def main() -&gt; None:
+    parser = argparse.ArgumentParser(description=&quot;generate descriptions for the tables under data/tables&quot;)
+    parser.add_argument(&quot;epoch&quot;, help=&quot;the epoch of this run, for example 2026-10-16&quot;)
+    parser.add_argument(&quot;--scratch&quot;, action=&quot;store_true&quot;, help=&quot;make the source reread data/tables&quot;)
+    args = parser.parse_args()
+
+    homes = [str(ROOT / &quot;homes&quot;), os.environ.get(&quot;DOCORDER_HOMES&quot;, &quot;&quot;)]
+    os.environ[&quot;DOCORDER_HOMES&quot;] = os.pathsep.join(path for path in homes if path)
+    (ROOT / &quot;workspace&quot;).mkdir(exist_ok=True)
+
+    execute(build_job(), args.epoch, start_from_scratch=args.scratch)
+    print((ROOT / &quot;runs&quot; / &quot;index&quot; / args.epoch / &quot;index&quot; / &quot;data&quot;).read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p>There are a few things worth saying about this script. The <code>build_job</code> function builds a job with four nodes: the <code>tables</code> node uses the <code>table_source</code> operator and passes the input directory through <code>config</code>; the <code>prompts</code> node has <code>tables</code> as its upstream, uses the <code>table_prompt</code> operator, and sets <code>parallelism=2</code>, which allows at most two threads to render at the same time; the <code>answers</code> node has <code>prompts</code> as its upstream, uses the <code>ask_llm</code> operator, and passes the working directory of the model tool through <code>config</code>; the <code>index</code> node has <code>answers</code> as its upstream and uses the <code>table_index</code> operator.</p>
+<p>The <code>main</code> function parses the command line arguments with the Python standard library <code>argparse</code>: the first argument is the epoch, and the optional <code>--scratch</code> switch decides whether <code>start_from_scratch=True</code> is passed. The code that sets <code>DOCORDER_HOMES</code> has to come before the call to <code>build_job()</code>, because the operator homes are looked up when the nodes are added; here the project's own <code>homes/</code> is put first, so that the operator homes of the project win over the ones of the same name already in the environment, while the directories that were already in the environment variable are kept. <code>os.pathsep</code> is the path separator of the current system, so this works on macOS, Linux, and Windows alike. Every path in the script is computed from <code>ROOT</code>, the directory the script is in, so the result is the same no matter which directory you run it from.</p>
+<p>The paths that belong to the project, that is the input directory and the working directory, are passed in through the node's <code>config</code>, and the operator homes contain no project-specific path at all, so these operator homes can be copied unchanged into other projects. The <code>parallelism=2</code> of the <code>prompts</code> node renders with two threads in the current process; it does not start another subprocess.</p>
+<h3 id="step-6-run-it-and-look-at-the-result">Step 6: run it and look at the result</h3>
+<p>On the first run with a new epoch you need to add <code>--scratch</code>, so that the source node reads the input data:</p>
+<pre><code class="language-bash">uv run python run.py 2026-10-16 --scratch
+</code></pre>
+<p>After the run finishes, the script prints the result of the reduce node:</p>
+<pre><code class="language-text"># Table list
+
+- orders: one row per order
+- users: registered users
+</code></pre>
+<p>At this point the structure of the <code>runs/</code> directory is as follows; every node has a directory named after the node, and the <code>2026-10-16/</code> inside it is the epoch directory:</p>
+<pre><code class="language-text">runs/
+  tables/   2026-10-16/{orders,users}/  data, tag.json
+  prompts/  2026-10-16/{orders,users}/  data, tag.json
+  answers/  2026-10-16/{orders,users}/  data, tag.json
+  index/    2026-10-16/index/           data, tag.json
+</code></pre>
+<p>Open <code>runs/prompts/2026-10-16/orders/data</code> and you can see the rendered prompt, with every variable of the template replaced by its actual value:</p>
+<pre><code class="language-text">Write a short description of the orders table for business analyst.
+
+Project: orders domain
+Purpose: one row per order
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| order_id | bigint | order id |
+| user_id | bigint | the user who placed the order |
+| amount | decimal(10,2) | order amount |
+</code></pre>
+<p>Now open <code>runs/index/2026-10-16/index/tag.json</code> and you can see that besides the <code>tables</code> that <code>TableIndex</code> wrote, there is also the <code>global_prop</code> that travelled down from the source node, even though <code>TableIndex</code> never copied it itself. The runner also wrote an <code>upstream</code> key, which records the snapshot of every upstream entity that took part in this collection; it is left out here for brevity:</p>
+<pre><code class="language-json">{
+  &quot;global_prop&quot;: {
+    &quot;project&quot;: &quot;orders domain&quot;
+  },
+  &quot;tables&quot;: [
+    &quot;orders&quot;,
+    &quot;users&quot;
+  ]
+}
+</code></pre>
+<h3 id="step-7-run-again-after-a-change">Step 7: run again after a change</h3>
+<p>Once the project is in use, the input data, the templates, and the code keep changing. Different changes need different ways of running again, and they all follow the rules in the section "Decisions on a later run" in chapter 3.</p>
+<p>If a run failed halfway, for example because the model tool still reported an error after using up all its retries, fix the problem that caused the failure first and then run the same epoch again, without <code>--scratch</code>: <code>uv run python run.py 2026-10-16</code>. The entities that are already done are kept because the comparison passes, and docorder only redoes the failed entities and the downstream entities affected by them.</p>
+<p>If the input data changed, that is, if you added, changed, or deleted an entity directory under <code>data/tables/</code>, you have to add <code>--scratch</code> when you run again, or the source node will not reread the directory. After that, only the tables whose body really changed are processed again along the job graph, the new tables are created, the deleted tables are removed from every downstream node, and the reduce node regenerates the table list because its upstream changed. For example, after adding a <code>payments/</code> entity directory and running again with <code>--scratch</code>, the table list has one more line, <code>payments</code>; if you forget <code>--scratch</code>, the source node does not read the new directory and the table list does not change at all.</p>
+<p>If you changed the template, a parameter in <code>props.json</code>, or the code of the function, docorder does not notice the change, and you have to delete the epoch directory of the affected node before you run again. For example, after changing <code>table.jinja</code>, run <code>rm -rf runs/prompts/2026-10-16</code> to delete the result of the prompt node, and then run <code>uv run python run.py 2026-10-16</code>: the <code>prompts</code> node renders all the prompts again, and because the content of the prompts changed, the two nodes <code>answers</code> and <code>index</code> are processed again as well. If you only want some entities to be processed again, delete only the matching entity directories, for example <code>runs/prompts/2026-10-16/orders</code>.</p>
+<p>If you want to keep all the current results and run everything again from scratch, use a new epoch, for example <code>uv run python run.py 2026-10-17 --scratch</code>. The directories of the old epoch are not cleaned up automatically; delete them by hand when they are no longer needed.</p>
+<h3 id="version-control">Version control</h3>
+<p>The <code>data/</code>, <code>homes/</code>, <code>run.py</code>, <code>pyproject.toml</code>, and <code>uv.lock</code> (the dependency lock file uv generates) of the project should all be under version control. <code>runs/</code> and <code>workspace/</code> are files produced at run time and should go into <code>.gitignore</code> so that they are not committed:</p>
+<pre><code class="language-text">runs/
+workspace/
+</code></pre>
+<p>Also, do not put credentials such as access tokens or passwords into <code>props.json</code> or into a tool definition file, because these files are committed to the repository together with the project. The credentials a model tool needs should be put in environment variables and read by the tool itself.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/9-writing-your-own-function.en.html">
+          <span class="label">Previous</span>
+          <span class="name">9. Writing your own function</span>
+        </a>
+        <a class="next" href="../guide/11-a-data-governance-case-study.en.html">
+          <span class="label">Next</span>
+          <span class="name">11. A data governance case study</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#step-1-install-docorder">Step 1: install docorder</a>
+      <a href="#step-2-plan-the-directories">Step 2: plan the directories</a>
+      <a href="#step-3-prepare-the-input-data">Step 3: prepare the input data</a>
+      <a href="#step-4-write-the-operator-homes">Step 4: write the operator homes</a>
+      <a href="#table_source-read-the-table-definitions">table_source: read the table definitions</a>
+      <a href="#table_prompt-render-the-prompt">table_prompt: render the prompt</a>
+      <a href="#ask_llm-call-the-model-tool">ask_llm: call the model tool</a>
+      <a href="#table_index-collect-the-table-list">table_index: collect the table list</a>
+      <a href="#step-5-write-the-start-script">Step 5: write the start script</a>
+      <a href="#step-6-run-it-and-look-at-the-result">Step 6: run it and look at the result</a>
+      <a href="#step-7-run-again-after-a-change">Step 7: run again after a change</a>
+      <a href="#version-control">Version control</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

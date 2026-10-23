@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>四、指纹与哈希 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="current" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>四、指纹与哈希</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="四指纹与哈希">四、指纹与哈希</h1>
+<h3 id="docorder-里有三种哈希">docorder 里有三种哈希</h3>
+<p>判断一个结果还能不能继续用，靠的是比较哈希。docorder 里有三种哈希，它们各自回答一个问题：</p>
+<table>
+<thead>
+<tr>
+<th>哈希</th>
+<th>算的是什么</th>
+<th>记在哪里</th>
+<th>用来判断什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>上游快照里的哈希</td>
+<td>上游实体的正文加上它的用户 tag</td>
+<td>下游实体 <code>tag.json</code> 的 <code>upstream</code> 里</td>
+<td>上游的结果有没有变</td>
+</tr>
+<tr>
+<td><code>fingerprint.depend</code></td>
+<td>算子读取的、但上游实体没有携带的外部文件</td>
+<td>本实体 <code>tag.json</code> 的 <code>fingerprint</code> 里</td>
+<td>这些外部文件有没有变</td>
+</tr>
+<tr>
+<td><code>fingerprint.record</code></td>
+<td>算子自己写下的外部文件</td>
+<td>本实体 <code>tag.json</code> 的 <code>fingerprint</code> 里</td>
+<td>不参与判断，只做记账</td>
+</tr>
+</tbody>
+</table>
+<p>第一种第三章讲过。本章讲后面两种，以及三者如何合成一个判断。</p>
+<h3 id="上游快照里的哈希">上游快照里的哈希</h3>
+<p>第二章说过，<code>upstream</code> 记录的是直接上游实体此刻的快照。一条记录有四个字段：<code>operator</code> 是上游节点名，<code>name</code> 是上游实体名，<code>epoch</code> 是本次运行的 epoch，<code>hash</code> 是上游实体正文连同用户 tag 的 sha256。</p>
+<p>这个 <code>hash</code> 的算法很简单：把上游实体的正文和它的用户 tag 拼成一个 JSON，再对这个 JSON 取 sha256。有两处细节值得记住。</p>
+<p>第一，参与计算的是「用户 tag」，也就是 <code>tag.json</code> 去掉 <code>upstream</code> 和 <code>current</code> 这两个键之后剩下的部分。<code>upstream</code> 必须排除，否则哈希会把自己算进去，再也不会稳定；<code>current</code> 是早期版本留下的键，也一并排除。用户 tag 里的其它键全都参与计算，因此 function 往 tag 里写的每一个字段都算进去。</p>
+<p>第二，正文为空时，哈希也是空字符串。空正文意味着这个实体的内容根本没有写下来，它不会和任何一次正常的结果匹配上。runner 比较时看到空哈希，一律判为不吻合。</p>
+<h3 id="声明指纹">声明指纹</h3>
+<p>上游快照只能覆盖「上游实体的正文和用户 tag」。有些算子要读别的文件：一张表定义旁边的 <code>.sql</code> 文件、一份词根表、一个上游写出来的中间文件。这些文件的内容不在上游实体里，上游快照看不到它们的变化。</p>
+<p><code>props.json</code> 里的 <code>fingerprint</code> 就是为这种情况准备的。它是一个对象，最多两段：</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;primary:RenderWithSchema&quot;,
+  &quot;fingerprint&quot;: {
+    &quot;record&quot;: {
+      &quot;{staging}/{name}.out&quot;: &quot;&quot;
+    },
+    &quot;depend&quot;: {
+      &quot;{schema_home}/{name}.sql&quot;: &quot;&quot;
+    }
+  }
+}
+</code></pre>
+<p><code>record</code> 和 <code>depend</code> 都是对象，键是路径模板，值写什么都不算数——docorder 只读键，值只是占位。</p>
+<p>两段的分工是固定的：</p>
+<ul>
+<li><code>record</code> 列出这个算子自己写下的文件，或者 source 指向的输入文件。runner 在实体写好之后对这些文件取哈希，把结果记进这个实体的 <code>tag.json</code>。</li>
+<li><code>depend</code> 列出这个算子读取的、但上游实体没有携带的文件。runner 在比较阶段就对这些文件取哈希，与实体里上一次记下的值作比较。</li>
+</ul>
+<p><code>record</code> 只是记账，不参与「要不要重做」的判断。改了 <code>record</code> 里的文件，不会让本算子重做；它只是把这次看到的文件状态记下来，供下游和排查使用。真正决定重做的是 <code>depend</code>。</p>
+<h3 id="两处判断如何合成一个结果">两处判断如何合成一个结果</h3>
+<p>一个非 source 节点的实体要留下来，需要同时满足两件事：上游快照与上游当前的状态吻合，并且 <code>depend</code> 声明的每一个文件的哈希与上一次记下的一致。任意一条不成立，这个实体重做。两件事都成立时，实体被原样保留，function 不会被调用。</p>
+<!-- figure:hashes:start -->
+<figure class="figure" id="fig-hashes">
+<svg role="img" aria-labelledby="hashes-title hashes-desc" viewBox="0 0 900 640" width="100%" style="max-width:900px">
+  <title id="hashes-title">两类哈希如何决定一个实体的去留</title>
+  <desc>一个实体要留下来，需要上游快照与上游当前状态吻合，并且 depend 声明的每一个文件的哈希与上一次记下的一致；任何一条不成立，这个实体重做。record 只是记账，不参与判断。</desc>
+  <defs>
+    <marker id="hashes-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="hashes-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="hashes-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="640" fill="#f6f1e8"/>
+  <path d="M 210 112 L 210 148" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 210 192 L 210 228" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 690 112 L 690 148" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 690 192 L 690 228" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 210 296 L 210 320 L 322 320 Q 330 320 330 328 L 330 344" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 690 296 L 690 320 L 578 320 Q 570 320 570 328 L 570 344" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <path d="M 390 404 L 390 428 L 228 428 Q 220 428 220 436 L 220 452" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#hashes-arrow-moss)"/>
+  <path d="M 510 404 L 510 428 L 672 428 Q 680 428 680 436 L 680 452" fill="none" stroke="#9a3412" stroke-width="1" marker-end="url(#hashes-arrow)"/>
+  <rect x="289.5" y="404" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="300" y="416" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">是</text>
+  <rect x="579.5" y="404" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="590" y="416" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">否</text>
+  <rect x="40" y="56" width="340" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="56" width="340" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="82" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">上游实体的正文 + 用户 tag</text>
+  <text x="210" y="99" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">正文变了，上游快照就对不上</text>
+  <rect x="105" y="148" width="210" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="105" y="148" width="210" height="44" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="174" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">sha256</text>
+  <rect x="40" y="228" width="340" height="68" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="228" width="340" height="68" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="260" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">与快照里记录的 hash 比较</text>
+  <text x="210" y="277" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">快照记的是上游正文与用户 tag 的哈希</text>
+  <rect x="520" y="56" width="340" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="56" width="340" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="690" y="82" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">外部文件（fingerprint.depend）</text>
+  <text x="690" y="99" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">上游实体没有携带的那些文件</text>
+  <rect x="585" y="148" width="210" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="585" y="148" width="210" height="44" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="690" y="174" fill="#1c1915" font-size="13" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">sha256</text>
+  <rect x="520" y="228" width="340" height="68" rx="6" fill="#f6f1e8"/>
+  <rect x="520" y="228" width="340" height="68" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="690" y="260" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">与 tag.json 里 fingerprint.depend 比较</text>
+  <text x="690" y="277" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">键集合不同或任一哈希不同，都会重做</text>
+  <rect x="300" y="344" width="300" height="60" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="344" width="300" height="60" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="378" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">两处都吻合？</text>
+  <rect x="80" y="452" width="280" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="80" y="452" width="280" height="56" rx="6" fill="rgba(29,104,66,0.08)" stroke="#1d6842" stroke-width="1"/>
+  <text x="220" y="484" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">保留 · 不调用 function</text>
+  <rect x="540" y="452" width="280" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="540" y="452" width="280" height="56" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1"/>
+  <text x="680" y="484" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">重做 · 清空后重做</text>
+  <rect x="40" y="548" width="820" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="548" width="820" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="574" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">fingerprint.record 只记账，不参与判定</text>
+  <text x="450" y="591" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">它写进 tag.json，因而随用户 tag 一起算进本实体的哈希</text>
+</svg>
+<figcaption><span class="fig-label">图 7</span> 两类哈希如何合成一个判定：上游快照和 depend 都吻合，实体才被保留。</figcaption>
+</figure>
+<!-- figure:hashes:end -->
+
+<p><code>depend</code> 还有一个连带效应。因为 <code>fingerprint</code> 写在 <code>tag.json</code> 里，而 <code>tag.json</code> 的用户 tag 部分参与上游快照的哈希计算，所以 <code>depend</code> 里的文件一变，本算子重做之后它的新哈希也就变了；下游看到上游变了，于是跟着重做。变化就是这样从图的中间往两边传开的。</p>
+<h3 id="路径模板与占位符">路径模板与占位符</h3>
+<p>模板里的占位符写成 <code>{名字}</code> 的形式，可以填这些值：</p>
+<table>
+<thead>
+<tr>
+<th>占位符</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{name}</code></td>
+<td>当前实体的名字。它永远覆盖同名的参数</td>
+</tr>
+<tr>
+<td><code>{staging}</code></td>
+<td>作业的 <code>.staging</code> 目录。同名的字符串参数覆盖它</td>
+</tr>
+<tr>
+<td><code>{参数名}</code></td>
+<td>算子的字符串参数，也就是 <code>props.json</code> 去掉保留键之后、被节点 <code>config</code> 覆盖过的那一份</td>
+</tr>
+<tr>
+<td><code>{tag 字段}</code></td>
+<td>只有 <code>record</code> 能用：算子 tag 里的字符串字段。同名参数覆盖 tag 字段</td>
+</tr>
+</tbody>
+</table>
+<p>一段文本里可以用多个占位符。填不上的占位符会让这一段以 <code>FatalError</code> 失败：文件不存在，或者占位符没有值。相对路径相对作业根目录解析，绝对路径按原样使用。</p>
+<p><code>record</code> 和 <code>depend</code> 的渲染时机不一样，这决定了它们能用到哪些值：</p>
+<ul>
+<li><code>depend</code> 在 function 运行之前渲染，只能用 <code>{name}</code>、<code>{staging}</code> 和参数。那时候实体还没有写出来，tag 里什么都没有。</li>
+<li><code>record</code> 在 tag 写好之后渲染，所以除了上面这些，还能用 tag 里的字符串字段。</li>
+</ul>
+<h3 id="一次运行里的时序">一次运行里的时序</h3>
+<p>把上面这些放到一次 stage 里看：</p>
+<ol>
+<li>比较。runner 读出已有实体，对每个实体比上游快照，再比 <code>depend</code> 的文件哈希，得出新建、重做、保留、删除四类。</li>
+<li>清场。删除要删的目录，为要新建或重做的实体建一个只含空 <code>tag.json</code> 的占位目录。</li>
+<li>运行前。渲染 <code>depend</code> 的路径，取文件哈希。这时文件不存在就以 <code>FatalError</code> 停下，发生在清场之前，已经存在的实体不会被删掉。</li>
+<li>调用 function。<code>transform_data</code> 填正文，<code>transform_props</code> 填附加信息。</li>
+<li>记账。渲染 <code>record</code> 的路径，取文件哈希，写进 <code>tag.json</code> 的 <code>fingerprint</code>。这一步要求文件此刻已经存在，否则以 <code>FatalError</code> 失败。</li>
+<li>写出。先写 <code>data</code>，再写 <code>tag.json</code>。</li>
+</ol>
+<p>source 节点不一样：它没有上游，所以不比较，也不列应得名单。它只在 <code>execute</code> 传了 <code>start_from_scratch=True</code> 时运行，跑起来之后在 <code>emit</code> 交出正文和 tag 之后记账。</p>
+<h3 id="会被拒绝的声明">会被拒绝的声明</h3>
+<p>有些声明在装配阶段就会被拒绝，作业不会开始：</p>
+<ul>
+<li>source 不能声明 <code>depend</code>。source 在运行前不做比较，没有机会用这个哈希判断什么。</li>
+<li>apply 不能声明 <code>fingerprint</code>。apply 不写实体，没有地方存这个哈希。</li>
+</ul>
+<p>两种情况都以 <code>JobValidationError</code> 失败。</p>
+<h3 id="空正文">空正文</h3>
+<p>如果 function 没有留下正文，但这个算子声明了 <code>record</code>，runner 会把正文写成一个换行符。</p>
+<p>原因在算法里：正文为空时哈希是空字符串，而空字符串永远不等于上一次记下的哈希，这个实体每次运行都会被判定为需要重做。写一个换行符之后正文有了内容，哈希稳定下来，比较才有意义。function 自己写了正文就保持不动。</p>
+<h3 id="节点的-config-会整份覆盖指纹">节点的 config 会整份覆盖指纹</h3>
+<p><code>props.json</code> 里的 <code>fingerprint</code> 和节点 <code>config</code> 里的 <code>fingerprint</code> 是同一个键，节点 <code>config</code> 整份覆盖它，不是合并：</p>
+<pre><code class="language-python">job.add_operator_node(
+    &quot;source_assign&quot;,
+    &quot;source&quot;,
+    config={
+        &quot;directory&quot;: incoming,
+        &quot;fingerprint&quot;: {
+            &quot;record&quot;: {
+                &quot;{model_home}/{db}/{table}.sql&quot;: &quot;&quot;,
+                &quot;{model_home}/{db}/{table}.yml&quot;: &quot;&quot;,
+                &quot;{catalog}&quot;: &quot;&quot;,
+            }
+        },
+    },
+)
+</code></pre>
+<p>上面的写法会丢掉算子 home 里 <code>props.json</code> 声明的全部指纹键，而不是在它之上再加一条。算子 home 里声明了三段指纹，节点 <code>config</code> 里就要把三段都写全。</p>
+<h3 id="排查">排查</h3>
+<p>指纹记在实体的 <code>tag.json</code> 里，形如：</p>
+<pre><code class="language-json">{
+  &quot;fingerprint&quot;: {
+    &quot;depend&quot;: {
+      &quot;{staging}/raw_root.csv&quot;: &quot;3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b&quot;
+    }
+  }
+}
+</code></pre>
+<p>键是模板，不是渲染出来的路径。想知道某个模板这次指向了哪个文件，把模板里的占位符换成实际的值再看。</p>
+<p>如果一个实体每次运行都被重做，按这个顺序查：</p>
+<ol>
+<li><code>upstream</code> 里的 <code>hash</code> 是不是空字符串。空哈希意味着上游实体没有正文。</li>
+<li><code>epoch</code> 是不是本次的 epoch。换 epoch 之后旧实体会重做。</li>
+<li><code>fingerprint.depend</code> 的键集合是不是和现在声明的一致。多一个键、少一个键都会导致重做。</li>
+<li>键下面的哈希是不是和文件当前的内容一致。</li>
+<li><code>fingerprint</code> 里的键是不是用错了模板，导致每次指向不同的文件。</li>
+</ol>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/3-how-a-run-works.html">
+          <span class="label">上一篇</span>
+          <span class="name">三、工作流程</span>
+        </a>
+        <a class="next" href="../guide/5-use-cases.html">
+          <span class="label">下一篇</span>
+          <span class="name">五、使用场景</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#docorder-里有三种哈希">docorder 里有三种哈希</a>
+      <a href="#上游快照里的哈希">上游快照里的哈希</a>
+      <a href="#声明指纹">声明指纹</a>
+      <a href="#两处判断如何合成一个结果">两处判断如何合成一个结果</a>
+      <a href="#路径模板与占位符">路径模板与占位符</a>
+      <a href="#一次运行里的时序">一次运行里的时序</a>
+      <a href="#会被拒绝的声明">会被拒绝的声明</a>
+      <a href="#空正文">空正文</a>
+      <a href="#节点的-config-会整份覆盖指纹">节点的 config 会整份覆盖指纹</a>
+      <a href="#排查">排查</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

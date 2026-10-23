@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quick start | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.en.html">Docorder</a>
+    <nav>
+      <a href="index.en.html">Docs</a>
+      <a href="guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="index.en.html">Overview</a>
+      </details>
+      <details open>
+        <summary>Start</summary>
+        <a class="current" href="readme.en.html">Quick start</a>
+      </details>
+      <details>
+        <summary>The guide</summary>
+        <a class="" href="guide/index.en.html">The guide</a>
+        <a class="" href="guide/document-structure.en.html">Document structure</a>
+        <a class="" href="guide/1-background.en.html">1. Background</a>
+        <a class="" href="guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="contributing.en.html">Contributing</a>
+        <a class="" href="security.en.html">Security</a>
+        <a class="" href="changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>Quick start</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="page-quick-start">Quick start</h1>
+<p><a href="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml/badge.svg" /></a>
+<a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
+<a href="../../pyproject.toml"><img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-blue.svg" /></a></p>
+<p><a href="readme.html">中文</a></p>
+<p>Docorder is a Python library for running several transform steps over a batch of objects that share one shape, for example rendering a prompt for every table and then calling a model on it. Each object is a directory on disk, called an entity. Transforms run stage by stage along a directed acyclic graph: one operator finishes the whole batch before its downstream starts. When a run is interrupted, run the same epoch again. Each entity's <code>tag.json</code> records the upstream it read, and the runner uses it to finish only what is missing, redo what changed upstream, and delete what is no longer expected.</p>
+<p>A job is built in Python and started with <code>execute</code>. The install also provides one command, <code>docorder status &lt;output-root&gt;</code>, which reports which epochs an output root contains, whether each epoch still matches its upstream snapshots, and how many entities each stage has.</p>
+<h2 id="getting-the-code">Getting the code</h2>
+<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+cd docorder
+</code></pre>
+<p>The repository has no submodules and does not use Git LFS.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li><a href="https://www.python.org/downloads/">Python</a> 3.10 or newer. <code>pyproject.toml</code> requires <code>&gt;=3.10</code>, and CI runs on 3.10 and 3.12.</li>
+<li><a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a>. Install, tests, and lint all go through it. The commands on this page were checked with uv 0.8.14.</li>
+</ul>
+<p>Check both:</p>
+<pre><code class="language-bash">python3 --version
+uv --version
+</code></pre>
+<p>These external programs are needed only by the function that uses them:</p>
+<ul>
+<li><code>JsonnetToPrompt</code> calls <code>jsonnet</code> on <code>PATH</code>. CI on Ubuntu installs it with <code>sudo apt-get install -y jsonnet</code>.</li>
+<li><code>Command</code> and <code>PromptToLLM</code> run the commands you write in their configuration, so those commands must exist on the machine. The package ships no model tool presets.</li>
+</ul>
+<h2 id="install">Install</h2>
+<p>From the repository root:</p>
+<pre><code class="language-bash">uv sync
+</code></pre>
+<p>This creates <code>.venv</code> and installs the library with its runtime dependencies, Jinja2, python-dotenv, PyYAML, and tqdm. To run the tests and Ruff, use <code>uv sync --group dev</code> instead.</p>
+<blockquote>
+<p>[!IMPORTANT]
+There is no <code>docorder</code> project on PyPI, so <code>pip install docorder</code> does not work. Install from the cloned repository.</p>
+</blockquote>
+<h2 id="quick-start">Quick start</h2>
+<p>The script below builds a two-stage job. A source turns every entity directory in a directory into an entity, and a map renders one line of text for each entity with a Jinja template. It only needs Jinja2, which the install provides.</p>
+<p>Save this as <code>quickstart.py</code> in the repository root:</p>
+<pre><code class="language-python">import json
+import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+
+def write_json(path: Path, value: dict) -&gt; None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2) + &quot;\n&quot;, encoding=&quot;utf-8&quot;)
+
+
+def main() -&gt; None:
+    root = Path(&quot;quickstart&quot;).resolve()
+    notes = root / &quot;notes&quot;
+    hello = notes / &quot;hello&quot;
+    hello.mkdir(parents=True, exist_ok=True)
+    (hello / &quot;data&quot;).write_text(&quot;hello\n&quot;, encoding=&quot;utf-8&quot;)
+    (hello / &quot;tag.json&quot;).write_text(&quot;{}\n&quot;, encoding=&quot;utf-8&quot;)
+
+    homes = root / &quot;homes&quot;
+    write_json(
+        homes / &quot;notes_source&quot; / &quot;props.json&quot;,
+        {
+            &quot;type&quot;: &quot;source&quot;,
+            &quot;class&quot;: &quot;docorder.functions.impl.directory_source:DirectorySource&quot;,
+            &quot;directory&quot;: str(notes),
+        },
+    )
+    write_json(
+        homes / &quot;prompt&quot; / &quot;props.json&quot;,
+        {
+            &quot;type&quot;: &quot;map&quot;,
+            &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+            &quot;template&quot;: &quot;lib/note.jinja&quot;,
+        },
+    )
+    (homes / &quot;prompt&quot; / &quot;lib&quot;).mkdir(parents=True, exist_ok=True)
+    (homes / &quot;prompt&quot; / &quot;lib&quot; / &quot;note.jinja&quot;).write_text(&quot;Note: {{ entity.source_data }}&quot;, encoding=&quot;utf-8&quot;)
+
+    os.environ[&quot;DOCORDER_HOMES&quot;] = str(homes)
+    job = Job(&quot;quickstart&quot;, root / &quot;runs&quot;)
+    job.add_operator_node(&quot;notes&quot;, &quot;notes_source&quot;)
+    job.add_operator_node(&quot;prompt&quot;, &quot;prompt&quot;, upstream=&quot;notes&quot;)
+    execute(job, &quot;demo&quot;, start_from_scratch=True)
+
+    output = root / &quot;runs&quot; / &quot;prompt&quot; / &quot;demo&quot; / &quot;hello&quot; / &quot;data&quot;
+    print(output.read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<p>Run it:</p>
+<pre><code class="language-bash">uv run python quickstart.py
+</code></pre>
+<p>On success it prints:</p>
+<pre><code class="language-text">Note: hello
+</code></pre>
+<p>After the run, <code>quickstart/runs/</code> looks like this:</p>
+<pre><code class="language-text">quickstart/runs/
+  notes/                    source node
+    demo/hello/
+      data                  &quot;hello\n&quot;
+      tag.json              from the input entity's tag.json
+  prompt/                   map node
+    demo/hello/
+      data                  &quot;Note: hello\n&quot;
+      tag.json              includes upstream: node notes, entity hello, epoch demo, sha256 of the upstream body
+</code></pre>
+<p>The entity name <code>hello</code> is the name of the input directory <code>notes/hello</code>. <code>demo</code> is the epoch of this run, and also the name of the directory level that holds the entities.</p>
+<blockquote>
+<p>[!NOTE]
+The script puts its work in <code>main()</code> and calls it under <code>if __name__ == "__main__":</code>. That is ordinary script style. When <code>parallelism</code> is greater than 1, the runner slices the work across threads in the current process and does not start worker processes.</p>
+</blockquote>
+<h2 id="configuration">Configuration</h2>
+<h3 id="operator-homes">Operator homes</h3>
+<p>An operator home is a directory whose <code>props.json</code> declares the operator's type, its function class, and its parameters. Homes are not shipped with the package. Before a run, list the directories that contain your homes in the <code>DOCORDER_HOMES</code> environment variable. Separate several directories with the system path separator, as for <code>PATH</code>. An earlier directory wins when two homes share a name. A home may sit directly in a listed directory, or one category directory below it.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;map&quot;,
+  &quot;class&quot;: &quot;docorder.functions.impl.template_to_prompt:TemplateToPrompt&quot;,
+  &quot;parallelism&quot;: 4,
+  &quot;retry&quot;: { &quot;max_attempts&quot;: 3, &quot;backoff_seconds&quot;: 5 },
+  &quot;template&quot;: &quot;lib/prompt.jinja&quot;
+}
+</code></pre>
+<p><code>type</code> is one of <code>source</code>, <code>map</code>, <code>reduce</code>, <code>fanout</code>, and <code>apply</code>. <code>class</code> is <code>module:Class</code>, or <code>primary:Class</code> when the class lives in the home's own <code>primary.py</code>. A job cannot change these two. <code>parallelism</code> defaults to 1, and <code>retry</code> defaults to a single attempt. Every other key is a function parameter. The parameters each function accepts are in chapter 7 of <a href="guide/index.en.html">docs/guide.en.md</a>. An <code>apply</code> node calls the function on each upstream entity and writes no entities. The built-in <code>Output</code> writes upstream bodies as files under <code>.staging</code> at the job root. The file name defaults to the entity name; a subclass overrides <code>rename</code> to choose another name.</p>
+<h3 id="jobs">Jobs</h3>
+<p>The second argument of <code>Job(name, root)</code> is the output root. <code>add_operator_node(node_name, home_name, upstream=..., config=..., parallelism=..., retry=...)</code> adds a node. A node writes to <code>output-root/node-name/epoch/entity-name/</code>. Every node except a source declares exactly one upstream, as a string.</p>
+<p><code>config</code> overrides same-named function parameters from the home. Override scheduling with the <code>parallelism=</code> and <code>retry=</code> arguments. Keys of the same name inside <code>config</code> only become function parameters and do not change scheduling. <code>retry=</code> takes <code>docorder.utils.retry.RetryPolicy(max_attempts=..., backoff_seconds=...)</code>. Adding a node name a second time replaces the earlier node without an error.</p>
+<h3 id="running">Running</h3>
+<p><code>execute(job, epoch, start_from_scratch=False)</code> runs the whole graph in topological order. <code>epoch</code> is joined into paths as is, so use a single directory name such as a date. A source rereads its input only when <code>start_from_scratch=True</code>. Otherwise the source leaves its output alone, and downstream stages read the entities already in that epoch. Each stage prints a progress bar on stderr, titled with the operator name.</p>
+<table>
+<thead>
+<tr>
+<th>Environment variable</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCORDER_HOMES</code></td>
+<td>Directories searched for operator homes. Set it before <code>add_operator_node</code>.</td>
+</tr>
+<tr>
+<td><code>DOCORDER_LLM</code></td>
+<td>The tool <code>PromptToLLM</code> uses when <code>tool</code> is not configured: a preset name in the home, or a path to a JSON file.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="example-running-the-same-epoch-again">Example: running the same epoch again</h2>
+<p>After the quick start, save <code>rerun.py</code>. It reuses the homes and output under <code>quickstart/</code>, edits the source file, and runs the same epoch twice:</p>
+<pre><code class="language-python">import os
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+
+def main() -&gt; None:
+    root = Path(&quot;quickstart&quot;).resolve()
+    os.environ[&quot;DOCORDER_HOMES&quot;] = str(root / &quot;homes&quot;)
+    job = Job(&quot;quickstart&quot;, root / &quot;runs&quot;)
+    job.add_operator_node(&quot;notes&quot;, &quot;notes_source&quot;)
+    job.add_operator_node(&quot;prompt&quot;, &quot;prompt&quot;, upstream=&quot;notes&quot;)
+    output = root / &quot;runs&quot; / &quot;prompt&quot; / &quot;demo&quot; / &quot;hello&quot; / &quot;data&quot;
+
+    (root / &quot;notes&quot; / &quot;hello&quot; / &quot;data&quot;).write_text(&quot;changed\n&quot;, encoding=&quot;utf-8&quot;)
+    execute(job, &quot;demo&quot;)
+    print(output.read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+    execute(job, &quot;demo&quot;, start_from_scratch=True)
+    print(output.read_text(encoding=&quot;utf-8&quot;), end=&quot;&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<pre><code class="language-bash">uv run python rerun.py
+</code></pre>
+<p>Output:</p>
+<pre><code class="language-text">Note: hello
+Note: changed
+</code></pre>
+<p>The first call does not regenerate from scratch, so the source entity still holds the old body. The snapshot in <code>prompt/demo/hello</code> still matches its upstream, and the entity is kept as it is. The second call makes the source reread the file. The upstream body hash changes, so <code>prompt</code> clears that entity and renders it again. The runner compares only upstream bodies. An entity whose template or parameters changed while its upstream body stayed the same is not redone automatically. To force a redo, delete that entity directory, or use another epoch. The full rules are in chapter 3 of <a href="guide/index.en.html">docs/guide.en.md</a>.</p>
+<p>Delete <code>quickstart/</code>, <code>quickstart.py</code>, and <code>rerun.py</code> when you are done.</p>
+<p>Reduce and fanout have no ready-made functions. You implement them in a home's <code>primary.py</code>. Chapter 9 of <a href="guide/index.en.html">docs/guide.en.md</a> has two examples that run as written.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>What you see</th>
+<th>Cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FileNotFoundError: operator home '…' not found in: …</code></td>
+<td><code>DOCORDER_HOMES</code> does not point at a directory that contains that home, or that directory has no <code>props.json</code>. Set the variable before <code>add_operator_node</code>.</td>
+</tr>
+<tr>
+<td><code>FatalError: directory source path is not a directory</code></td>
+<td><code>directory</code> points at a directory that does not exist. A relative path is resolved from the operator home, not from the current directory.</td>
+</tr>
+<tr>
+<td><code>FatalError: jsonnet is not on PATH</code></td>
+<td><code>JsonnetToPrompt</code> cannot find <code>jsonnet</code> on this machine. This kind of error is not retried.</td>
+</tr>
+<tr>
+<td><code>DocorderError: command did not write …</code></td>
+<td><code>output_file</code> of <code>Command</code> is a relative path. Docorder looks for it from the Python process's current directory, not from <code>cwd</code>. Use an absolute path, or <code>{entity.output}/file-name</code>.</td>
+</tr>
+<tr>
+<td>A source file changed, but downstream did not</td>
+<td>That <code>execute</code> call did not pass <code>start_from_scratch=True</code>, so the source did not reread its input.</td>
+</tr>
+<tr>
+<td>A template changed, but the old result stayed</td>
+<td>The upstream body did not change, so the snapshot still matches. Delete the node's <code>&lt;epoch&gt;/</code> directory or some entity directories in it, or use another epoch.</td>
+</tr>
+<tr>
+<td>One entity is redone on every run</td>
+<td>Its upstream body is an empty string. An empty body is recorded with an empty hash, and the comparison never passes.</td>
+</tr>
+<tr>
+<td>Want to see which epochs an output root contains</td>
+<td><code>docorder status &lt;output-root&gt;</code>. It reports whether each epoch matches its upstream snapshots, and how many entities each stage has. A missing directory exits with status 1.</td>
+</tr>
+</tbody>
+</table>
+<p><code>FatalError</code> means the configuration or the input is wrong. It is not retried. Examples are a missing parameter, a template variable that does not exist, and a missing executable. Other exceptions retry the current entity according to <code>retry</code>. When the attempts run out, the run stops at the current operator. Entities that already have <code>upstream</code> in <code>tag.json</code> stay on disk, and the next run of the same epoch continues with the rest. <code>JobValidationError</code> is raised before any operator runs and means the job graph itself is wrong, for example a cycle, an upstream that is not in the graph, or a node that depends on itself.</p>
+<h2 id="testing">Testing</h2>
+<p>This repository has no separate build or deploy step. During development, run:</p>
+<pre><code class="language-bash">uv sync --group dev
+uv run ruff check
+uv run pytest
+</code></pre>
+<p><code>ruff check</code> lints the whole repository, and <code>pytest</code> runs <code>tests/</code>. <code>make quality</code> also runs the example job under <code>examples/data-governance/documentation/</code>, and CI runs the same script. The other examples under <code>examples/</code> need an external model tool or a local path, so CI does not run them.</p>
+<h2 id="documentation">Documentation</h2>
+<p>The documentation site is generated. The sources are the Markdown files in this repository.</p>
+<ul>
+<li><a href="index.en.html">docs/site/index.en.html</a>: the documentation home page. The left column is the grouped documentation navigation, the body explains what docorder is, its core concepts, the model, the quick start, and running the same epoch again, and the right column is the table of contents of the page.</li>
+<li><a href="guide/index.en.html">docs/guide.en.md</a>: the only source of the guide. It starts with the background, the concepts, and how a run works, then covers the fingerprints and hashes, configuration, the built-in functions, template variables, writing your own function, a complete example of using docorder in your own project, a data governance case study, and best practices. The build splits it into one page per chapter under <code>docs/site/guide/</code>.</li>
+<li><a href="glossary.en.html">glossary.en.md</a>: the terms the documents use.</li>
+</ul>
+<p>Regenerate the site after changing any Markdown:</p>
+<pre><code class="language-bash">uv run python scripts/build_figures.py
+uv run python scripts/build_docs.py
+</code></pre>
+<p>The result lands in <code>docs/site/</code>. Do not edit those pages by hand. Chinese pages use the same names without the <code>.en</code> suffix, for example <code>README.md</code> and <code>docs/guide.md</code>; the generated English pages carry the same <code>.en</code> suffix.</p>
+<h2 id="contributing">Contributing</h2>
+<p>Report bugs and request features in <a href="https://github.com/jixie-wish/docorder/issues">GitHub Issues</a>. The repository has bug and feature templates. Do not report security issues publicly. See <a href="security.en.html">SECURITY.en.md</a>. Conventions are in <a href="contributing.en.html">CONTRIBUTING.en.md</a>, and the code of conduct is in <a href="code-of-conduct.en.html">CODE_OF_CONDUCT.en.md</a>. The API may change during <code>0.x</code>. Changes are recorded in <a href="changelog.en.html">CHANGELOG.en.md</a>.</p>
+<blockquote>
+<p>[!WARNING]
+<code>JsonnetToPrompt</code>, <code>Command</code>, and <code>PromptToLLM</code> run content from the job configuration and from entity bodies on the local machine. Run a job only on directories you trust.</p>
+</blockquote>
+<h2 id="license">License</h2>
+<p><a href="../../LICENSE">MIT</a>.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <span class="prev empty"></span>
+        <span class="next empty"></span>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#getting-the-code">Getting the code</a>
+      <a href="#prerequisites">Prerequisites</a>
+      <a href="#install">Install</a>
+      <a href="#quick-start">Quick start</a>
+      <a href="#configuration">Configuration</a>
+      <a href="#operator-homes">Operator homes</a>
+      <a href="#jobs">Jobs</a>
+      <a href="#running">Running</a>
+      <a href="#example-running-the-same-epoch-again">Example: running the same epoch again</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#testing">Testing</a>
+      <a href="#documentation">Documentation</a>
+      <a href="#contributing">Contributing</a>
+      <a href="#license">License</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

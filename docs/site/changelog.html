@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>更新日志 | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.html">Docorder</a>
+    <nav>
+      <a href="index.html">文档</a>
+      <a href="guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="readme.html">快速开始</a>
+      </details>
+      <details>
+        <summary>使用指南</summary>
+        <a class="" href="guide/index.html">使用指南</a>
+        <a class="" href="guide/document-structure.html">文档结构</a>
+        <a class="" href="guide/1-background.html">一、背景</a>
+        <a class="" href="guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="" href="guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="guide/6-configuration.html">六、配置</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="glossary.html">术语表</a>
+      </details>
+      <details open>
+        <summary>项目</summary>
+        <a class="" href="code-of-conduct.html">行为准则</a>
+        <a class="" href="contributing.html">参与贡献</a>
+        <a class="" href="security.html">安全</a>
+        <a class="current" href="changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>更新日志</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="更新日志">更新日志</h1>
+<p><a href="changelog.en.html">English</a></p>
+<p>本文件遵循 <a href="https://keepachangelog.com/zh-CN/1.1.0/">Keep a Changelog</a>，版本号遵循语义化版本。</p>
+<h2 id="unreleased">[Unreleased]</h2>
+<ul>
+<li>使用指南新增两章。第四章「指纹与哈希」讲清 docorder 里的三种哈希分别算什么、记在哪里：上游快照里的哈希、<code>fingerprint.depend</code> 与 <code>fingerprint.record</code>。这一章说明 <code>depend</code> 与 <code>record</code> 的分工与渲染时机、路径模板能用的占位符、节点 <code>config</code> 对指纹的整份覆盖规则，以及一个实体每次运行都被重做时该怎么逐条排查。第十一章「数据治理案例」用 <code>examples/data-governance/</code> 下的真实作业把这些机制串起来：四个作业接力，从 dbt 模型的指标清单到词根表、归属表与成员表，途中用到 fanout 拆出十四个词根实体。原有章节往后挪一位，最佳实践落到第十二章；README、术语表、贡献指南、文档首页与指南目录里的章号一并更新。</li>
+<li>文档站构建前先清空 <code>docs/site/</code>。章节改名后不会留下指向旧章号的孤儿页面。</li>
+<li>使用指南新增八张内联 SVG 配图，讲解只靠文字说不清的地方：概念之间的层次关系、一个 stage 的经过、再次运行时的判定、一次运行留下的目录、五种算子的输入输出对应、内置模板变量的分组，以及两类哈希如何合成一个判定、数据治理案例的四个作业怎么接力。新增 <code>scripts/build_figures.py</code> 生成这些图，图的源码就写在 <code>docs/guide.md</code> 与 <code>docs/guide.en.md</code> 里，GitHub 上看 Markdown 也能看到图，文档站构建时原样带进网页。配色跟随文档站自己的暖纸底色与青绿主色，中英文各出一套文案。文档站补上配图的样式：图包在带边框的卡片里，图注带「图 N」标记；窄屏下图在卡片内横向滚动，不缩到看不清。</li>
+<li>文档编译成静态网页站点。新增 <code>scripts/build_docs.py</code>，把仓库里的 Markdown 编译成 <code>docs/site/</code> 下的网页：使用指南按二级标题切成每章一页，另加指南目录页、快速开始、术语表、行为准则、参与贡献、安全和更新日志各一页，中英文各一套。首页正文是手写片段，放在 <code>scripts/templates/</code> 下，由脚本套进统一的页面外壳。生成结果不再出现指向裸 Markdown 文件的链接，正文里的交叉引用改写成网页链接。</li>
+<li>文档站改造为 Apache Hudi 文档站那样的结构。<code>docs/index.html</code> 与 <code>docs/index.en.html</code> 从介绍页改成文档首页：顶栏之下是左侧分组侧栏、正文、右侧「本页内容」目录三栏，正文带上面包屑与上下页导航。使用指南的各章以锚点链接进入侧栏，「文档」一节列出全部章节卡。窄屏下侧栏收成一个可展开的目录，正文优先呈现。</li>
+<li>文档合并为单一手册。<code>docs/design.md</code> 与 <code>docs/functions.md</code> 的内容并入 <code>docs/guide.md</code>，两份文档删除；英文版同样合并为 <code>docs/guide.en.md</code>，<code>docs/design.en.md</code> 与 <code>docs/functions.en.md</code> 删除。README、贡献指南、术语表和介绍页的链接一并更新。</li>
+<li>文档首页重排。章节标题与导航一一对应，「模型」一节拆成实体、算子类型、作业图三块，补上作业图的示意和术语对照的错误（算子类型应为五种）。去掉了内联样式，文件卡的隐喻在各处保持一致，窄屏下标题不再被挤断。</li>
+<li>
+<p>使用指南新增第十章「最佳实践」，覆盖目录与命名、增量与幂等、算子 home 的组织、错误处理、大模型调用成本、失败恢复，以及一张常见反模式对照表。</p>
+</li>
+<li>
+<p>文档按当前代码再次核对。README 补上 <code>docorder status</code> 命令和完整依赖列表，<code>make quality</code> 与 CI 改为运行 <code>examples/data-governance/documentation/</code> 下的示例作业。使用指南补上 <code>FileHashSource</code>、<code>EntityTemplateToLLM</code>、<code>TemplateToLLM</code> 三个内置 function 的小节，内置 function 表补齐，并把第九章的输入数据改成实体子目录的写法。function 文档把 <code>Output</code> 从 map 章节拆成独立的 apply 章节。文档首页补上 apply 算子和 <code>docorder status</code>。</p>
+</li>
+<li><code>Output</code> 增加参数 <code>filename</code>，固定写出的文件名。文件名要随实体变化时仍覆盖 <code>rename</code>。</li>
+<li>新增 <code>EntityTemplateToLLM</code>。它是 map：每个上游实体用 Jinja 渲染一份 prompt，交给 LLM。模板变量是单个 <code>source</code> 的路径和 tag，以及 <code>staging(name)</code>。<code>header</code> 与 <code>tag_template</code> 和 <code>TemplateToLLM</code> 相同。</li>
+<li>新增 <code>TemplateToLLM</code>。它是 reduce：用 Jinja 把上游整批渲染成一份 prompt，交给 LLM。<code>header</code> 从回复里抽出 CSV，<code>tag_template</code> 渲染实体 tag。模板只放路径：<code>source.path</code> 是上游 <code>data</code> 文件，<code>staging(name)</code> 是 <code>.staging</code> 里一个已存在文件的路径。</li>
+<li>新增 <code>fingerprint</code>。<code>record</code> 在写出实体后把文件 sha256 记进 tag，不因此重做本算子；<code>depend</code> 在运行前比较，不一致则重做。source 只记 <code>record</code>，apply 不能声明指纹。<code>FileHashSource</code> 只把 <code>paths</code> 的绝对路径写进 tag，正文保持输入原文。</li>
+<li>去掉输出目录标记 <code>.docorder-output</code>。stage 开始时只创建节点输出目录，不再因为目录非空而拒绝运行。<code>docorder status</code> 把名字不以 <code>.</code> 开头的子目录当作 stage。</li>
+<li><code>Output</code> 仍是 apply function，没有单独的 output 算子。缺省目录改为作业根下的 <code>.staging</code>。文件名由 <code>rename</code> 决定，缺省返回实体名，子类覆盖该方法。去掉 <code>name_template</code>。</li>
+<li>用 <code>apply</code> 算子替换 <code>output</code> 算子。apply 对上游每个实体调用 <code>apply</code>，结束后调用 <code>finish</code>；两者都不能返回值。它不写实体，也不能有下游。原先写出作业结果文件的行为改由 apply function <code>Output</code> 完成。</li>
+<li><code>tag.json</code> 不再写入 <code>current</code>。下游快照按上游实体此刻的正文和用户 tag 计算；手动改已写出实体的 <code>data</code> 或 <code>tag.json</code>，下一次运行会重做依赖它的下游。</li>
+<li><code>PromptToLLM</code> 在工具自己写出目标实体的 <code>data</code> 时保留该文件，检查它是非空 UTF-8 文本后只补 <code>tag.json</code>。没有这份文件时，正文仍是标准输出。</li>
+<li>上游快照改写在 <code>tag.json</code> 的 <code>upstream</code> 里，不再写 <code>upstream.json</code>。写出时会删掉目录里残留的那份文件。</li>
+<li>每个 stage 在标准错误输出上打印一条进度条，标题是节点名。map、fanout、reduce、apply 的总数是这次要处理的个数；source 在 <code>emit</code> 时逐条推进。</li>
+<li><code>DirectorySource</code> 读取已经符合实体约定的子目录：目录名是实体名，正文来自 <code>data</code>，tag 来自 <code>tag.json</code>。普通文件和残缺目录会被跳过。</li>
+<li><code>Output</code> 把上游正文写成作业根目录 <code>.staging</code> 下的文件。文件名缺省是实体名，子类覆盖 <code>rename</code> 改名。参数 <code>directory</code> 可以换成别的写出目录，相对路径相对算子 home 解析。</li>
+<li><code>LLMTool</code> 移到 <code>docorder.utils.llm_tool</code>。</li>
+<li><code>Artifact</code> 和 <code>Environment</code> 移到 <code>docorder.core</code>。</li>
+<li>内置 function 移到 <code>docorder.functions.impl</code>。基类改名为 <code>source_function</code>、<code>map_function</code>、<code>reduce_function</code>、<code>fanout_function</code>、<code>rendered_map</code>。<code>props.json</code> 的 <code>class</code> 要写成新模块路径。</li>
+<li><code>Environment</code> 只保留 <code>operator_props</code>（function 参数）和 <code>template_env</code>（模板用的 <code>operator</code> / <code>job</code> / <code>entity</code>）。去掉 <code>config</code>、<code>bind</code>、<code>namespace</code>、<code>bindings</code>、<code>format_named</code>。</li>
+<li>map 和 fanout 的 <code>parallelism</code> 改为线程池，不再使用进程池。分片线程共享算子，参数不必能被 pickle，也不再要求启动脚本写 <code>if __name__ == "__main__":</code>。</li>
+<li><code>OperatorNode</code> 构造时把节点 <code>config</code> 覆盖进 <code>props</code>，之后不再保留 <code>config</code>，对外只暴露 <code>props</code>。<code>Operator.of</code> 再把节点的公开字段抬到算子上，此后 runner、function 和模板环境都读算子，不再经过节点。<code>Function</code> 持有 <code>environment</code>：<code>environment.operator_props</code> 是 function 参数，<code>environment.template_env</code> 是模板用的 <code>operator</code> / <code>job</code> / <code>entity</code>，都从 operator 生成。新增对应的契约测试。</li>
+<li>新增 <code>docs/guide.md</code> 使用指南：背景、核心概念、工作流程、使用场景、配置、按算子类型列出的内置 function、渲染类 function 的模板变量及扩充方法、开发自己的 function、在自己的项目中使用 docorder 的完整示例，以及最佳实践。英文版为 <code>docs/guide.en.md</code>。</li>
+<li>文档按当前代码核对并改写。README 改为从仓库用 <code>uv sync</code> 安装，补上获取代码、环境要求、可运行的快速开始与再跑示例、配置和排错。使用指南更正了同名节点、reduce 空上游、整段清场、并行失败和 source <code>emit</code> 失败时的行为，并新增再跑判定表、指纹说明、失败与重试对照表和端到端示例。<code>SECURITY.md</code> 与文档首页删去并不存在的 <code>cursor</code> 预设。</li>
+<li>使用指南的第二、三章按当前的 stage 调度重写：实体、算子与作业的状态，epoch 目录，以及同一次运行如何比较上游并落盘。</li>
+<li>文档提供中英两份。中文使用原文件名，英文使用同名加 <code>.en</code> 后缀。README 按当前的 <code>Job</code> 与 <code>execute</code> 重写。</li>
+<li>文档首页在 <code>docs/index.html</code>。</li>
+<li>function 的说明集中在使用指南的第六章。每个 function 是 <code>src/docorder/functions/</code> 下的一个模块。</li>
+<li>source 算子只接收 function。function 用 <code>emit</code> 交出实体的 data 和 tag。<code>DirectorySource</code> 从目录产出实体，读取已有的实体子目录（<code>data</code> 与 <code>tag.json</code>）。<code>FilteredDirectorySource</code> 按 <code>filter</code> 的名字结尾和 <code>data</code> 大小筛选。</li>
+<li>包内不再附带算子 home。home 由 <code>DOCORDER_HOMES</code> 提供，具体算子随后再实现。</li>
+<li><code>execute</code> 只接收 epoch。一次运行按拓扑顺序跑完整张图。</li>
+<li>算子 <code>props.json</code> 只用 <code>type</code>：<code>source</code>、<code>map</code>、<code>reduce</code>、<code>fanout</code>。</li>
+<li>实体按 epoch 子目录存放。上游算子、实体名、epoch 和 hash 写在实体目录的 <code>upstream.json</code> 里。同一 epoch 再跑时执行未做的、删除多出来的、重做上游变了的。</li>
+<li>项目名为 docorder。包、命令行，以及 <code>DOCORDER_DG</code>、<code>DOCORDER_LLM</code>、<code>DOCORDER_HOMES</code> 都使用这个名字。</li>
+<li>可复用算子实现放在 <code>src/docorder/operators/</code>，stage 调度放在 <code>src/docorder/runner.py</code>。</li>
+<li>data-governance 的示例作业改为 <code>examples/data-governance/</code> 下的脚本（<code>documentation</code>、<code>dbt_model</code>、<code>semantic_layer</code>），不再通过 <code>docorder run</code> 打进安装包。</li>
+<li><code>llm</code> / <code>llm_batch</code> 这两个算子去掉，大模型改由 <code>PromptToLLM</code>、<code>EntityTemplateToLLM</code>、<code>TemplateToLLM</code> 三个 function 调用。工具预设是算子 home 里的 JSON 文件，也可以直接传入一份命令 JSON。</li>
+</ul>
+<h2 id="010---2026-10-12">[0.1.0] - 2026-10-12</h2>
+<ul>
+<li>按 stage 调度目录实体，支持重试、epoch checkpoint、跳过算子和从指定算子恢复。</li>
+<li>随包提供 jsonnet、模板 prompt、Cursor、命令、CSV fan-out、拼接和 review 算子。</li>
+<li>提供 documentation、data-quality、semantic-physical、semantic-ontology 四类 job。这些 job 需要一份布局相符的外部仓库，路径用 <code>--dg</code> 或 <code>DOCORDER_DG</code> 指定。</li>
+</ul>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="security.html">
+          <span class="label">上一篇</span>
+          <span class="name">安全</span>
+        </a>
+        <span class="next empty"></span>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#unreleased">[Unreleased]</a>
+      <a href="#010---2026-10-12">[0.1.0] - 2026-10-12</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

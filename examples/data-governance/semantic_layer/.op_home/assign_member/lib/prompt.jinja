@@ -1,0 +1,32 @@
+# Member assigner
+
+## Assign
+
+For each metric below, pick exactly one `member_id` from the members listed for that metric's `root_id`.
+
+If `root_id` is `unassigned`, use `member_id` `"unassigned"`, `related_ratio` `0`, and `confidence` `"low"`.
+
+Return one JSON object and nothing else:
+
+```json
+{
+  "metrics": [
+    {
+      "metric": "name",
+      "member_id": "member_or_unassigned",
+      "confidence": "high",
+      "related_ratio": 0.85,
+      "evidence": "one short sentence"
+    }
+  ]
+}
+```
+
+`confidence` is `high`, `med`, or `low`. `related_ratio` is a number from 0 to 1 for how well the metric recipe matches the member definition. Prefer the member with `is_default=Y` when several fit equally.
+
+Read these files. Their contents are not in this prompt.
+
+model: {{ source.tag.table }}
+- {{ source.tag.yml }}
+- {{ staging('root_assign.json') }}
+- {{ staging('root_member.csv') }}

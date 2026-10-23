@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Changelog | Docorder</title>
+  <link rel="stylesheet" href="intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="index.en.html">Docorder</a>
+    <nav>
+      <a href="index.en.html">Docs</a>
+      <a href="guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="readme.en.html">Quick start</a>
+      </details>
+      <details>
+        <summary>The guide</summary>
+        <a class="" href="guide/index.en.html">The guide</a>
+        <a class="" href="guide/document-structure.en.html">Document structure</a>
+        <a class="" href="guide/1-background.en.html">1. Background</a>
+        <a class="" href="guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="glossary.en.html">Glossary</a>
+      </details>
+      <details open>
+        <summary>Project</summary>
+        <a class="" href="code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="contributing.en.html">Contributing</a>
+        <a class="" href="security.en.html">Security</a>
+        <a class="current" href="changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>Changelog</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="changelog">Changelog</h1>
+<p><a href="changelog.html">中文</a></p>
+<p>This file follows <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>. Version numbers follow Semantic Versioning.</p>
+<h2 id="unreleased">[Unreleased]</h2>
+<ul>
+<li>The guide gains two chapters. Chapter 4, "Fingerprints and hashes", works out what each of docorder's three kinds of hash covers and where each one is kept: the hash inside the upstream snapshot, <code>fingerprint.depend</code>, and <code>fingerprint.record</code>. It explains the split of work between <code>depend</code> and <code>record</code> and the moment each one is rendered, the placeholders a path template may use, the rule that a node <code>config</code> replaces the whole fingerprint rather than adding to it, and a step-by-step way to trace an entity that is redone on every run. Chapter 11, "A data governance case study", puts those mechanisms together with the real jobs under <code>examples/data-governance/</code>: four jobs in sequence, from the metric list of a dbt model to the root catalogue, the assignment table and the member tables, with a fanout that splits the result into fourteen root entities on the way. The existing chapters move down by one and best practices becomes chapter 12; the chapter numbers in the README, the glossary, the contributing guide, the documentation home page and the table of contents are updated to match.</li>
+<li>The documentation site build clears <code>docs/site/</code> first. Renaming a chapter no longer leaves an orphan page behind.</li>
+<li>The guide gains eight inline SVG diagrams for the parts that prose alone cannot carry: how the concepts are layered, what one stage does, how an entity is judged on a re-run, what a run leaves on disk, how the five operator types map input entities to output entities, how the built-in template variables are grouped, how the two kinds of hash make one decision, and how the four jobs of the data governance case hand their results to each other. A new <code>scripts/build_figures.py</code> generates them, and the source of each diagram lives in <code>docs/guide.md</code> and <code>docs/guide.en.md</code>, so the diagrams show up both on GitHub and in the documentation site, which carries them over unchanged. The colours follow the warm paper and deep teal of the documentation site itself, and each figure comes with its own wording in both languages. The site gains styles for the diagrams: each one sits in a bordered card and its caption carries a "Figure N" badge; on a narrow screen a diagram scrolls sideways inside its card instead of shrinking into illegibility.</li>
+<li>The documents are compiled into a static documentation site. A new <code>scripts/build_docs.py</code> turns the Markdown in this repository into pages under <code>docs/site/</code>: the guide is split by its second-level headings into one page per chapter, plus a table of contents for the guide, and one page each for the quick start, the glossary, the code of conduct, contributing, security, and the changelog, in both languages. The body of the home page is a hand-written fragment under <code>scripts/templates/</code>, and the script wraps it in the same page shell as the other pages. The generated pages no longer link to raw Markdown files, and the cross references in the text are rewritten to point at pages.</li>
+<li>The documentation site is reorganised like the Apache Hudi documentation site. <code>docs/index.html</code> and <code>docs/index.en.html</code> change from an introduction page into a documentation home page: below the top bar there are three columns, a grouped sidebar on the left, the body, and an "On this page" table of contents on the right, and the body carries a breadcrumb and previous/next navigation. Every chapter of the guide is reachable from the sidebar through an anchor link, and the "Documentation" section lists all of them as cards. On a narrow screen the sidebar collapses into an expandable menu and the body comes first.</li>
+<li>The documents are merged into one manual. The content of <code>docs/design.md</code> and <code>docs/functions.md</code> moves into <code>docs/guide.md</code>, and both files are removed. The English versions merge the same way into <code>docs/guide.en.md</code>, and <code>docs/design.en.md</code> and <code>docs/functions.en.md</code> are removed. The links in the README, the contributing guide, the glossary, and the introduction page are updated to match.</li>
+<li>The documentation home page is reorganized. Section headings and the navigation now match one for one, the "Model" section is split into entities, operator types, and the job graph, a diagram of the job graph is added, and the terminology table is corrected (an operator has five types). The inline styles are gone, the folder metaphor is the same everywhere, and a heading no longer breaks across lines on a narrow screen.</li>
+<li>
+<p>The guide gains a chapter 10, "Best practices". It covers directory and naming conventions, incremental runs and idempotence, how to organise operator homes, error handling, the cost of calling a model, recovering from a failed run, and a table of common anti-patterns.</p>
+</li>
+<li>
+<p>The documents are checked against the current code again. The README now documents the <code>docorder status</code> command and the full dependency list, and <code>make quality</code> and CI now run the example job under <code>examples/data-governance/documentation/</code>. The guide adds sections for the three built-in functions <code>FileHashSource</code>, <code>EntityTemplateToLLM</code>, and <code>TemplateToLLM</code>, completes the table of built-in functions, and rewrites the input data of chapter 9 as entity subdirectories. The function document moves <code>Output</code> out of the map chapter into its own apply chapter. The documentation home page adds the apply operator and <code>docorder status</code>.</p>
+</li>
+<li><code>Output</code> accepts <code>filename</code>, a fixed file name. Override <code>rename</code> when the name depends on the entity.</li>
+<li>Add <code>EntityTemplateToLLM</code>, a map. It renders one Jinja prompt per upstream entity and sends that to the LLM. The template sees one <code>source</code> path and tag, plus <code>staging(name)</code>. <code>header</code> and <code>tag_template</code> mean the same as they do for <code>TemplateToLLM</code>.</li>
+<li>Add <code>TemplateToLLM</code>, a reduce. It renders the whole upstream list into one Jinja prompt and sends that to the LLM. <code>header</code> keeps a CSV from the reply, and <code>tag_template</code> renders the entity tag. The template carries paths: <code>source.path</code> is an upstream <code>data</code> file, and <code>staging(name)</code> is the path of one file that already exists in <code>.staging</code>.</li>
+<li>Add <code>fingerprint</code>. <code>record</code> stores file sha256 values on the entity tag after the entity is written and does not redo that operator. <code>depend</code> is compared before the run and a mismatch redoes the entity. A source records only <code>record</code>. An apply cannot declare a fingerprint. <code>FileHashSource</code> writes absolute <code>paths</code> into the tag and keeps the input body.</li>
+<li>Remove the <code>.docorder-output</code> marker. A stage creates the node output directory and no longer refuses a non-empty directory. <code>docorder status</code> treats child directories whose names do not start with <code>.</code> as stages.</li>
+<li><code>Output</code> stays an apply function. There is no output operator. The default directory is <code>.staging</code> under the job root. <code>rename</code> chooses the file name, returns the entity name by default, and subclasses override it. <code>name_template</code> is gone.</li>
+<li>Replace the <code>output</code> operator with <code>apply</code>. An apply node calls <code>apply</code> on each upstream entity, then calls <code>finish</code>. Neither method may return a value. It writes no entities and cannot have a downstream node. Publishing files is now the apply function <code>Output</code>.</li>
+<li><code>tag.json</code> no longer records <code>current</code>. A downstream snapshot is taken from the live upstream body and user tag. Editing an already written entity's <code>data</code> or <code>tag.json</code> redos dependents on the next run.</li>
+<li><code>PromptToLLM</code> keeps a <code>data</code> file the tool wrote into the target entity. After checking that it is non-empty UTF-8 text, only <code>tag.json</code> is written. Without that file, the body is still standard output.</li>
+<li>The upstream snapshot now lives in <code>tag.json</code> as <code>upstream</code>. <code>upstream.json</code> is no longer written, and a leftover file is deleted on persist.</li>
+<li>Each stage prints a progress bar on stderr, titled with the operator name. Map, fanout, reduce, and apply know the count for this run; a source advances as <code>emit</code> yields.</li>
+<li><code>DirectorySource</code> reads child directories that already look like entities: the directory name is the entity name, the body comes from <code>data</code>, and the tag comes from <code>tag.json</code>. Loose files and incomplete directories are skipped.</li>
+<li><code>Output</code> writes each upstream body as a file under <code>.staging</code> at the job root. The file name defaults to the entity name; a subclass overrides <code>rename</code>. <code>directory</code> selects another destination; a relative path is resolved from the operator home.</li>
+<li><code>LLMTool</code> moves to <code>docorder.utils.llm_tool</code>.</li>
+<li><code>Artifact</code> and <code>Environment</code> move to <code>docorder.core</code>.</li>
+<li>Built-in functions move to <code>docorder.functions.impl</code>. Base classes are renamed to <code>source_function</code>, <code>map_function</code>, <code>reduce_function</code>, <code>fanout_function</code>, and <code>rendered_map</code>. Write the new module path in <code>props.json</code> <code>class</code>.</li>
+<li><code>Environment</code> now has only <code>operator_props</code> (function parameters) and <code>template_env</code> (<code>operator</code> / <code>job</code> / <code>entity</code> for templates). <code>config</code>, <code>bind</code>, <code>namespace</code>, <code>bindings</code>, and <code>format_named</code> are gone.</li>
+<li>Map and fanout <code>parallelism</code> now uses a thread pool instead of a process pool. The slice threads share the operator, so parameters need not be picklable, and the starting script no longer needs <code>if __name__ == "__main__":</code> for this.</li>
+<li><code>OperatorNode</code> applies the node's <code>config</code> onto <code>props</code> at construction and then drops <code>config</code>; the public object is <code>props</code>. <code>Operator.of</code> then lifts the node's public fields onto the operator; after that the runner, the function, and the template environment read the operator, not the node. <code>Function</code> holds an <code>environment</code>: <code>environment.operator_props</code> is the function parameters and <code>environment.template_env</code> is the template view with <code>operator</code>, <code>job</code>, and <code>entity</code>, both built from the operator. Contract tests cover it.</li>
+<li>Add the user guide <code>docs/guide.md</code>: background, core concepts, workflow, use cases, configuration, built-in functions by operator type, template variables of rendering functions and how to add more, writing your own function, a complete example of using docorder in your own project, and best practices. The English version is <code>docs/guide.en.md</code>.</li>
+<li>The documents are checked against the current code and rewritten. The README now installs from the repository with <code>uv sync</code>, and adds getting the code, prerequisites, a runnable quick start and rerun example, configuration, and troubleshooting. The guide corrects the behaviour for duplicate node names, a reduce with an empty upstream, stage-wide clearing, parallel failures, and a failing source <code>emit</code>, and adds a rerun decision table, the fingerprint rules, a failure and retry comparison, and an end-to-end example. <code>SECURITY.md</code> and the documentation home page drop the <code>cursor</code> preset, which does not exist.</li>
+<li>Chapters 2 and 3 of the guide are rewritten around the current stage scheduler: the state of entities, operators, and jobs, the epoch directory, and how one run compares upstreams and writes them.</li>
+<li>Documents are provided in Chinese and English. Chinese keeps the original file name. English uses the same name with an <code>.en</code> suffix. The README is rewritten around the current <code>Job</code> and <code>execute</code>.</li>
+<li>The documentation home page is <code>docs/index.html</code>.</li>
+<li>Function documentation is collected in chapter 6 of the guide. Each function is one module under <code>src/docorder/functions/</code>.</li>
+<li>A source operator accepts only a function. The function yields each entity's data and tag from <code>emit</code>. <code>DirectorySource</code> produces entities from a directory of existing entity subdirectories (<code>data</code> and <code>tag.json</code>). <code>FilteredDirectorySource</code> selects them by name endings and <code>data</code> size in <code>filter</code>.</li>
+<li>The package no longer ships operator homes. Homes come from <code>DOCORDER_HOMES</code>. Concrete operators are implemented later.</li>
+<li><code>execute</code> receives the epoch. One run walks the whole graph in topological order.</li>
+<li>Operator <code>props.json</code> uses <code>type</code>: <code>source</code>, <code>map</code>, <code>reduce</code>, <code>fanout</code>.</li>
+<li>Entities are stored in an epoch subdirectory. The upstream operator, entity name, epoch, and hash are written to <code>upstream.json</code> in the entity directory. Another run of the same epoch executes what is missing, deletes what is extra, and redoes what the upstream changed.</li>
+<li>The project name is docorder. The package, the command-line tool, and <code>DOCORDER_DG</code>, <code>DOCORDER_LLM</code>, and <code>DOCORDER_HOMES</code> all use that name.</li>
+<li>Reusable operator implementations live in <code>src/docorder/operators/</code>. Stage scheduling lives in <code>src/docorder/runner.py</code>.</li>
+<li>The data-governance example jobs became scripts under <code>examples/data-governance/</code> (<code>documentation</code>, <code>dbt_model</code>, and <code>semantic_layer</code>), and are no longer installed through <code>docorder run</code>.</li>
+<li>The <code>llm</code> and <code>llm_batch</code> operators are gone. A model is now called by the <code>PromptToLLM</code>, <code>EntityTemplateToLLM</code>, and <code>TemplateToLLM</code> functions. A tool preset is a JSON file in the operator home, and a command JSON can be passed in as well.</li>
+</ul>
+<h2 id="010---2026-10-12">[0.1.0] - 2026-10-12</h2>
+<ul>
+<li>Schedule directory entities by stage, with retry, epoch checkpoints, skipping an operator, and resuming from a named operator.</li>
+<li>Ship jsonnet, template prompt, Cursor, command, CSV fan-out, concatenation, and review operators with the package.</li>
+<li>Provide documentation, data-quality, semantic-physical, and semantic-ontology jobs. These jobs need an external repository with a matching layout. The path is given with <code>--dg</code> or <code>DOCORDER_DG</code>.</li>
+</ul>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="security.en.html">
+          <span class="label">Previous</span>
+          <span class="name">Security</span>
+        </a>
+        <span class="next empty"></span>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#unreleased">[Unreleased]</a>
+      <a href="#010---2026-10-12">[0.1.0] - 2026-10-12</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3. How a run works | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="current" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>3. How a run works</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="3-how-a-run-works">3. How a run works</h1>
+<p>This chapter explains in time order what happens after <code>execute(job, epoch, start_from_scratch=False)</code> is called. The whole process has two parts: the first is assembly, which checks whether the whole job is correct and prepares the transform class of every node; the second is the execution of the stage of every node in turn, in dependency order. In the second part, as soon as one stage raises an exception, the whole run stops there and the nodes behind it never start.</p>
+<h3 id="assembly">Assembly</h3>
+<p>The assembly phase first checks whether the job graph itself is reasonable. These cases are rejected: a cyclic dependency between nodes; an upstream node named by a node that does not exist in the job; a node that names itself as its upstream; an apply node with no upstream; a node that names an apply node as its upstream; two nodes whose output directories resolve to the same directory; and a node whose output directory lies inside another node's output directory. The last two can be caused by symbolic links or by node names that contain <code>/</code>.</p>
+<p>After the job graph passes the check, the runner loads the Python class that the <code>class</code> key of <code>props.json</code> names for every node and tries to create an instance. If the class cannot be found, or is not a subclass of the base class for that operator type, or still has a method it must implement but does not, the run stops with an <code>OperatorValidationError</code>. Because all these checks happen before any node starts, a wrong class name on the very last node is caught right away and the nodes before it do not run for nothing.</p>
+<p>Assembly also builds one entity table for this epoch per output directory. The same directory has only one table within one run; a node updates it when it writes, and its downstream reads it as the upstream.</p>
+<p>The execution order of the nodes is decided by the job graph: a node always comes after its upstream node, and this order is called topological order. When several nodes are ready at the same time, the one added to the job first runs first.</p>
+<h3 id="the-life-of-one-stage">The life of one stage</h3>
+<p>The stage of a source node is very different from the others and is described separately at the end of this chapter. This section describes the stage of a map, reduce, and fanout node, which goes through the following steps in order. An apply node writes no entities, so its expected names are always empty, but <code>execute</code> still calls the function.</p>
+<!-- figure:stage:start -->
+<figure class="figure" id="fig-stage">
+<svg role="img" aria-labelledby="stage-title stage-desc" viewBox="0 0 900 640" width="100%" style="max-width:900px">
+  <title id="stage-title">What one stage does</title>
+  <desc>A stage creates the output directory, lists the expected names, compares them with the entities on disk, cleans up and reserves, calls the function, post-processes the tag, and finally writes data and tag.json; entities that match are kept as they are.</desc>
+  <defs>
+    <marker id="stage-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="stage-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="stage-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="640" fill="#f6f1e8"/>
+  <path d="M 450.0 96 L 450.0 124" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 172 L 450.0 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 248 L 450.0 276" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 340 L 450.0 372" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 436 L 450.0 468" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 532 L 450.0 564" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 300 224.0 L 260 224.0" fill="none" stroke="#1d6842" stroke-width="1" marker-end="url(#stage-arrow-moss)"/>
+  <rect x="261.625" y="200" width="36.75" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="280" y="212" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">match</text>
+  <rect x="300" y="48" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="48" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="76" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">create the output directory</text>
+  <rect x="300" y="124" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="124" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="146" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">list the expected names</text>
+  <text x="450" y="163" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">read the upstream entities</text>
+  <rect x="300" y="200" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="200" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="228" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">compare with the entities on disk</text>
+  <rect x="300" y="276" width="300" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="276" width="300" height="64" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <text x="450" y="306" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">clean up and reserve</text>
+  <text x="450" y="323" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">delete what is gone · empty tag.json</text>
+  <rect x="300" y="372" width="300" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="372" width="300" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="402" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">call the function</text>
+  <text x="450" y="419" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">transform_data → transform_props</text>
+  <rect x="300" y="468" width="300" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="468" width="300" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="498" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">post-process the tag</text>
+  <text x="450" y="515" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">merge global_prop · reset upstream</text>
+  <rect x="300" y="564" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="564" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="592" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">write data, then tag.json</text>
+  <rect x="40" y="200" width="220" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="200" width="220" height="64" rx="6" fill="rgba(29,104,66,0.08)" stroke="#1d6842" stroke-width="1"/>
+  <text x="150" y="230" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">matches</text>
+  <text x="150" y="247" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">kept as is, function not called</text>
+  <rect x="640" y="176" width="240" height="208" rx="6" fill="#f6f1e8"/>
+  <rect x="640" y="176" width="240" height="208" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="654" y="199" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">four outcomes of the comparison</text>
+  <rect x="654" y="226" width="8" height="8" rx="2" fill="#1d6842"/>
+  <text x="668" y="234" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">snapshot matches</text>
+  <text x="668" y="249" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">keep, skip the function</text>
+  <rect x="654" y="268" width="8" height="8" rx="2" fill="#1c1915"/>
+  <text x="668" y="276" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">expected, not on disk</text>
+  <text x="668" y="291" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">create it and run the function</text>
+  <rect x="654" y="310" width="8" height="8" rx="2" fill="#1c1915"/>
+  <text x="668" y="318" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">snapshot or depend differs</text>
+  <text x="668" y="333" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">clear it and reprocess</text>
+  <rect x="654" y="352" width="8" height="8" rx="2" fill="#9a3412"/>
+  <text x="668" y="360" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">on disk, not expected</text>
+  <text x="668" y="375" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">delete the entity directory</text>
+  <text x="40" y="28" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">stage begins</text>
+  <text x="40" y="630" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">stage ends</text>
+</svg>
+<figcaption><span class="fig-label">Figure 2</span> One stage: after the comparison, matching entities are skipped and the rest go through cleanup, the function call and the write.</figcaption>
+</figure>
+<!-- figure:stage:end -->
+
+<p>When the stage starts, the runner creates the output directory of this node.</p>
+<h4 id="listing-the-expected-names">Listing the expected names</h4>
+<p>Next, the runner reads all the entities the upstream node already has in this epoch and lists the expected names of this node. Different operator types list them differently. For a map node, each upstream entity has one same-named output entity, and that output entity depends on that one upstream entity. For a fanout node, the runner calls the <code>output_names</code> method of the function to ask which output entities each upstream entity splits into; each output entity depends on the upstream entity that produced it. For a reduce node, the expected names always have exactly one entry: one output entity whose name is decided by the parameter <code>output</code> (<code>result</code> when it is not set), and it depends on all the upstream entities. An apply node writes no entities, so its expected names are empty.</p>
+<p>When the expected names are empty, the stage neither compares nor deletes anything. This is what happens for a map or fanout node when the upstream has no entity at all; the function is not called, and the entities already in this epoch stay as they are. The expected names of an apply node are always empty, but <code>execute</code> still calls the function for every upstream entity. The expected names of a reduce node are never empty: even with no upstream entity at all it still produces that one output entity, only the list of upstream entities handed to the function is empty.</p>
+<h4 id="comparing-with-the-entities-on-disk">Comparing with the entities on disk</h4>
+<p>When the expected names are not empty, the runner reads the entities already in this node's directory and compares them with the expected names one by one, sorting them into these groups. An entity that is in the expected names but not yet in the directory has to be created. An entity that is in the directory but no longer in the expected names, for example because the upstream deleted the corresponding object, has to be deleted. An entity that is in both is compared, through the <code>upstream</code> in its <code>tag.json</code>, with the current state of the upstream, and has to be redone when any of these holds: the <code>upstream</code> is missing or invalid; the names of the upstream entities recorded in the snapshot differ from the ones listed in the expected names; the node name in the record is not the current upstream node; the epoch in the record is not the epoch of this run; the hash in the record is empty, or differs from the hash of the current body and user tag of the upstream entity; this entity's own <code>tag.json</code> cannot be read or is not a JSON object. After the upstream comparison passes, an operator that declares <code>fingerprint.depend</code> also checks the hashes of the dependency files, as the section "Fingerprints" below describes. An entity that passes both is kept as it is, and the function is not called for it in this run. <code>fingerprint.record</code> takes no part in this comparison.</p>
+<h4 id="fingerprints">Fingerprints</h4>
+<p>The upstream snapshot only covers "the body and user tag of the upstream entity". If an operator also reads external files that the upstream entity does not carry, for example a <code>.sql</code> file next to a table definition, <code>fingerprint</code> is how such dependencies are declared.</p>
+<p><code>fingerprint</code> in <code>props.json</code> or in the node <code>config</code> is an object with at most two sections, <code>record</code> and <code>depend</code>. Each section is an object whose keys are path templates; the values written in the configuration are not used. The <code>fingerprint</code> stored in the entity tag uses the same keys, and the values are the sha256 of the bytes of each file. This key belongs to the user tag, so it is part of the body hash.</p>
+<p>The templates are filled with <code>{name}</code>, <code>{staging}</code>, and the string parameters of the operator. <code>{name}</code> is the entity name and always wins over a parameter of the same name. <code>{staging}</code> is the <code>.staging</code> directory of the job; a string parameter of the same name overrides it. A relative path is resolved from the job root. <code>record</code> is rendered after the tag has been filled, so it can still use the string fields of the tag, and a parameter overrides a tag field of the same name. <code>depend</code> is rendered before the function runs, so it can only use <code>{name}</code>, <code>{staging}</code>, and parameters.</p>
+<p><code>record</code> names the files this operator writes itself, or the files a source points at. A map, reduce, or fanout records them after <code>transform_props</code> and before the snapshot; a source records them after <code>emit</code> has handed over the body and the tag, and still only when <code>start_from_scratch</code> is set. A change in these hashes does not redo this operator. After the write, the file must exist, or the stage fails with <code>FatalError</code>. When the function left no body but <code>record</code> is declared, the runner sets the body to a single newline, so that the hash of an empty body is not a hash that never matches. A body the function set is left as it is.</p>
+<p><code>depend</code> names the files this operator reads that the upstream entity does not carry. It is rendered before the clearing and compared with the hashes recorded in the tag: a different set of keys, or any different hash, redoes that entity. After a successful write the hashes are updated, so the next comparison sees the files of this run. When a file does not exist or a placeholder has no value, the stage stops with <code>FatalError</code> before the clearing, so existing entities are not deleted.</p>
+<p>A source that declares <code>depend</code>, or an apply that declares <code>fingerprint</code>, is rejected at assembly with <code>JobValidationError</code>. A source does no comparison before it runs, and an apply has no entity of its own.</p>
+<h4 id="clearing-and-reserving">Clearing and reserving</h4>
+<p>After the comparison and before any function is called, the runner tidies the directory of the whole stage in one pass: it first deletes all the entity directories that have to be deleted and all the entity directories that have to be redone, and then creates for every entity that has to be created or redone a directory that holds only an empty <code>tag.json</code> as a placeholder. This means that as soon as the stage starts executing, every entity that has to be redone has already lost its old body. If the stage fails halfway, the entities that have not been reached yet stay in the state of holding only an empty <code>tag.json</code>; their <code>tag.json</code> has no <code>upstream</code>, so on the next run they are recognized as unfinished and processed again.</p>
+<h4 id="filling-and-writing">Filling and writing</h4>
+<p>For each entity that is waiting, the runner first calls the <code>transform_data</code> method of the function to fill in the body, then calls the <code>transform_props</code> method to fill in the tag. The body the function fills in has to be a string and the tag has to be a dictionary (that is, a JSON object), otherwise the entity fails with <code>FatalError</code>.</p>
+<p>When the function has finished, the runner takes care of <code>global_prop</code> and <code>upstream</code> in the tag. If the tag of the upstream entity has an object named <code>global_prop</code>, the runner merges it into the <code>global_prop</code> of the target entity's tag; if the target entity already wrote a key of the same name, the value the target wrote wins. For a reduce node there are many upstream entities taking part in the merge, and the runner merges them one by one in the order of the entity names, so the values in a later entity overwrite the ones in an earlier one. The point of this mechanism is that data put into <code>global_prop</code> can travel from the start of the job to the end, and it is not lost even if some function in between does not copy the upstream tag over.</p>
+<p><code>upstream</code> is always reset, and a leftover <code>current</code> is dropped. The upstream entity is handed to the downstream function, and the function often copies the whole upstream tag over, which already contains the upstream's own <code>upstream</code>. The runner does not keep that: the <code>upstream</code> of the target becomes a live snapshot of the direct upstream entities at that moment (that one record when there is one upstream, and a list of those records when there is none or several). This record has four fields: <code>operator</code> is the upstream node name, <code>name</code> is the upstream entity name, <code>epoch</code> is the epoch of this run, and <code>hash</code> is the sha256 of the upstream entity's body together with its user tag. A source node has no upstream and writes no <code>upstream</code>.</p>
+<p>Finally, the runner writes the entity directory in a fixed order: first <code>data</code>, then <code>tag.json</code>. Each file is first written to a <code>.tmp</code> temporary file in the same directory and only then replaces the real file name, so a file is never left half written. <code>tag.json</code> is written last precisely so that the entity only counts as finished once both the body and the snapshot are in place. If an old <code>upstream.json</code> is left in the directory, it is deleted after the write.</p>
+<p>Every stage prints one progress bar on standard error, with the node name as its title. For a map, fanout, or reduce the total is the number of entities expected in this stretch, and the ones that passed the comparison and are skipped in this round are counted in as well. For an apply the total is the number of upstream entities of this call. A source advances it record by record in <code>emit</code> and does not know the total at the start. A parallel map or fanout shares this one progress bar.</p>
+<h3 id="parallelism-and-retry">Parallelism and retry</h3>
+<p>A map or fanout node can process entities with several threads at the same time to shorten the total run time. The concrete method is: the runner cuts the list of entities waiting to be processed into several contiguous slices; the number of slices does not exceed the <code>parallelism</code> parameter of the node, and does not exceed the number of entities waiting. If only one slice is cut, they are processed one by one in the current thread; if several slices are cut, each slice gets a worker thread, and each thread processes its own slice in order. These threads share the operator and the parameters of the current process. A reduce node has only one output entity, and a source node works in a different way, so neither of the two is sliced.</p>
+<p>The worker threads are started through the <code>ThreadPoolExecutor</code> of the Python standard library and do not start another process, so the code that starts the job does not have to be under <code>if __name__ == "__main__":</code> for parallelism, and <code>config</code> does not have to be picklable.</p>
+<p>During a parallel run, if one entity of a slice finally fails, the entities behind it in that slice are not processed, but the other slices run to the end, and the exception is only raised after all the slices have finished. Therefore, after a parallel run fails, there may be more finished entities on disk than you expected.</p>
+<p>The processing of each entity is retried according to the <code>retry</code> parameter of the node. If the function raises a <code>FatalError</code>, it means there is a problem that retrying cannot solve, such as a missing configuration or a wrong template, and then there is no retry and the stage fails at once. If it raises another kind of exception, such as an external command returning an error, the runner waits a while and tries again, waiting <code>backoff_seconds</code> times the number of attempts so far seconds, until the total number of attempts reaches <code>max_attempts</code>. An entity that has successfully written the <code>upstream</code> in <code>tag.json</code> stays in the directory; when you run the same job with the same epoch again, those entities pass the comparison and are skipped, and the runner only processes the remaining ones.</p>
+<h3 id="the-stage-of-a-source-node">The stage of a source node</h3>
+<p>A source node has no upstream, so it does not list expected names and does not take part in the comparison above. Whether it produces entities again depends only on whether this call to <code>execute</code> passed <code>start_from_scratch=True</code>.</p>
+<p>If it was not passed, the source node does not call the function and does not change the existing entities; it only makes sure the output directory and the marker file exist, and the downstream nodes read the entities it left the last time. Note that if the very first run on a brand-new epoch does not pass this flag, the source node's directory is empty and the downstream sees an empty upstream: a map or fanout node does nothing at all, and a reduce node produces a result from empty input.</p>
+<p>If it was passed, the runner calls the <code>emit</code> method of the function, reads the records it hands over one by one, and writes each one as an entity as it arrives. The entity name of each record has to follow the naming rules, the same name must not appear twice, the body has to be a string, and the tag has to be a dictionary. When it writes, the runner overwrites the <code>data</code> and <code>tag.json</code> in the entity directory directly and deletes a possible leftover <code>upstream.json</code>. A source writes no <code>upstream</code>. After all the records have been written, the entities of this epoch that were not handed over this time are deleted, so that the entities in the source node's directory match the external data exactly. The <code>retry</code> parameter of a source node only applies to the single action of writing one record to disk; if the <code>emit</code> method itself raises an exception, for example because an input file is not valid UTF-8 text, that exception is not retried, and the old entities that have not been handed over yet are not deleted either. The directory only becomes consistent again when the next run with <code>start_from_scratch=True</code> finishes successfully.</p>
+<h3 id="decisions-on-a-later-run">Decisions on a later run</h3>
+<p>The table below gathers the cases described above and shows what happens to each entity when the same epoch runs again.</p>
+<!-- figure:rerun:start -->
+<figure class="figure" id="fig-rerun">
+<svg role="img" aria-labelledby="rerun-title rerun-desc" viewBox="0 0 900 640" width="100%" style="max-width:900px">
+  <title id="rerun-title">How an entity is judged on a re-run</title>
+  <desc>An entity that is expected but missing is created; one that exists but is not expected is deleted; when both exist, the entity is kept if its upstream snapshot and its depend fingerprint agree, and reprocessed otherwise.</desc>
+  <defs>
+    <marker id="rerun-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="rerun-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="rerun-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="640" fill="#f6f1e8"/>
+  <path d="M 200 152 L 200 208" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 200 272 L 200 328" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 380 120 L 560 120" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 380 240 L 560 240" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 380 376 L 560 376" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 290 424 L 290 468 L 560 468" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow-moss)"/>
+  <path d="M 110 424 L 110 540 L 560 540" fill="none" stroke="#9a3412" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <rect x="208" y="158" width="26.85" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="208" y="170" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">yes</text>
+  <rect x="208" y="278" width="26.85" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="208" y="290" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">yes</text>
+  <rect x="449.05" y="96" width="21.9" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="460" y="108" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">no</text>
+  <rect x="449.05" y="216" width="21.9" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="460" y="228" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">no</text>
+  <rect x="449.05" y="352" width="21.9" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="460" y="364" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">no</text>
+  <rect x="298" y="444" width="26.85" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="298" y="456" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">yes</text>
+  <rect x="118" y="484" width="106.05" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="118" y="496" fill="#9a3412" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">depend file missing</text>
+  <rect x="40" y="88" width="340" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="88" width="340" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="124" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">is it in the expected list?</text>
+  <rect x="40" y="208" width="340" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="208" width="340" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="244" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">does it already exist on disk?</text>
+  <rect x="40" y="328" width="340" height="96" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="328" width="340" height="96" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="374" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">snapshot matches and depend matches?</text>
+  <text x="210" y="391" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">name, node, epoch and hash must agree</text>
+  <rect x="560" y="92" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="92" width="300" height="56" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1"/>
+  <text x="710" y="124" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">delete the entity directory</text>
+  <rect x="560" y="212" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="212" width="300" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="710" y="244" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">create · call the function</text>
+  <rect x="560" y="348" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="348" width="300" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="710" y="380" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">clear and reprocess</text>
+  <rect x="560" y="440" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="440" width="300" height="56" rx="6" fill="rgba(29,104,66,0.08)" stroke="#1d6842" stroke-width="1"/>
+  <text x="710" y="472" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">keep · no function call</text>
+  <rect x="560" y="512" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="512" width="300" height="56" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="710" y="544" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">FatalError · nothing is cleared</text>
+  <text x="40" y="596" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">An empty expected list means no comparison at all: map and fanout with no upstream, and apply nodes.</text>
+  <text x="40" y="614" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">A reduce node with no upstream compares anyway, and the function receives an empty list.</text>
+</svg>
+<figcaption><span class="fig-label">Figure 3</span> Judging on a re-run: three questions decide whether an entity is kept, reprocessed, created or deleted.</figcaption>
+</figure>
+<!-- figure:rerun:end -->
+
+<table>
+<thead>
+<tr>
+<th>Case</th>
+<th>What happens to the entity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In the expected names, not in the directory</td>
+<td>Created, and the function is called</td>
+</tr>
+<tr>
+<td>In the directory, not in the expected names</td>
+<td>The whole entity directory is deleted</td>
+</tr>
+<tr>
+<td>In both, the upstream snapshot matches the current upstream, and <code>depend</code> matches or was not declared</td>
+<td>Kept, the function is not called</td>
+</tr>
+<tr>
+<td>In both, no upstream snapshot, an invalid upstream snapshot, or an invalid <code>tag.json</code></td>
+<td>Cleared and processed again</td>
+</tr>
+<tr>
+<td>In both, the upstream entity name, node name, epoch, or entity hash differs</td>
+<td>Cleared and processed again</td>
+</tr>
+<tr>
+<td>In both, the upstream matches, but a key or hash of <code>fingerprint.depend</code> differs</td>
+<td>Cleared and processed again</td>
+</tr>
+<tr>
+<td><code>depend</code> is declared, but the file does not exist or the template placeholder has no value</td>
+<td>Stops with <code>FatalError</code>, without clearing</td>
+</tr>
+<tr>
+<td>A map or fanout node whose upstream has no entity at all</td>
+<td>No comparison, the directory stays as it is</td>
+</tr>
+<tr>
+<td>A reduce node whose upstream has no entity at all</td>
+<td>Compared as usual, the function receives an empty list</td>
+</tr>
+<tr>
+<td>An apply node</td>
+<td>Entities are not compared. The function is called for every entity of the current upstream; an empty upstream calls only <code>finish</code></td>
+</tr>
+<tr>
+<td>A source node, without <code>start_from_scratch=True</code></td>
+<td>The function is not called, the entities stay as they are</td>
+</tr>
+</tbody>
+</table>
+<h3 id="common-situations-when-running-again">Common situations when running again</h3>
+<p>From this table you can derive a few rules that come up in daily use.</p>
+<h4 id="the-last-run-stopped-halfway">The last run stopped halfway</h4>
+<p>The entities in the failed stretch whose upstream snapshot was already written stay; only the entities with an empty <code>tag.json</code> and no snapshot are redone; the downstream of the failed node never started last time and runs from the beginning now. The non-source nodes before the failed node pass the comparison as long as their upstream did not change, and their functions are not called again.</p>
+<h4 id="an-upstream-entity-changed">An upstream entity changed</h4>
+<p>When the body or user tag of an upstream entity changes, the downstream entities that depend on it are redone. A redone entity that writes the same body and user tag as last time passes the comparison of its own downstream, so the redo stops there; otherwise it continues down the graph. For a reduce, a change to the body or user tag of any upstream entity, and an upstream entity appearing or disappearing, redoes that one output. Without <code>start_from_scratch</code> you can also edit the <code>data</code> or <code>tag.json</code> in an already written upstream entity directory directly, and the downstream is redone on the next run.</p>
+<h4 id="upstream-entities-appeared-or-disappeared">Upstream entities appeared or disappeared</h4>
+<p>An upstream entity that appears shows up as a creation in a map downstream, and an upstream entity that disappears shows up as a deletion. The one exception is an upstream with no entity left at all: the expected names of a map or fanout are then empty, the downstream directory stays as it is, and it is not emptied because of that.</p>
+<h4 id="the-operator-itself-changed">The operator itself changed</h4>
+<p>When the template, the parameters, the function code, or an external tool changed while the upstream entities did not, the upstream snapshot still matches and the old result is kept. To make the new logic take effect, delete the <code>&lt;epoch&gt;/</code> directory of that node, or some of the entity directories in it, or use another epoch. Deleting only the <code>upstream</code> from the <code>tag.json</code> of an entity also makes it redo, and keeps the directory available for inspection until the redo starts.</p>
+<h4 id="a-source-that-does-not-regenerate">A source that does not regenerate</h4>
+<p>Without <code>start_from_scratch=True</code>, a change to the source files does not reach the entities of the source, and the downstream naturally does not see it either. Only when it is passed does the source reread its input, and only then does the change start propagating from the root of the graph.</p>
+<h3 id="the-directories-one-run-leaves-behind">The directories one run leaves behind</h3>
+<p>After a run finishes, the output root looks like this:</p>
+<!-- figure:layout:start -->
+<figure class="figure" id="fig-layout">
+<svg role="img" aria-labelledby="layout-title layout-desc" viewBox="0 0 900 500" width="100%" style="max-width:900px">
+  <title id="layout-title">What a run leaves on disk</title>
+  <desc>Under the output root there is .staging and one directory per node; a node directory is layered by epoch, and each entity directory holds a data file and a tag.json.</desc>
+  <defs>
+    <marker id="layout-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="layout-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="layout-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="500" fill="#f6f1e8"/>
+  <path d="M 150 84 L 150 104 L 138 104 Q 130 104 130 112 L 130 124" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 150 84 L 150 104 L 442 104 Q 450 104 450 112 L 450 124" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 130 168 L 130 208" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 450 168 L 450 188 L 408 188 Q 400 188 400 196 L 400 208" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 400 252 L 400 272 L 368 272 Q 360 272 360 280 L 360 292" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 360 336 L 360 356 L 268 356 Q 260 356 260 364 L 260 376" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 360 336 L 360 356 L 437 356 Q 445 356 445 364 L 445 376" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <rect x="40" y="40" width="220" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="40" width="220" height="44" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="150" y="66" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;output root&gt;/</text>
+  <rect x="40" y="124" width="180" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="124" width="180" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="130" y="150" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">.staging/</text>
+  <rect x="360" y="124" width="180" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="360" y="124" width="180" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="450" y="150" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;node name&gt;/</text>
+  <rect x="40" y="208" width="180" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="208" width="180" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="130" y="234" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;file name&gt;</text>
+  <rect x="320" y="208" width="160" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="320" y="208" width="160" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="400" y="234" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;epoch&gt;/</text>
+  <rect x="560" y="208" width="200" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="208" width="200" height="44" rx="6" fill="#fffdf8" stroke="#6f685c" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="660" y="234" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;another epoch&gt;/</text>
+  <rect x="280" y="292" width="160" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="292" width="160" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="360" y="318" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;entity name&gt;/</text>
+  <rect x="200" y="376" width="120" height="40" rx="6" fill="#f6f1e8"/>
+  <rect x="200" y="376" width="120" height="40" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="260" y="394" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">data</text>
+  <text x="260" y="411" fill="#5e584e" font-size="9" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">the body</text>
+  <rect x="380" y="376" width="130" height="40" rx="6" fill="#f6f1e8"/>
+  <rect x="380" y="376" width="130" height="40" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="445" y="394" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">tag.json</text>
+  <text x="445" y="411" fill="#5e584e" font-size="9" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">the tag</text>
+  <text x="236" y="150" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">the whole job's output</text>
+  <text x="236" y="234" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">holds the upstream body</text>
+  <text x="560" y="276" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">an old epoch stays put</text>
+  <text x="525" y="400" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">carries the upstream snapshot</text>
+  <text x="40" y="446" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">The epoch is an argument to execute; every node in a run shares it.</text>
+  <text x="40" y="466" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">.staging belongs to no node and is not an epoch layer.</text>
+</svg>
+<figcaption><span class="fig-label">Figure 4</span> What a run leaves on disk: node directories are layered by epoch, and an entity directory holds data and tag.json.</figcaption>
+</figure>
+<!-- figure:layout:end -->
+
+<pre><code class="language-text">&lt;output root&gt;/
+  .staging/                 overall job output, written by the apply function `Output`
+    &lt;file name&gt;             the body of an upstream entity
+  &lt;node name&gt;/
+    &lt;epoch&gt;/
+      &lt;entity name&gt;/
+        data
+        tag.json            includes the upstream snapshot when the entity has an upstream
+    &lt;another epoch&gt;/
+      ...
+</code></pre>
+<p><code>.staging</code> is the overall output of the job, not an epoch directory of entities for some node.</p>
+<p>The epoch is the name the caller passes to <code>execute</code>, and also the name of the subdirectory level the entities live in. Within one run, the output of every node uses this epoch, and the epoch recorded in the snapshots is it as well. Another epoch means another set of subdirectories: a new epoch starts from empty directories, the entities of the old epoch stay where they are, and the runner neither reads nor cleans them. When the epoch recorded in a snapshot differs from the current one, the entity has to be redone.</p>
+<p>The runner does not check the epoch name and joins it into the path as it is. A name such as <code>2026/10</code> creates two directory levels, so pass a single directory name, for example a date or a version number.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/2-core-concepts-and-terms.en.html">
+          <span class="label">Previous</span>
+          <span class="name">2. Core concepts and terms</span>
+        </a>
+        <a class="next" href="../guide/4-fingerprints-and-hashes.en.html">
+          <span class="label">Next</span>
+          <span class="name">4. Fingerprints and hashes</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#assembly">Assembly</a>
+      <a href="#the-life-of-one-stage">The life of one stage</a>
+      <a href="#listing-the-expected-names">Listing the expected names</a>
+      <a href="#comparing-with-the-entities-on-disk">Comparing with the entities on disk</a>
+      <a href="#fingerprints">Fingerprints</a>
+      <a href="#clearing-and-reserving">Clearing and reserving</a>
+      <a href="#filling-and-writing">Filling and writing</a>
+      <a href="#parallelism-and-retry">Parallelism and retry</a>
+      <a href="#the-stage-of-a-source-node">The stage of a source node</a>
+      <a href="#decisions-on-a-later-run">Decisions on a later run</a>
+      <a href="#common-situations-when-running-again">Common situations when running again</a>
+      <a href="#the-last-run-stopped-halfway">The last run stopped halfway</a>
+      <a href="#an-upstream-entity-changed">An upstream entity changed</a>
+      <a href="#upstream-entities-appeared-or-disappeared">Upstream entities appeared or disappeared</a>
+      <a href="#the-operator-itself-changed">The operator itself changed</a>
+      <a href="#a-source-that-does-not-regenerate">A source that does not regenerate</a>
+      <a href="#the-directories-one-run-leaves-behind">The directories one run leaves behind</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

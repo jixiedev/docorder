@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>三、工作流程 | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.html">Docorder</a>
+    <nav>
+      <a href="../index.html">文档</a>
+      <a href="../guide/index.html">使用指南</a>
+    </nav>
+    <a class="lang" href="../index.en.html">English</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">目录</label>
+      <nav aria-label="文档导航">
+      <details>
+        <summary>文档</summary>
+        <a class="" href="../index.html">概览</a>
+      </details>
+      <details>
+        <summary>开始</summary>
+        <a class="" href="../readme.html">快速开始</a>
+      </details>
+      <details open>
+        <summary>使用指南</summary>
+        <a class="" href="../guide/index.html">使用指南</a>
+        <a class="" href="../guide/document-structure.html">文档结构</a>
+        <a class="" href="../guide/1-background.html">一、背景</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.html">二、核心概念与术语</a>
+        <a class="current" href="../guide/3-how-a-run-works.html">三、工作流程</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.html">四、指纹与哈希</a>
+        <a class="" href="../guide/5-use-cases.html">五、使用场景</a>
+        <a class="" href="../guide/6-configuration.html">六、配置</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.html">七、算子分类与内置 function</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.html">八、渲染类 function 与模板变量</a>
+        <a class="" href="../guide/9-writing-your-own-function.html">九、开发自己的 function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.html">十、在自己的项目中使用 docorder</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.html">十一、数据治理案例</a>
+        <a class="" href="../guide/12-best-practices.html">十二、最佳实践</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.html">附录 A：内置 function 一览</a>
+        <a class="" href="../guide/appendix-b-implementation-index.html">附录 B：实现索引</a>
+        <a class="" href="../guide/appendix-c-related-documents.html">附录 C：相关文档</a>
+      </details>
+      <details>
+        <summary>参考</summary>
+        <a class="" href="../glossary.html">术语表</a>
+      </details>
+      <details>
+        <summary>项目</summary>
+        <a class="" href="../code-of-conduct.html">行为准则</a>
+        <a class="" href="../contributing.html">参与贡献</a>
+        <a class="" href="../security.html">安全</a>
+        <a class="" href="../changelog.html">更新日志</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="面包屑">
+        <a href="../index.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>文档</span>
+        <span aria-hidden="true">/</span>
+        <span>三、工作流程</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="三工作流程">三、工作流程</h1>
+<p>本章按时间顺序讲解调用 <code>execute(job, epoch, start_from_scratch=False)</code> 之后发生的事情。整个过程分为两个阶段：第一阶段是装配，检查整个作业是否正确，并准备好每个节点要用的转换类；第二阶段是按依赖顺序逐个执行每个节点的 stage。在第二阶段中，只要任何一个 stage 抛出了异常，整次运行就会在这里停止，排在后面的节点不会开始执行。</p>
+<h3 id="装配">装配</h3>
+<p>装配阶段首先检查作业图本身是否合理。以下几种情况会被拒绝：节点之间存在循环依赖；某个节点指定的上游节点在作业中并不存在；某个节点把自己指定为上游；apply 节点没有上游；有节点把 apply 节点当作上游；两个节点的输出目录解析后实际上是同一个目录；以及一个节点的输出目录位于另一个节点的输出目录之中。后两种情况可以由符号链接或带 <code>/</code> 的节点名造成。</p>
+<p>作业图检查通过之后，runner 为每个节点加载 <code>props.json</code> 中 <code>class</code> 指向的 Python 类，并尝试创建一个对象。如果这个类找不到，或者它不是该算子类型对应基类的子类，或者它还有必须实现却没有实现的方法，运行就会以 <code>OperatorValidationError</code> 错误停止。由于这些检查都发生在任何节点开始执行之前，即使只是最后一个节点的类名写错了，也会在一开始就被发现，前面的节点不会白白执行一遍。</p>
+<p>装配还为每个输出目录建立一份本 epoch 的实体表。同一个目录在一次运行里只有一份表，节点写出时更新它，下游把它当作上游来读。</p>
+<p>各节点的执行顺序由作业图决定：一个节点总是排在它的上游节点之后，这种顺序称为拓扑顺序。当有几个节点同时满足执行条件时，先加入作业的节点先执行。</p>
+<h3 id="一个-stage-的经过">一个 stage 的经过</h3>
+<p>source 节点的 stage 与其它节点有很大不同，本章最后单独说明。本节描述 map、reduce 和 fanout 节点的 stage，它依次经过以下几个步骤。apply 节点不写实体，应得名单始终为空，但 <code>execute</code> 仍会调用 function。</p>
+<!-- figure:stage:start -->
+<figure class="figure" id="fig-stage">
+<svg role="img" aria-labelledby="stage-title stage-desc" viewBox="0 0 900 640" width="100%" style="max-width:900px">
+  <title id="stage-title">docorder 中一个 stage 的经过</title>
+  <desc>一个 stage 依次建立输出目录、列出应得名单、与磁盘上的实体比较、清理与预留、调用 function、处理附加信息，最后写 data 与 tag.json；比较通过的实体原样保留。</desc>
+  <defs>
+    <marker id="stage-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="stage-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="stage-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="640" fill="#f6f1e8"/>
+  <path d="M 450.0 96 L 450.0 124" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 172 L 450.0 200" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 248 L 450.0 276" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 340 L 450.0 372" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 436 L 450.0 468" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 450.0 532 L 450.0 564" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#stage-arrow)"/>
+  <path d="M 300 224.0 L 260 224.0" fill="none" stroke="#1d6842" stroke-width="1" marker-end="url(#stage-arrow-moss)"/>
+  <rect x="265" y="200" width="30" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="280" y="212" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">通过</text>
+  <rect x="300" y="48" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="48" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="76" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">建立输出目录</text>
+  <rect x="300" y="124" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="124" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="146" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">列出应得名单</text>
+  <text x="450" y="163" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">读上游在本 epoch 的实体</text>
+  <rect x="300" y="200" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="200" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="228" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">与磁盘上的实体比较</text>
+  <rect x="300" y="276" width="300" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="276" width="300" height="64" rx="6" fill="rgba(27,71,68,0.08)" stroke="#1b4744" stroke-width="1"/>
+  <text x="450" y="306" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">清理与预留</text>
+  <text x="450" y="323" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">删掉要删的 · 留空 tag.json</text>
+  <rect x="300" y="372" width="300" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="372" width="300" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="402" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">调用 function</text>
+  <text x="450" y="419" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">transform_data → transform_props</text>
+  <rect x="300" y="468" width="300" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="468" width="300" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="498" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">处理附加信息</text>
+  <text x="450" y="515" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">合并 global_prop · 重置 upstream</text>
+  <rect x="300" y="564" width="300" height="48" rx="6" fill="#f6f1e8"/>
+  <rect x="300" y="564" width="300" height="48" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="450" y="592" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">写 data，再写 tag.json</text>
+  <rect x="40" y="200" width="220" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="200" width="220" height="64" rx="6" fill="rgba(29,104,66,0.08)" stroke="#1d6842" stroke-width="1"/>
+  <text x="150" y="230" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">比较通过</text>
+  <text x="150" y="247" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">原样保留，不再调用 function</text>
+  <rect x="640" y="176" width="240" height="208" rx="6" fill="#f6f1e8"/>
+  <rect x="640" y="176" width="240" height="208" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="654" y="199" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">比较的四种结局</text>
+  <rect x="654" y="226" width="8" height="8" rx="2" fill="#1d6842"/>
+  <text x="668" y="234" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">比较通过</text>
+  <text x="668" y="249" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">保留，不调用 function</text>
+  <rect x="654" y="268" width="8" height="8" rx="2" fill="#1c1915"/>
+  <text x="668" y="276" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">名单里有、目录里没有</text>
+  <text x="668" y="291" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">新建并调用 function</text>
+  <rect x="654" y="310" width="8" height="8" rx="2" fill="#1c1915"/>
+  <text x="668" y="318" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">快照或 depend 不吻合</text>
+  <text x="668" y="333" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">清空后重新处理</text>
+  <rect x="654" y="352" width="8" height="8" rx="2" fill="#9a3412"/>
+  <text x="668" y="360" fill="#1c1915" font-size="9.5" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">名单里没有、目录里有</text>
+  <text x="668" y="375" fill="#5e584e" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">删除整个实体目录</text>
+  <text x="40" y="28" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">stage 开始</text>
+  <text x="40" y="630" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">stage 结束</text>
+</svg>
+<figcaption><span class="fig-label">图 2</span> 一个 stage 的经过：比较之后，保留的实体就此跳过，其余的走完清理、调用与写出。</figcaption>
+</figure>
+<!-- figure:stage:end -->
+
+<p>stage 开始时，runner 创建这个节点的输出目录。</p>
+<h4 id="列出应得名单">列出应得名单</h4>
+<p>接下来，runner 读取上游节点在本 epoch 中已有的全部实体，列出本节点的应得名单。不同类型的算子，应得名单的列法不同。对于 map 节点，上游的每个实体都对应一个同名的输出实体，这个输出实体只依赖那一个上游实体。对于 fanout 节点，runner 会调用 function 的 <code>output_names</code> 方法，询问每个上游实体要拆分出哪些输出实体，每个输出实体依赖产生它的那个上游实体。对于 reduce 节点，应得名单永远只有一项：一个名字由参数 <code>output</code> 决定的输出实体（未设置时名为 <code>result</code>），它依赖上游的全部实体。apply 节点不写实体，应得名单是空的。</p>
+<p>如果应得名单是空的，这个 stage 就不比较、不删除实体。map 和 fanout 节点在上游一个实体都没有的时候就会出现这种情况，也不会调用 function，本节点已有的实体全部保持原样。apply 节点的应得名单始终为空，但 <code>execute</code> 仍会对每个上游实体调用 function。reduce 节点的应得名单不会为空，即使上游一个实体都没有，它仍然会产生那一个输出实体，只是交给 function 的上游实体列表是空的。</p>
+<h4 id="与磁盘上的实体比较">与磁盘上的实体比较</h4>
+<p>应得名单不为空时，runner 读取本节点目录中已有的实体，把它们与应得名单逐一比较，分成以下几类。应得名单中有、但目录里还没有的实体，需要新建。目录里有、但应得名单中已经没有的实体，例如上游已经删除了对应的对象，需要删除。两边都有的实体，则要用它 <code>tag.json</code> 里的 <code>upstream</code> 与上游的当前状态作比较，只要下面任意一条成立，就需要重做：<code>upstream</code> 不存在或者内容无效；快照中记录的上游实体名字与应得名单中列出的不一致；记录中的节点名不是当前的上游节点；记录中的 epoch 不是本次运行的 epoch；记录中的哈希值为空，或者与上游实体当前正文和用户 tag 的哈希值不同；这个实体自己的 <code>tag.json</code> 无法读取或者不是 JSON 对象。上游比较通过之后，如果这个算子声明了 <code>fingerprint.depend</code>，还要核对依赖文件的哈希，见下面「指纹」一节。两处都通过的实体比较通过，会被原样保留，本次运行不会为它调用 function。<code>fingerprint.record</code> 不参与这次比较。</p>
+<h4 id="指纹">指纹</h4>
+<p>上游快照只能覆盖「上游实体的正文和用户 tag」。如果某个算子还会读取上游实体没有携带的外部文件，例如一个表定义旁边的 <code>.sql</code> 文件，就要用 <code>fingerprint</code> 来声明这类依赖。</p>
+<p><code>props.json</code> 或节点 <code>config</code> 里的 <code>fingerprint</code> 是一个对象，最多两段：<code>record</code> 和 <code>depend</code>。每一段都是对象，键是路径模板，写在配置里的值不使用。落到实体 tag 的 <code>fingerprint</code> 用同样的键，值是文件字节的 sha256。这个键属于用户 tag，因此算进正文哈希。</p>
+<p>模板用 <code>{name}</code>、<code>{staging}</code> 和算子参数里的字符串填空。<code>{name}</code> 是实体名，始终覆盖同名参数。<code>{staging}</code> 是作业的 <code>.staging</code> 目录，同名的字符串参数覆盖它。相对路径相对作业根目录解析。<code>record</code> 在 tag 已经写好之后渲染，所以还能用 tag 里的字符串字段，同名参数覆盖 tag。<code>depend</code> 在 function 运行前渲染，只能用 <code>{name}</code>、<code>{staging}</code> 和参数。</p>
+<p><code>record</code> 是算子自己写下、或者 source 指向的文件。map、reduce、fanout 在 <code>transform_props</code> 之后、快照之前记账；source 在 <code>emit</code> 交出正文和 tag 之后记账，并且仍然只在 <code>start_from_scratch</code> 时发生。这段哈希变了，不会让本算子重做。写完后文件必须存在，否则这一段以 <code>FatalError</code> 失败。function 没有留下正文、但声明了 <code>record</code> 时，runner 会把正文写成一个换行，避免空正文的哈希永远对不上；function 自己写了正文就保持不动。</p>
+<p><code>depend</code> 是本算子读取、上游实体却没有携带的文件。它在清场前渲染，并与 tag 里记下的哈希比较：键集合不同，或任一哈希不同，这个实体重做。成功写出后再更新，让下一次对的是这次看到的文件。文件不存在或占位符没有值时，这一段以 <code>FatalError</code> 停下，发生在清场之前，已有实体不会被删掉。</p>
+<p>source 配了 <code>depend</code>，或者 apply 配了 <code>fingerprint</code>，作业在装配时以 <code>JobValidationError</code> 拒绝。source 不做运行前比较，apply 没有自己的实体。</p>
+<h4 id="清理与预留">清理与预留</h4>
+<p>比较完成之后、开始调用任何 function 之前，runner 会对整个 stage 的目录做一次集中整理：先删除所有需要删除的实体目录和所有需要重做的实体目录，然后为每个需要新建或重做的实体建立一个只包含空 <code>tag.json</code> 的目录作为占位。这意味着，一旦 stage 开始执行，所有需要重做的实体都已经失去了它们的旧正文；如果这个 stage 在中途失败，那些还没有轮到处理的实体会停留在只有空 <code>tag.json</code> 的状态，它们的 <code>tag.json</code> 里没有 <code>upstream</code>，因此在下一次运行时会被识别为未完成并重新处理。</p>
+<h4 id="填写与写出">填写与写出</h4>
+<p>对于每个等待处理的实体，runner 先调用 function 的 <code>transform_data</code> 方法填写正文，再调用 <code>transform_props</code> 方法填写附加信息。function 填写的正文必须是字符串，附加信息必须是字典（也就是 JSON 对象），否则这个实体会以 <code>FatalError</code> 错误失败。</p>
+<p>function 填写完成后，runner 会处理附加信息中的 <code>global_prop</code> 和 <code>upstream</code>。如果上游实体的附加信息里有一个名为 <code>global_prop</code> 的对象，runner 会把它合并到目标实体附加信息的 <code>global_prop</code> 中；如果目标实体自己已经写了同名的键，以目标实体自己写的值为准。对于 reduce 节点，参与合并的上游实体有很多个，runner 按实体名字的顺序依次合并，排在后面的实体中的值会覆盖排在前面的。这个机制的意义在于，放进 <code>global_prop</code> 的数据可以从作业的起点一直传到末端，即使中间某个 function 没有把上游的附加信息复制下来，这些数据也不会丢失。</p>
+<p><code>upstream</code> 一定被重置，残留的 <code>current</code> 会被丢掉。上游实体会交给下游 function，function 常常把上游的整份附加信息复制过来，其中已经有上游自己的 <code>upstream</code>。runner 不保留这项：目标的 <code>upstream</code> 改成直接上游实体此刻的快照（只有一个上游时是这条记录，没有或多个上游时是这些记录组成的列表）。这条记录有四个字段：<code>operator</code> 是上游节点名，<code>name</code> 是上游实体名，<code>epoch</code> 是本次 epoch，<code>hash</code> 是上游实体正文连同用户 tag 的 sha256。source 节点没有上游，不写 <code>upstream</code>。</p>
+<p>最后，runner 按固定顺序写入实体目录：先写 <code>data</code>，再写 <code>tag.json</code>。每个文件都先写到同一目录下的一个 <code>.tmp</code> 临时文件中，写完之后再替换成正式的文件名，所以不会出现一个文件只写了一半的情况。<code>tag.json</code> 最后写入，正是为了保证只有在正文和快照都写好之后，这个实体才会被视为完成。目录里若留着旧的 <code>upstream.json</code>，写出后会删掉。</p>
+<p>每个 stage 在标准错误输出上打印一条进度条，标题是节点名。map、fanout、reduce 的总数是本段应得的实体个数，已经比较通过、本轮跳过的也会计入。apply 的总数是这次调用的上游实体个数。source 在 <code>emit</code> 时逐条推进，开始时不知道总数。并行的 map 和 fanout 共用这一条进度条。</p>
+<h3 id="并行与重试">并行与重试</h3>
+<p>map 和 fanout 节点可以利用多个线程同时处理实体，以缩短总的运行时间。具体做法是：runner 把等待处理的实体列表切成连续的若干段，段数不超过节点的 <code>parallelism</code> 参数，也不超过等待处理的实体个数。如果只切出一段，就在当前线程中按顺序逐个处理；如果切出了多段，就为每一段启动一个工作线程，每个线程在自己那一段内按顺序处理。这些线程共享当前进程里的算子和参数。reduce 节点只有一个输出实体，source 节点的处理方式也不同，所以这两类节点不会被切分。</p>
+<p>工作线程通过 Python 标准库中的 <code>ThreadPoolExecutor</code> 启动，不另起进程，因此启动作业的代码不必为了并行而写在 <code>if __name__ == "__main__":</code> 之下，<code>config</code> 也不必能被 pickle。</p>
+<p>在并行执行时，如果某一段中有一个实体最终失败，这一段中排在它后面的实体就不会再被处理，但其它段会继续执行到结束，所有段都结束之后，异常才会被抛出。因此，并行运行失败之后，磁盘上已经完成的实体可能比你预想的要多一些。</p>
+<p>每个实体的处理都按照节点的 <code>retry</code> 参数进行重试。如果 function 抛出的是 <code>FatalError</code>，说明出现了重试也无法解决的问题，例如配置缺失或者模板写错，此时不会重试，这个 stage 立即失败；如果抛出的是其它类型的异常，例如外部命令返回了错误，runner 会等待一段时间后再试一次，等待的秒数是 <code>backoff_seconds</code> 乘以已经尝试过的次数，直到尝试的总次数达到 <code>max_attempts</code> 为止。一个实体只要成功写下了 <code>tag.json</code> 里的 <code>upstream</code>，就会一直保留在目录中；用同一个作业和同一个 epoch 再次运行时，这些实体会因为比较通过而被跳过，runner 只会处理剩下的实体。</p>
+<h3 id="source-节点的-stage">source 节点的 stage</h3>
+<p>source 节点没有上游，所以它不列应得名单，也不做上面那样的比较。它是否重新产生实体，只取决于本次调用 <code>execute</code> 时是否传入了 <code>start_from_scratch=True</code>。</p>
+<p>如果没有传入，source 节点不会调用 function，也不会改动已有的实体，只确保输出目录和标记文件存在，下游节点读取的是它上一次留下的实体。需要注意的是，如果在一个全新的 epoch 上第一次运行时就没有传入这个参数，source 节点的目录是空的，下游看到的也就是一个空的上游：map 和 fanout 节点什么都不会做，reduce 节点会产生一个基于空输入的结果。</p>
+<p>如果传入了，runner 会调用 function 的 <code>emit</code> 方法，逐条读取它交出的记录，每读到一条就写成一个实体。每条记录的实体名必须符合命名规则，同一个名字不能出现两次，正文必须是字符串，附加信息必须是字典。写入时，runner 直接覆盖实体目录中原有的 <code>data</code> 和 <code>tag.json</code>，并删除可能残留的 <code>upstream.json</code>。source 不写 <code>upstream</code>。全部记录都写完之后，本 epoch 中这一次没有被交出的实体会被删除，这样 source 节点目录中的实体就与外部数据完全一致了。source 节点的 <code>retry</code> 参数只作用于「把一条记录写入磁盘」这一个动作；如果 <code>emit</code> 方法本身抛出了异常，例如某个输入文件不是合法的 UTF-8 文本，这个异常不会被重试，此时那些还没来得及交出的旧实体也不会被删除，等到下一次带 <code>start_from_scratch=True</code> 的运行成功完成时，目录内容才会恢复一致。</p>
+<h3 id="再次运行时的判定">再次运行时的判定</h3>
+<p>下表把上面介绍的各种情况集中在一起，说明在同一个 epoch 上再次运行时，每个实体会被如何处理。</p>
+<!-- figure:rerun:start -->
+<figure class="figure" id="fig-rerun">
+<svg role="img" aria-labelledby="rerun-title rerun-desc" viewBox="0 0 900 640" width="100%" style="max-width:900px">
+  <title id="rerun-title">同一个 epoch 上再次运行时的判定</title>
+  <desc>应得名单里有、目录里没有的实体被新建；目录里有、名单里没有的被删除；两边都有时，上游快照和 depend 都吻合的实体被保留，其余清空后重做。</desc>
+  <defs>
+    <marker id="rerun-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="rerun-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="rerun-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="640" fill="#f6f1e8"/>
+  <path d="M 200 152 L 200 208" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 200 272 L 200 328" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 380 120 L 560 120" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 380 240 L 560 240" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 380 376 L 560 376" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <path d="M 290 424 L 290 468 L 560 468" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#rerun-arrow-moss)"/>
+  <path d="M 110 424 L 110 540 L 560 540" fill="none" stroke="#9a3412" stroke-width="1" marker-end="url(#rerun-arrow)"/>
+  <rect x="208" y="158" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="208" y="170" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">是</text>
+  <rect x="208" y="278" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="208" y="290" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">是</text>
+  <rect x="449.5" y="96" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="460" y="108" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">否</text>
+  <rect x="449.5" y="216" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="460" y="228" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">否</text>
+  <rect x="449.5" y="352" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="460" y="364" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">否</text>
+  <rect x="298" y="444" width="21" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="298" y="456" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">是</text>
+  <rect x="118" y="484" width="82.65" height="16" rx="2" fill="#f6f1e8"/>
+  <text x="118" y="496" fill="#9a3412" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="start">depend 文件缺失</text>
+  <rect x="40" y="88" width="340" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="88" width="340" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="124" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">应得名单里有它吗？</text>
+  <rect x="40" y="208" width="340" height="64" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="208" width="340" height="64" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="244" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">目录里已经有它吗？</text>
+  <rect x="40" y="328" width="340" height="96" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="328" width="340" height="96" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="210" y="374" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">快照吻合，且 depend 吻合或未声明？</text>
+  <text x="210" y="391" fill="#5e584e" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">名字 / 节点名 / epoch / 哈希都要对</text>
+  <rect x="560" y="92" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="92" width="300" height="56" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1"/>
+  <text x="710" y="124" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">删除整个实体目录</text>
+  <rect x="560" y="212" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="212" width="300" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="710" y="244" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">新建 · 调用 function</text>
+  <rect x="560" y="348" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="348" width="300" height="56" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="710" y="380" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">清空后重新处理</text>
+  <rect x="560" y="440" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="440" width="300" height="56" rx="6" fill="rgba(29,104,66,0.08)" stroke="#1d6842" stroke-width="1"/>
+  <text x="710" y="472" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">保留 · 不调用 function</text>
+  <rect x="560" y="512" width="300" height="56" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="512" width="300" height="56" rx="6" fill="rgba(154,52,18,0.08)" stroke="#9a3412" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="710" y="544" fill="#1c1915" font-size="13" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif" text-anchor="middle">FatalError · 不清场</text>
+  <text x="40" y="596" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">应得名单为空时不比较：map / fanout 上游为空、apply 节点都属这一类；</text>
+  <text x="40" y="614" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">reduce 节点的上游为空时照常比较，function 收到一个空列表。</text>
+</svg>
+<figcaption><span class="fig-label">图 3</span> 再次运行时的判定：三个判定框决定每个实体是被保留、重做、新建还是删除。</figcaption>
+</figure>
+<!-- figure:rerun:end -->
+
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>处理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>应得名单中有，目录中没有</td>
+<td>新建，并调用 function 处理</td>
+</tr>
+<tr>
+<td>目录中有，应得名单中没有</td>
+<td>删除整个实体目录</td>
+</tr>
+<tr>
+<td>两边都有，上游快照与上游当前状态吻合，且 <code>depend</code> 吻合或未声明</td>
+<td>保留，不调用 function</td>
+</tr>
+<tr>
+<td>两边都有，没有上游快照、上游快照无效或 <code>tag.json</code> 无效</td>
+<td>清空后重新处理</td>
+</tr>
+<tr>
+<td>两边都有，上游实体名字、节点名、epoch 或实体哈希值不一致</td>
+<td>清空后重新处理</td>
+</tr>
+<tr>
+<td>两边都有，上游吻合，但 <code>fingerprint.depend</code> 的键或哈希不一致</td>
+<td>清空后重新处理</td>
+</tr>
+<tr>
+<td>声明了 <code>depend</code>，但文件不存在或模板占位符没有值</td>
+<td>以 <code>FatalError</code> 停下，不清场</td>
+</tr>
+<tr>
+<td>map 或 fanout 节点的上游一个实体都没有</td>
+<td>不做比较，目录保持原样</td>
+</tr>
+<tr>
+<td>reduce 节点的上游一个实体都没有</td>
+<td>照常比较，function 收到一个空列表</td>
+</tr>
+<tr>
+<td>apply 节点</td>
+<td>不比较实体。每次都对当前上游的每个实体调用 function；上游为空时只调用 <code>finish</code></td>
+</tr>
+<tr>
+<td>source 节点，未传入 <code>start_from_scratch=True</code></td>
+<td>不调用 function，实体保持原样</td>
+</tr>
+</tbody>
+</table>
+<h3 id="常见的再跑场景">常见的再跑场景</h3>
+<p>从这张表可以推出几条日常使用中最常用的规则。</p>
+<h4 id="上一次停在半路">上一次停在半路</h4>
+<p>失败那一段里已经写好上游快照的实体会留下；只有空 <code>tag.json</code>、还没有快照的实体会重做；失败节点的下游上一次根本没开始，这次从头执行。失败节点之前的非 source 节点，只要上游没变，实体都比较通过，不会重新调用 function。</p>
+<h4 id="上游实体变了">上游实体变了</h4>
+<p>上游实体的正文或用户 tag 变了，依赖它们的下游实体会重做。重做的实体若写出与上次相同的正文和用户 tag，它的下游比较通过，重做就在这里停住；否则继续沿图向下传播。对 reduce 来说，上游任何一个实体的正文或用户 tag 变化、新增或消失，都会让那一个输出重做。不传 <code>start_from_scratch</code> 时，也可以直接改已经写出的上游实体目录里的 <code>data</code> 或 <code>tag.json</code>，下游会在下一次运行时重做。</p>
+<h4 id="上游实体增减">上游实体增减</h4>
+<p>上游新出现的实体，在 map 下游表现为新建；上游消失的实体，在 map 下游表现为删除。唯一的例外是上游一个实体都不剩：map 与 fanout 的应得名单为空，下游目录保持原样，不会因此被清空。</p>
+<h4 id="算子本身变了">算子本身变了</h4>
+<p>模板、参数、function 代码或外部工具变了，而上游实体没变时，上游快照仍然吻合，旧结果会被留下。要让新逻辑生效，删除该节点的 <code>&lt;epoch&gt;/</code> 目录或其中的某些实体目录，或者换一个 epoch。只删掉某个实体 <code>tag.json</code> 里的 <code>upstream</code> 也能让它重做，且保留目录给人查看，直到重做开始。</p>
+<h4 id="source-不从头生成">source 不从头生成</h4>
+<p>不传 <code>start_from_scratch=True</code> 时，源文件的改动不会进入 source 的实体，下游自然也看不到。只有传了它，source 才重读输入，变化才从图的根部开始传播。</p>
+<h3 id="一次运行留下的目录">一次运行留下的目录</h3>
+<p>一次运行结束后，输出根目录下是这样：</p>
+<!-- figure:layout:start -->
+<figure class="figure" id="fig-layout">
+<svg role="img" aria-labelledby="layout-title layout-desc" viewBox="0 0 900 500" width="100%" style="max-width:900px">
+  <title id="layout-title">一次运行留下的目录</title>
+  <desc>输出根目录下有 .staging 与每个节点各自的目录；节点目录按 epoch 分层，epoch 层下面是实体目录，实体目录里有 data 与 tag.json 两个文件。</desc>
+  <defs>
+    <marker id="layout-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#5e584e"/>
+    </marker>
+    <marker id="layout-arrow-teal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1b4744"/>
+    </marker>
+    <marker id="layout-arrow-moss" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#1d6842"/>
+    </marker>
+  </defs>
+  <rect width="900" height="500" fill="#f6f1e8"/>
+  <path d="M 150 84 L 150 104 L 138 104 Q 130 104 130 112 L 130 124" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 150 84 L 150 104 L 442 104 Q 450 104 450 112 L 450 124" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 130 168 L 130 208" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 450 168 L 450 188 L 408 188 Q 400 188 400 196 L 400 208" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 400 252 L 400 272 L 368 272 Q 360 272 360 280 L 360 292" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 360 336 L 360 356 L 268 356 Q 260 356 260 364 L 260 376" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <path d="M 360 336 L 360 356 L 437 356 Q 445 356 445 364 L 445 376" fill="none" stroke="#5e584e" stroke-width="1" marker-end="url(#layout-arrow)"/>
+  <rect x="40" y="40" width="220" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="40" width="220" height="44" rx="6" fill="#fffdf8" stroke="#1c1915" stroke-width="1"/>
+  <text x="150" y="66" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;输出根目录&gt;/</text>
+  <rect x="40" y="124" width="180" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="124" width="180" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="130" y="150" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">.staging/</text>
+  <rect x="360" y="124" width="180" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="360" y="124" width="180" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="450" y="150" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;节点名&gt;/</text>
+  <rect x="40" y="208" width="180" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="40" y="208" width="180" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="130" y="234" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;文件名&gt;</text>
+  <rect x="320" y="208" width="160" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="320" y="208" width="160" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="400" y="234" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;epoch&gt;/</text>
+  <rect x="560" y="208" width="200" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="560" y="208" width="200" height="44" rx="6" fill="#fffdf8" stroke="#6f685c" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="660" y="234" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;另一个 epoch&gt;/</text>
+  <rect x="280" y="292" width="160" height="44" rx="6" fill="#f6f1e8"/>
+  <rect x="280" y="292" width="160" height="44" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="360" y="318" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">&lt;实体名&gt;/</text>
+  <rect x="200" y="376" width="120" height="40" rx="6" fill="#f6f1e8"/>
+  <rect x="200" y="376" width="120" height="40" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="260" y="394" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">data</text>
+  <text x="260" y="411" fill="#5e584e" font-size="9" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">正文</text>
+  <rect x="380" y="376" width="130" height="40" rx="6" fill="#f6f1e8"/>
+  <rect x="380" y="376" width="130" height="40" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
+  <text x="445" y="394" fill="#1c1915" font-size="12" font-weight="600" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">tag.json</text>
+  <text x="445" y="411" fill="#5e584e" font-size="9" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace" text-anchor="middle">附加信息</text>
+  <text x="236" y="150" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">作业整体输出</text>
+  <text x="236" y="234" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">内容是上游实体的正文</text>
+  <text x="560" y="276" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">旧 epoch 留在原处，runner 不再读写</text>
+  <text x="525" y="400" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">有上游时含 upstream 快照</text>
+  <text x="40" y="446" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">epoch 是 execute 的参数，同一次运行里所有节点共用一个。</text>
+  <text x="40" y="466" fill="#6f685c" font-size="9" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">.staging 不属于任何节点，也不是某一层 epoch。</text>
+</svg>
+<figcaption><span class="fig-label">图 4</span> 一次运行留下的目录：节点目录下按 epoch 分层，实体目录里是 data 与 tag.json。</figcaption>
+</figure>
+<!-- figure:layout:end -->
+
+<pre><code class="language-text">&lt;输出根目录&gt;/
+  .staging/                 作业整体输出。apply function `Output` 写入
+    &lt;文件名&gt;                内容是上游实体的正文
+  &lt;节点名&gt;/
+    &lt;epoch&gt;/
+      &lt;实体名&gt;/
+        data
+        tag.json            有上游时含 upstream 快照
+    &lt;另一个 epoch&gt;/
+      ...
+</code></pre>
+<p><code>.staging</code> 是作业整体的输出，不是某个节点的 epoch 实体目录。</p>
+<p>epoch 是调用方传给 <code>execute</code> 的名字，也是实体所在的那层子目录名。同一次运行里，每个节点的输出都使用这个 epoch，快照里记下的 epoch 也是它。换一个 epoch 就是换一套子目录：新 epoch 从空目录开始，旧 epoch 的实体留在原处，runner 既不读它们，也不清理它们。快照里记录的 epoch 与本次不同时，该实体要重做。</p>
+<p>runner 不检查 epoch 名，直接把它拼进路径。<code>2026/10</code> 这样的名字会建出两层目录，应传一层目录名，例如日期或版本号。</p>
+      </article>
+
+      <nav class="pager" aria-label="上下页">
+        <a class="prev" href="../guide/2-core-concepts-and-terms.html">
+          <span class="label">上一篇</span>
+          <span class="name">二、核心概念与术语</span>
+        </a>
+        <a class="next" href="../guide/4-fingerprints-and-hashes.html">
+          <span class="label">下一篇</span>
+          <span class="name">四、指纹与哈希</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>本页内容</h2>
+      <a href="#装配">装配</a>
+      <a href="#一个-stage-的经过">一个 stage 的经过</a>
+      <a href="#列出应得名单">列出应得名单</a>
+      <a href="#与磁盘上的实体比较">与磁盘上的实体比较</a>
+      <a href="#指纹">指纹</a>
+      <a href="#清理与预留">清理与预留</a>
+      <a href="#填写与写出">填写与写出</a>
+      <a href="#并行与重试">并行与重试</a>
+      <a href="#source-节点的-stage">source 节点的 stage</a>
+      <a href="#再次运行时的判定">再次运行时的判定</a>
+      <a href="#常见的再跑场景">常见的再跑场景</a>
+      <a href="#上一次停在半路">上一次停在半路</a>
+      <a href="#上游实体变了">上游实体变了</a>
+      <a href="#上游实体增减">上游实体增减</a>
+      <a href="#算子本身变了">算子本身变了</a>
+      <a href="#source-不从头生成">source 不从头生成</a>
+      <a href="#一次运行留下的目录">一次运行留下的目录</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+。许可见仓库中的 LICENSE。</footer>
+</body>
+</html>

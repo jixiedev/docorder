@@ -1,0 +1,8 @@
+{
+  "type": "map",
+  "class": "docorder.functions.impl.template_to_llm:EntityTemplateToLLM",
+  "template": "lib/prompt.jinja",
+  "header": "root_id|member_id|member_zh|definition|is_default|scope_filter|time_basis|attribution|aliases",
+  "tag_template": "{\"root_id\": {{ (source.tag.get('root_id') or source.name)|tojson }}}",
+  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+}

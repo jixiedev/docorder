@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -160,3 +161,67 @@ class FilteredDirectorySource(DirectorySource):
     @staticmethod
     def matches_suffix(name: str, suffixes: tuple[str, ...]) -> bool:
         return any(name.endswith(suffix) for suffix in suffixes)
+
+
+_PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+class FileHashSource(DirectorySource):
+    """One entity per input directory. The body stays the input ``data`` text.
+
+    ``paths`` is an object of tag field to path template. The resolved absolute
+    path is written into the tag. The tag loaded from ``tag.json`` is kept.
+    File hashes belong in the operator's ``fingerprint.record``, which the
+    runner writes. This function does not hash files.
+
+    A template uses ``{name}`` placeholders. String fields in the entity tag and
+    string values in the operator props fill them. A prop overrides a tag field
+    of the same name. A relative path is resolved from the operator home.
+    """
+
+    def emit(self) -> Iterable[SourceRecord]:
+        path_templates = self._mapping("paths")
+        for record in self.generate(self.directory()):
+            values = self._values(record.tag)
+            tag = dict(record.tag)
+            for key, template in path_templates.items():
+                tag[key] = str(self._resolve(self._render(template, values, record.name), record.name))
+            yield SourceRecord(record.name, record.data, tag)
+
+    def _mapping(self, key: str) -> dict[str, str]:
+        raw = self.environment.operator_props.get(key)
+        if raw is None:
+            return {}
+        if not isinstance(raw, dict):
+            raise FatalError(f"{self.operator_name}: {key} must be an object")
+        mapping: dict[str, str] = {}
+        for name, template in raw.items():
+            if not isinstance(name, str) or not name or not isinstance(template, str) or not template:
+                raise FatalError(f"{self.operator_name}: {key} entries must be non-empty strings")
+            mapping[name] = template
+        return mapping
+
+    def _values(self, tag: dict[str, Any]) -> dict[str, str]:
+        values = {key: value for key, value in tag.items() if isinstance(value, str)}
+        for key, value in self.environment.operator_props.items():
+            if isinstance(value, str) and value:
+                values[key] = value
+        return values
+
+    def _render(self, template: str, values: dict[str, str], name: str) -> str:
+        def replace(match: re.Match[str]) -> str:
+            key = match.group(1)
+            if key not in values:
+                raise FatalError(f"{self.operator_name}:{name}: placeholder {{{key}}} has no value")
+            return values[key]
+
+        return _PLACEHOLDER.sub(replace, template)
+
+    def _resolve(self, raw: str, name: str) -> Path:
+        path = Path(raw)
+        if not path.is_absolute():
+            path = self.artifact.home / path
+        path = path.resolve()
+        if not path.is_file():
+            raise FatalError(f"{self.operator_name}:{name}: missing file {path}")
+        return path

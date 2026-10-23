@@ -1,0 +1,5 @@
+{
+  "type": "reduce",
+  "class": "primary:CombineRootMember",
+  "output": "root_member"
+}

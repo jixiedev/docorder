@@ -2,7 +2,7 @@
 
 [English](glossary.en.md)
 
-这里固定文档和代码里反复出现的叫法。实体怎么存放、一次 stage 怎么推进，见 [docs/design.md](docs/design.md)。每个 function 怎么配置，见 [docs/functions.md](docs/functions.md)。
+这里固定文档和代码里反复出现的叫法。实体怎么存放、一次 stage 怎么推进，见 [docs/guide.md](docs/guide.md)。每个 function 怎么配置，也见同一份文档的第七章。
 
 ## 实体
 
@@ -14,7 +14,7 @@
 
 ## 算子与算子 home
 
-算子是可复用的转换。它的静态文件放在算子 home 里，home 由 `DOCORDER_HOMES` 搜索到，不记录某一次运行的输出路径。`props.json` 里的 `type` 与 `class` 决定种类和要加载的 function，作业不能改这两项。`type` 取 `source`、`map`、`reduce`、`fanout`、`output`。`output` 把上游正文写成作业根目录下 `.job_result` 里的文件。
+算子是可复用的转换。它的静态文件放在算子 home 里，home 由 `DOCORDER_HOMES` 搜索到，不记录某一次运行的输出路径。`props.json` 里的 `type` 与 `class` 决定种类和要加载的 function，作业不能改这两项。`type` 取 `source`、`map`、`reduce`、`fanout`、`apply`。`apply` 对上游每个实体调用 function，function 不能返回值，也不写实体。
 
 ## Function
 

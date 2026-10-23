@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from docorder.core.entity import Entity, EntityStatus
-from docorder.core.runner import OUTPUT_MARKER
 from docorder.core.storage import EpochStore
 
 
@@ -26,7 +25,8 @@ class EpochStatus:
 def inspect_output(output_dir: Path) -> tuple[EpochStatus, ...]:
     """Epochs under a job output directory, with consistency and entity counts.
 
-    A stage is a direct child directory that holds the output marker. Entity
+    A stage is a direct child directory whose name does not start with ``.``.
+    ``.staging`` is the job's published files, not a stage. Entity
     counts come from ``EpochStore``. An epoch is consistent when every entity
     with an upstream snapshot matches that snapshot's live upstream entities,
     and every source entity has a body.
@@ -55,7 +55,7 @@ def _stage_dirs(output_dir: Path) -> list[Path]:
         (
             path
             for path in output_dir.iterdir()
-            if path.is_dir() and (path / OUTPUT_MARKER).is_file()
+            if path.is_dir() and not path.name.startswith(".")
         ),
         key=lambda path: path.name,
     )

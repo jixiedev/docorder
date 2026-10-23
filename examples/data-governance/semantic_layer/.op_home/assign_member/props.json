@@ -1,0 +1,12 @@
+{
+  "type": "map",
+  "class": "primary:AssignMember",
+  "template": "lib/prompt.jinja",
+  "fingerprint": {
+    "depend": {
+      "{staging}/root_assign.json": "",
+      "{staging}/root_member.csv": ""
+    }
+  },
+  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+}

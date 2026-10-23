@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>9. Writing your own function | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="current" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>9. Writing your own function</span>
+      </nav>
+
+      <article class="doc">
+<h1 id="9-writing-your-own-function">9. Writing your own function</h1>
+<p>When the functions that ship with docorder do not meet your needs, you can write your own. The basic way to write a function is: define a Python class that inherits one of the base classes docorder provides and implement the few methods the base class specifies; then point the <code>class</code> key of the operator home's <code>props.json</code> at that class. This chapter explains in turn which base class to choose, which objects you can use in the methods, which conventions you must follow, where the code file goes, and it gives a complete example and a way to test it for every operator type. All the example code in this chapter has actually been run and verified.</p>
+<h3 id="choosing-a-base-class">Choosing a base class</h3>
+<p>The table below lists the base class to inherit by "what you want to do", together with the methods you must implement and the ones you may override. A "must implement" method is an abstract method of the base class, that is, a method the base class only declares and does not implement; if a subclass does not implement them, the assembly phase fails with an <code>OperatorValidationError</code>. A "may override" method already has a default implementation in the base class and only has to be rewritten when you want to change the default behaviour.</p>
+<table>
+<thead>
+<tr>
+<th>What you want to do</th>
+<th><code>type</code></th>
+<th>Base class to inherit</th>
+<th>Must implement</th>
+<th>May override</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Produce entities from any external data</td>
+<td>source</td>
+<td><code>docorder.functions.source_function:SourceFunction</code></td>
+<td><code>emit()</code></td>
+<td>None</td>
+</tr>
+<tr>
+<td>Produce entities from a directory, but need to change the tag or select files</td>
+<td>source</td>
+<td><code>DirectorySource</code> or <code>FilteredDirectorySource</code></td>
+<td>None</td>
+<td><code>extract_tag(name, content, tag)</code>, <code>include(path)</code>, <code>generate(directory)</code></td>
+</tr>
+<tr>
+<td>Transform entities one by one, the body and the tag can be computed separately</td>
+<td>map</td>
+<td><code>docorder.functions.map_function:MapFunction</code></td>
+<td><code>transform_data(source, target)</code>, <code>transform_props(source, target)</code></td>
+<td>None</td>
+</tr>
+<tr>
+<td>Transform entities one by one, the tag depends on the result of the transform</td>
+<td>map</td>
+<td><code>docorder.functions.rendered_map:RenderedMap</code></td>
+<td><code>apply_render(source, source_entity, environment)</code></td>
+<td><code>read_source</code>, <code>generate_props</code></td>
+</tr>
+<tr>
+<td>Add features to one of the rendering functions that ship with docorder</td>
+<td>map</td>
+<td>A built-in class such as <code>TemplateToPrompt</code></td>
+<td>None</td>
+<td><code>apply_render</code>, <code>generate_props</code>, and so on</td>
+</tr>
+<tr>
+<td>Merge all entities into one</td>
+<td>reduce</td>
+<td><code>docorder.functions.reduce_function:ReduceFunction</code></td>
+<td><code>transform_data(sources, target)</code>, <code>transform_props(sources, target)</code></td>
+<td>None</td>
+</tr>
+<tr>
+<td>Split one entity into several</td>
+<td>fanout</td>
+<td><code>docorder.functions.fanout_function:FanoutFunction</code></td>
+<td><code>transform_data(source, target)</code>, <code>transform_props(source, target)</code></td>
+<td><code>output_names(source)</code></td>
+</tr>
+<tr>
+<td>Do one operation per upstream entity that produces no data</td>
+<td>apply</td>
+<td><code>docorder.functions.apply_function:ApplyFunction</code></td>
+<td><code>apply(entity)</code>, optionally <code>finish()</code></td>
+<td>None</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>emit</code> method of <code>SourceFunction</code> should be written as a generator, that is, it uses <code>yield</code> inside the method to hand over the results one by one, each time one <code>SourceRecord(name, data, tag)</code> object, whose three arguments are the entity name, the body, and the tag. <code>SourceRecord</code> is defined in <code>docorder.functions.source_function</code> as well.</p>
+<h3 id="what-a-function-can-use">What a function can use</h3>
+<p>Inside the methods of a function, the following attributes are reachable through <code>self</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>self.operator</code></td>
+<td>The operator that is running. <code>name</code>, <code>props</code>, <code>output_path</code>, <code>operator_home</code>, and <code>upstream</code> are on the operator; do not go through the node again</td>
+</tr>
+<tr>
+<td><code>self.environment</code></td>
+<td>Built by the operator. <code>operator_props</code> are the function parameters; <code>template_env</code> holds the <code>operator</code> / <code>job</code> / <code>entity</code> of the template</td>
+</tr>
+<tr>
+<td><code>self.artifact</code></td>
+<td>Read-only access to the operator home: <code>home</code> is the path of the operator home; <code>path(rel)</code> resolves a relative path into a full path inside the operator home; <code>exists(rel)</code> tells whether a file exists in the operator home; <code>read_text(rel)</code> reads a file from the operator home. None of the paths passed in may point outside the operator home</td>
+</tr>
+<tr>
+<td><code>self.operator_name</code></td>
+<td>The name of the current node</td>
+</tr>
+<tr>
+<td><code>self.epoch</code></td>
+<td>The epoch of this run</td>
+</tr>
+</tbody>
+</table>
+<p>The upstream entity and the target entity passed to the methods are <code>Entity</code> objects, and they offer the following members:</p>
+<table>
+<thead>
+<tr>
+<th>Member</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>The name of the entity</td>
+</tr>
+<tr>
+<td><code>directory</code></td>
+<td>The path of the entity directory</td>
+</tr>
+<tr>
+<td><code>read_text()</code></td>
+<td>Reads the body of the entity; if there is no <code>data</code> file, it returns an empty string</td>
+</tr>
+<tr>
+<td><code>tag</code></td>
+<td>The tag of the entity, a dictionary</td>
+</tr>
+<tr>
+<td><code>carried_tag()</code></td>
+<td>Returns a shallow copy of the tag, to be handed to the downstream</td>
+</tr>
+<tr>
+<td><code>staging_data</code></td>
+<td>The body the target entity is waiting to write; the function assigns it in <code>transform_data</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="rules-you-must-follow">Rules you must follow</h3>
+<p><code>transform_data</code> has to assign a string to <code>target.staging_data</code>, and <code>transform_props</code> has to assign a dictionary to <code>target.tag</code>, otherwise the entity fails with <code>FatalError</code>. When the target directory already has a <code>data</code> file, you may leave <code>staging_data</code> unset; the runner keeps that file and writes only <code>tag.json</code>. If you want to change the upstream tag, call <code>carried_tag()</code> first to get a copy and change the copy, and do not change the <code>tag</code> of the upstream entity directly. <code>carried_tag()</code> returns a shallow copy, that is, only the outermost level is copied and the lists and dictionaries nested inside are still shared with the upstream, so copy them yourself before you change nested content.</p>
+<p>A function does not need to write <code>data</code> and <code>tag.json</code> itself, and should not; the runner writes them. A function does not need to create a thread pool or implement retry logic either; parallelism and retry are controlled by the <code>parallelism</code> and <code>retry</code> parameters of the node.</p>
+<p>When an error occurs in a function, you should tell two kinds of failure apart. The first is a problem that retrying cannot solve, such as a missing required configuration or a wrong input format; then you should raise <code>docorder.utils.errors.FatalError</code>, so that the stage stops at once and no time is wasted on retries. The second is a problem that may recover on its own, such as a network error, an external service that is temporarily unavailable, or an external process that fails now and then; then you should raise another kind of exception and leave it to the <code>retry</code> mechanism.</p>
+<p>The runner creates a new function object for every attempt at every entity, so do not keep state that has to be shared across entities in the attributes of the object. During a parallel run the function runs in a worker thread and shares the same memory as the operator.</p>
+<p>A function may write helper files in <code>target.directory</code>, the directory of the target entity, for example <code>Command</code> writes the output file of the command there. These helper files are cleared together with the entity directory when the entity is redone or deleted.</p>
+<p>Anything a function reads that is not part of the upstream entity, for example a template in the operator home, the result file of another node, or data returned by an external service, is not recorded in the upstream snapshot, and when it changes the runner does not automatically redo the entities that are already done.</p>
+<h3 id="where-the-code-goes">Where the code goes</h3>
+<p>There are two ways to put the code of a function.</p>
+<p>The first way is to put it in the <code>primary.py</code> file of the operator home itself and write <code>"class": "primary:ClassName"</code> in <code>props.json</code>. This is the simplest way: the code stays with the configuration and the templates in the operator home, and copying the home carries the code along. An operator home can only have one <code>primary.py</code>, but that file can define several classes. Note that <code>primary.py</code> is loaded directly by file path, and the directory of the operator home is not on Python's module search path <code>sys.path</code>, so <code>primary.py</code> cannot use <code>import</code> to pull in other Python files of the same operator home; it can of course import docorder and other installed packages.</p>
+<p>The second way is to put it in a Python package of your own project and write <code>"class": "package.module:ClassName"</code> in <code>props.json</code>. This suits the case where several operator homes have to share the same code, or where the code of a function is long enough to be worth splitting into several modules. The package has to be importable by Python, for example already installed in the same virtual environment, or sitting next to the start script. Parallel execution happens in the same process and uses the same import.</p>
+<h3 id="example-a-custom-source">Example: a custom source</h3>
+<p>The source function below produces entities from a JSON Lines file. JSON Lines is a text format with one JSON object per line, and it is often used to hold a batch of records. This function produces one entity for every line of the file:</p>
+<pre><code class="language-python">import json
+from pathlib import Path
+
+from docorder.functions.source_function import SourceFunction, SourceRecord
+from docorder.utils.errors import FatalError
+
+
+class JsonLinesSource(SourceFunction):
+    def emit(self):
+        raw = self.environment.operator_props.get(&quot;file&quot;)
+        if not raw:
+            raise FatalError(&quot;jsonl source config missing file&quot;)
+        path = Path(raw)
+        if not path.is_absolute():
+            path = self.artifact.home / path
+        for line in path.read_text(encoding=&quot;utf-8&quot;).splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            yield SourceRecord(
+                name=record[&quot;id&quot;],
+                data=json.dumps(record, ensure_ascii=False),
+                tag={&quot;kind&quot;: record.get(&quot;kind&quot;, &quot;&quot;)},
+            )
+</code></pre>
+<p>The matching <code>props.json</code>:</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;source&quot;, &quot;class&quot;: &quot;primary:JsonLinesSource&quot;, &quot;file&quot;: &quot;items.jsonl&quot; }
+</code></pre>
+<p>This function reads the file path from the parameter <code>file</code>, and a relative path is resolved from the operator home; when the parameter is missing it raises <code>FatalError</code>, because that is a configuration problem that retrying cannot solve. The <code>id</code> field of each line of <code>items.jsonl</code> becomes the name of the entity, the whole JSON line becomes the body of the entity, and the <code>kind</code> field is recorded in the tag. The <code>id</code> of each line has to follow the entity naming rules and must not repeat, otherwise the stage fails with <code>OperatorValidationError</code>.</p>
+<h3 id="example-map">Example: map</h3>
+<p>The map function below turns the upstream body into upper case and adds a flag to the tag:</p>
+<pre><code class="language-python">from docorder.functions.map_function import MapFunction
+
+
+class Uppercase(MapFunction):
+    def transform_data(self, source, target):
+        target.staging_data = source.read_text().upper()
+
+    def transform_props(self, source, target):
+        tag = source.carried_tag()
+        tag[&quot;uppercased&quot;] = True
+        target.tag = tag
+</code></pre>
+<p>The matching <code>props.json</code>:</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;map&quot;, &quot;class&quot;: &quot;primary:Uppercase&quot; }
+</code></pre>
+<p>The runner calls <code>transform_data</code> first and <code>transform_props</code> second, and the two are separate calls. If both methods need the same intermediate result, in particular the result of one slow external call, then inheriting <code>MapFunction</code> directly is not a good fit, because that call may then happen twice; in that case inherit <code>RenderedMap</code> instead, which guarantees that each entity is computed only once.</p>
+<h3 id="example-based-on-renderedmap">Example: based on RenderedMap</h3>
+<p>The <code>WordCount</code> from the section "Produce new keys with generate_props" in chapter 8 is a complete <code>RenderedMap</code> subclass: <code>apply_render</code> returns the body of the output entity, and <code>generate_props</code> adds the <code>words</code> key to a copy of the upstream tag as the tag of the output entity. If you need to read something else before the transform, for example to parse the upstream body into JSON, you can override the <code>read_source</code> method; its return value is passed to <code>apply_render</code> as the first argument <code>source</code>.</p>
+<h3 id="example-reduce">Example: reduce</h3>
+<p>The reduce function below joins the bodies of all the upstream entities with a separator into one entity:</p>
+<pre><code class="language-python">from docorder.functions.reduce_function import ReduceFunction
+
+
+class JoinBodies(ReduceFunction):
+    def transform_data(self, sources, target):
+        separator = self.environment.operator_props.get(&quot;separator&quot;, &quot;\n&quot;)
+        target.staging_data = separator.join(entity.read_text() for entity in sources)
+
+    def transform_props(self, sources, target):
+        target.tag = {&quot;count&quot;: len(sources), &quot;names&quot;: [entity.name for entity in sources]}
+</code></pre>
+<p>The matching <code>props.json</code>:</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;reduce&quot;, &quot;class&quot;: &quot;primary:JoinBodies&quot;, &quot;output&quot;: &quot;all&quot;, &quot;separator&quot;: &quot;\n---\n&quot; }
+</code></pre>
+<p>The name of the output entity is decided by the <code>output</code> parameter, which is <code>all</code> here; <code>separator</code> is a parameter this function defines itself and reads through <code>self.environment.operator_props</code>. The <code>sources</code> passed in is the list of upstream entities sorted by entity name; if the upstream has no entity at all, <code>sources</code> is an empty list and the function is still called once, so the code has to handle the empty list correctly.</p>
+<h3 id="example-fanout">Example: fanout</h3>
+<p>The fanout function below splits each upstream entity by line, and every line becomes a new entity:</p>
+<pre><code class="language-python">from docorder.functions.fanout_function import FanoutFunction
+
+
+class SplitLines(FanoutFunction):
+    def output_names(self, source):
+        count = len(source.read_text().splitlines())
+        return [f&quot;{source.name}-{index}&quot; for index in range(count)]
+
+    def transform_data(self, source, target):
+        index = int(target.name.rsplit(&quot;-&quot;, 1)[1])
+        target.staging_data = source.read_text().splitlines()[index]
+
+    def transform_props(self, source, target):
+        target.tag = source.carried_tag()
+</code></pre>
+<p>The matching <code>props.json</code>:</p>
+<pre><code class="language-json">{ &quot;type&quot;: &quot;fanout&quot;, &quot;class&quot;: &quot;primary:SplitLines&quot; }
+</code></pre>
+<p>If the body of the upstream entity <code>notes</code> has three lines, this function produces three entities, <code>notes-0</code>, <code>notes-1</code>, and <code>notes-2</code>. Since the names of all the output entities of a stage have to be different from each other, the name of the upstream entity is put in front as a prefix here, so that the names split out of different upstream entities do not collide. <code>output_names</code> has to return a list; <code>transform_data</code> takes the index out of the name of the target entity and uses that line as the body.</p>
+<h3 id="testing-a-function">Testing a function</h3>
+<p>The most direct way to test a function is to build a small job with only a few nodes in a temporary directory, run it, and check the content of the output files. The pytest test case below checks the <code>TableIndex</code> from chapter 10: it copies the <code>homes/</code> directory of the project into the temporary directory <code>tmp_path</code> that pytest provides, sets the <code>DOCORDER_HOMES</code> environment variable with pytest's <code>monkeypatch</code> fixture (which restores it after the test), writes one input file, runs the source and the reduce node, and finally checks whether the collected result contains this table.</p>
+<pre><code class="language-python">import json
+import shutil
+from pathlib import Path
+
+from docorder.core.job import Job
+from docorder.core.runner import execute
+
+PROJECT = Path(__file__).resolve().parents[1]
+
+
+def test_index_lists_every_table(tmp_path, monkeypatch):
+    homes = tmp_path / &quot;homes&quot;
+    shutil.copytree(PROJECT / &quot;homes&quot;, homes)
+    data = tmp_path / &quot;tables&quot;
+    data.mkdir()
+    (data / &quot;orders.json&quot;).write_text(
+        json.dumps({&quot;table&quot;: &quot;orders&quot;, &quot;description&quot;: &quot;one row per order&quot;, &quot;columns&quot;: []}),
+        encoding=&quot;utf-8&quot;,
+    )
+    monkeypatch.setenv(&quot;DOCORDER_HOMES&quot;, str(homes))
+
+    job = Job(&quot;test&quot;, tmp_path / &quot;runs&quot;)
+    job.add_operator_node(&quot;tables&quot;, &quot;table_source&quot;, config={&quot;directory&quot;: str(data)})
+    job.add_operator_node(&quot;index&quot;, &quot;table_index&quot;, upstream=&quot;tables&quot;)
+    execute(job, &quot;t&quot;, start_from_scratch=True)
+
+    index = (tmp_path / &quot;runs&quot; / &quot;index&quot; / &quot;t&quot; / &quot;index&quot; / &quot;data&quot;).read_text(encoding=&quot;utf-8&quot;)
+    assert &quot;- orders: one row per order&quot; in index
+</code></pre>
+<p>None of the nodes in this test sets <code>parallelism</code>, so everything runs in the current process, and the exception message and the call stack are both easy to read, which also makes it convenient to set breakpoints. The <code>PROJECT</code> in the code assumes that this test file sits in the <code>tests/</code> directory of the project, so <code>parents[1]</code> is the project root.</p>
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../guide/8-rendering-functions-and-template-variables.en.html">
+          <span class="label">Previous</span>
+          <span class="name">8. Rendering functions and template variables</span>
+        </a>
+        <a class="next" href="../guide/10-using-docorder-in-your-own-project.en.html">
+          <span class="label">Next</span>
+          <span class="name">10. Using docorder in your own project</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+      <a href="#choosing-a-base-class">Choosing a base class</a>
+      <a href="#what-a-function-can-use">What a function can use</a>
+      <a href="#rules-you-must-follow">Rules you must follow</a>
+      <a href="#where-the-code-goes">Where the code goes</a>
+      <a href="#example-a-custom-source">Example: a custom source</a>
+      <a href="#example-map">Example: map</a>
+      <a href="#example-based-on-renderedmap">Example: based on RenderedMap</a>
+      <a href="#example-reduce">Example: reduce</a>
+      <a href="#example-fanout">Example: fanout</a>
+      <a href="#testing-a-function">Testing a function</a>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>

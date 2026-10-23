@@ -1,0 +1,5 @@
+{
+  "type": "reduce",
+  "class": "primary:ReduceAssigner",
+  "output": "assignments"
+}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The guide | Docorder</title>
+  <link rel="stylesheet" href="../intro.css"></head>
+<body>
+  <div class="top">
+    <a class="brand" href="../index.en.html">Docorder</a>
+    <nav>
+      <a href="../index.en.html">Docs</a>
+      <a href="../guide/index.en.html">The guide</a>
+    </nav>
+    <a class="lang" href="../index.html">中文</a>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <input class="nav-toggle" type="checkbox" id="nav-toggle">
+      <label class="nav-toggle-label" for="nav-toggle">Contents</label>
+      <nav aria-label="Documentation navigation">
+      <details>
+        <summary>Docs</summary>
+        <a class="" href="../index.en.html">Overview</a>
+      </details>
+      <details>
+        <summary>Start</summary>
+        <a class="" href="../readme.en.html">Quick start</a>
+      </details>
+      <details open>
+        <summary>The guide</summary>
+        <a class="current" href="../guide/index.en.html">The guide</a>
+        <a class="" href="../guide/document-structure.en.html">Document structure</a>
+        <a class="" href="../guide/1-background.en.html">1. Background</a>
+        <a class="" href="../guide/2-core-concepts-and-terms.en.html">2. Core concepts and terms</a>
+        <a class="" href="../guide/3-how-a-run-works.en.html">3. How a run works</a>
+        <a class="" href="../guide/4-fingerprints-and-hashes.en.html">4. Fingerprints and hashes</a>
+        <a class="" href="../guide/5-use-cases.en.html">5. Use cases</a>
+        <a class="" href="../guide/6-configuration.en.html">6. Configuration</a>
+        <a class="" href="../guide/7-operator-types-and-the-built-in-functions.en.html">7. Operator types and the built-in functions</a>
+        <a class="" href="../guide/8-rendering-functions-and-template-variables.en.html">8. Rendering functions and template variables</a>
+        <a class="" href="../guide/9-writing-your-own-function.en.html">9. Writing your own function</a>
+        <a class="" href="../guide/10-using-docorder-in-your-own-project.en.html">10. Using docorder in your own project</a>
+        <a class="" href="../guide/11-a-data-governance-case-study.en.html">11. A data governance case study</a>
+        <a class="" href="../guide/12-best-practices.en.html">12. Best practices</a>
+        <a class="" href="../guide/appendix-a-the-built-in-functions.en.html">Appendix A: The built-in functions</a>
+        <a class="" href="../guide/appendix-b-implementation-index.en.html">Appendix B: Implementation index</a>
+        <a class="" href="../guide/appendix-c-related-documents.en.html">Appendix C: Related documents</a>
+      </details>
+      <details>
+        <summary>Reference</summary>
+        <a class="" href="../glossary.en.html">Glossary</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a class="" href="../code-of-conduct.en.html">Code of conduct</a>
+        <a class="" href="../contributing.en.html">Contributing</a>
+        <a class="" href="../security.en.html">Security</a>
+        <a class="" href="../changelog.en.html">Changelog</a>
+      </details>
+      </nav>
+    </aside>
+
+    <main>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="../index.en.html">Docorder</a>
+        <span aria-hidden="true">/</span>
+        <span>Docs</span>
+        <span aria-hidden="true">/</span>
+        <span>The guide</span>
+      </nav>
+
+      <article class="overview">
+      <div class="chapter-list">
+      <a class="read" href="document-structure.html">
+        <strong>Document structure</strong>
+        <p>What each chapter of this guide covers, and where the structural sketches in the text sit.</p>
+      </a>
+      <a class="read" href="1-background.html">
+        <strong>1. Background</strong>
+        <p>the problem docorder solves, a minimal two-step job, the design trade-offs docorder makes, and the capability boundaries of the current version.</p>
+      </a>
+      <a class="read" href="2-core-concepts-and-terms.html">
+        <strong>2. Core concepts and terms</strong>
+        <p>entity, upstream snapshot, operator and operator home, function, job and node, epoch and stage, runner and expected names. For each concept it says what it is, who creates it, and where it is stored.</p>
+      </a>
+      <a class="read" href="3-how-a-run-works.html">
+        <strong>3. How a run works</strong>
+        <p>what happens from the moment a run checks the job graph until each node has run, step by step. It also covers parallel execution, failure and retry, the special handling of a source node, and how docorder decides the fate of each result when it runs again.</p>
+      </a>
+      <a class="read" href="4-fingerprints-and-hashes.html">
+        <strong>4. Fingerprints and hashes</strong>
+        <p>the three kinds of hash in docorder, how to declare a dependency on external files with `fingerprint`, what `record` and `depend` are for, how to write a path template, and how to trace an entity that is redone on every run.</p>
+      </a>
+      <a class="read" href="5-use-cases.html">
+        <strong>5. Use cases</strong>
+        <p>what kind of task each of several typical job graphs suits, and which tasks do not suit docorder.</p>
+      </a>
+      <a class="read" href="6-configuration.html">
+        <strong>6. Configuration</strong>
+        <p>how docorder finds the operators, what every key in `props.json` means, the arguments of a job and of a node, the arguments of the run function `execute`, which configuration the transform code and the template each read, and the environment variables involved.</p>
+      </a>
+      <a class="read" href="7-operator-types-and-the-built-in-functions.html">
+        <strong>7. Operator types and the built-in functions</strong>
+        <p>what separates the five operator types, which of docorder's own functions each type can use, and for each function which configuration keys it has, what it produces, and when it fails.</p>
+      </a>
+      <a class="read" href="8-rendering-functions-and-template-variables.html">
+        <strong>8. Rendering functions and template variables</strong>
+        <p>every variable a template can use directly, and the six ways to add a template variable when the built-in ones are not enough.</p>
+      </a>
+      <a class="read" href="9-writing-your-own-function.html">
+        <strong>9. Writing your own function</strong>
+        <p>which base class to inherit, which methods to implement, which objects are available inside those methods, the conventions you must follow, where the code file goes, and how to write tests for it.</p>
+      </a>
+      <a class="read" href="10-using-docorder-in-your-own-project.html">
+        <strong>10. Using docorder in your own project</strong>
+        <p>the complete steps from installing, planning the directories, preparing the input data, and writing the operators and the start script, to running it, looking at the result, and running it again after a change.</p>
+      </a>
+      <a class="read" href="11-a-data-governance-case-study.html">
+        <strong>11. A data governance case study</strong>
+        <p>the real jobs under `examples/data-governance/`, from the metric list of a dbt model to the root catalogue, the assignment table and the member tables, and how the four jobs hand their results to each other.</p>
+      </a>
+      <a class="read" href="12-best-practices.html">
+        <strong>12. Best practices</strong>
+        <p>the conventions that keep docorder reliable, covering directories and naming, incremental runs and idempotence, how to organize operator homes, error handling, the cost of model calls, recovering from failures, and the common anti-patterns.</p>
+      </a>
+      <a class="read" href="appendix-a-the-built-in-functions.html">
+        <strong>Appendix A: The built-in functions</strong>
+        <p>Every built-in function in one table: which operator type it implements, what it takes, and what it writes.</p>
+      </a>
+      <a class="read" href="appendix-b-implementation-index.html">
+        <strong>Appendix B: Implementation index</strong>
+        <p>Where each part of docorder lives: the modules, the base classes, and the helpers they rely on.</p>
+      </a>
+      <a class="read" href="appendix-c-related-documents.html">
+        <strong>Appendix C: Related documents</strong>
+        <p>The README, the glossary, the contributing guide, and the other documents that go with this guide.</p>
+      </a>
+      </div>
+
+      </article>
+
+      <nav class="pager" aria-label="Previous and next">
+        <a class="prev" href="../readme.en.html">
+          <span class="label">Previous</span>
+          <span class="name">Quick start</span>
+        </a>
+        <a class="next" href="../guide/document-structure.en.html">
+          <span class="label">Next</span>
+          <span class="name">Document structure</span>
+        </a>
+      </nav>
+    </main>
+
+    <aside class="toc">
+      <h2>On this page</h2>
+    </aside>
+  </div>
+
+  <footer>Docorder. Python 3.10+. License: LICENSE in the repository.</footer>
+</body>
+</html>
