@@ -258,12 +258,12 @@ product_click_count|商品点击次数|count|Count of product click events, one 
 <tr>
 <td><code>optimizer_root</code></td>
 <td>map</td>
-<td>每个模型一次大模型调用，只在词根表盖不住时改 <code>raw_root_patch_log.csv</code></td>
+<td>每个模型一次大模型调用，在修好的词根表上改自己那几个词根</td>
 </tr>
 <tr>
 <td><code>merge_root</code></td>
 <td>reduce</td>
-<td>一次大模型调用，把这份文件合进词根表</td>
+<td>一次大模型调用，把这份文件里的同义词根并成一条</td>
 </tr>
 <tr>
 <td><code>publish_final</code></td>
@@ -285,8 +285,9 @@ product_click_count|商品点击次数|count|Count of product click events, one 
 }
 </code></pre>
 <p><code>depend</code> 指的就是 <code>.staging/raw_root.csv</code>，也就是第一个作业的产出。词根表改了，这个算子的每个实体重做；模型定义没变、词根表也没变，就一个都不重做，模型的钱一分不花。</p>
-<p><code>record</code> 记的是 <code>.staging/raw_root_patch_log.csv</code>。提示词要求大模型对照 <code>raw_root.csv</code> 改这份文件：文件不存在就创建，存在就原地修改，词根已经够用的行不要动。</p>
+<p><code>record</code> 记的是 <code>.staging/raw_root_patch_log.csv</code>。这份文件不是差异清单，而是基于初稿生成的那份新词根表：跑这个作业之前，先把 <code>.staging/raw_root.csv</code> 复制成它，每个模型在上面原地改，只改自己这个模型的指标归类不对的那几个词根，其余行一个字都不动。</p>
 <p><code>merge_root</code> 直接读这两份文件，不经过中间实体。它的 <code>depend</code> 同时记下 <code>.staging/raw_root.csv</code> 和 <code>.staging/raw_root_patch_log.csv</code>，所以任一份变了都会重跑。</p>
+<p>合并以 <code>raw_root_patch_log.csv</code> 为准：里面描述同一个量的两行并成一行，保留一个 <code>root_id</code>，别名取并集，定义合成一条；只有在 <code>kind</code> 相同时才并，不同 <code>kind</code> 的词根永远不是同一个量。<code>raw_root.csv</code> 在这里的用处是分出一行是新加的还是原有的——<code>root_id</code> 不在初稿里就是新加的，新加的那行要并进已有的词根，这样别的行引用的 <code>root_id</code> 才不会变。</p>
 <h3 id="第三个作业给模型分配词根">第三个作业：给模型分配词根</h3>
 <p>有了定稿的词根表，下一步是给每个模型的每个指标找到它的词根。</p>
 <table>
@@ -372,7 +373,7 @@ product_click_count|商品点击次数|count|Count of product click events, one 
                     names.add(root_id)
         return sorted(names)
 </code></pre>
-<p>上游只有一份归属 JSON，输出却是每个词根一个实体。fanout 的输出实体数量和上游实体数量无关，这正是它存在的理由。仓库里这份输入跑出来是十四个词根实体。</p>
+<p>上游只有一份归属 JSON，输出却是每个词根一个实体。fanout 的输出实体数量和上游实体数量无关，这正是它存在的理由。这份输入的词根表有一百一十七条词根，指标归属到哪个词根，fanout 就为那个词根产出一个实体。</p>
 <h3 id="第四个作业补成员属性">第四个作业：补成员属性</h3>
 <p>最后一个作业给每个词根的成员补充描述。它的结构最简单：<code>source_member</code>、<code>assign_member</code>、<code>combine_assign_member</code>、<code>publish_assign_member</code> 四个节点，依次是 source、map、reduce、apply。</p>
 <h3 id="这个案例用到的机制">这个案例用到的机制</h3>
@@ -413,8 +414,29 @@ uv run python job.py refine            # 修词根表
 uv run python job.py assign            # 给模型分配词根
 uv run python job.py member_attribute  # 补成员属性
 </code></pre>
-<p><code>.env</code> 里只有 <code>DOCORDER_HOMES</code> 一项，指向本目录的 <code>.op_home</code>。模型文件的位置用环境变量 <code>SEMANTIC_LAYER_MODELS</code> 指定，输入目录用 <code>SEMANTIC_LAYER_INPUT</code>。大模型工具用 <code>DOCORDER_LLM</code> 指定，没写就用脚本里配好的默认工具。</p>
+<p><code>.env</code> 里没有写 <code>DOCORDER_HOMES</code> 时，用的是本目录的 <code>.op_home</code>；要指向别处，就在 <code>.env</code> 里写 <code>DOCORDER_HOMES="/path/to/homes"</code>。模型文件的位置用环境变量 <code>SEMANTIC_LAYER_MODELS</code> 指定，输入目录用 <code>SEMANTIC_LAYER_INPUT</code>。大模型工具用 <code>DOCORDER_LLM</code> 指定：写 <code>cursor</code> 或 <code>minimax</code> 选脚本里配好的工具，写别的就当预设名或工具定义文件的路径交给 docorder；不写就用脚本里的默认工具。</p>
+<p><code>semantic_layer/</code> 这个作业的 <code>.env</code> 里已经写了 <code>DOCORDER_LLM=minimax</code>，所以开箱即用 MiniMax。命令行上的 <code>DOCORDER_LLM</code> 优先于 <code>.env</code>，写成 <code>cursor</code> 就切回 cursor 预设。</p>
 <p>这几个作业需要本机装好大模型工具、并且有模型文件可读，因此不在 CI 中运行；CI 跑的是 <code>documentation/</code> 那个最小作业。</p>
+<h3 id="大模型工具minimax">大模型工具：MiniMax</h3>
+<p>MiniMax 走本机的 MiniMax Code 客户端，写法和 <code>cursor</code> 预设一样，就是一份工具定义。提示词从标准输入进来，客户端在工作目录里自己读文件、改文件，跑完把答案打到标准输出。工具循环、权限和重试都归客户端管。</p>
+<pre><code class="language-python">MINIMAX_TOOL = {
+    &quot;name&quot;: &quot;minimax&quot;,
+    &quot;run&quot;: [
+        MCODE_BIN,
+        &quot;exec&quot;,
+        &quot;--input&quot;, &quot;-&quot;,
+        &quot;--cwd&quot;, &quot;{workspace}&quot;,
+        &quot;--permission&quot;, &quot;full&quot;,
+        &quot;--output-format&quot;, &quot;text&quot;,
+        &quot;--model&quot;, MCODE_MODEL,
+        &quot;--timeout&quot;, MCODE_TIMEOUT,
+    ],
+    &quot;prompt&quot;: &quot;stdin&quot;,
+}
+</code></pre>
+<p><code>dbt_model/</code> 和 <code>semantic_layer/</code> 两个作业都已经配好了这个工具，<code>DOCORDER_LLM=minimax</code> 即可选用。</p>
+<p>客户端默认在 <code>~/.minimax-code/bin/mcode</code>，找不到就找 <code>PATH</code> 里的 <code>mcode</code>；也可以用 <code>MCODE_BIN</code> 指到别处。另外还有 <code>MCODE_MODEL</code> 换模型（默认 <code>minimax/MiniMax-M3.1-Flash</code>）、<code>MCODE_TIMEOUT</code> 换单次调用的超时（默认 <code>30m</code>）。客户端用的凭据是它自己的，docorder 不参与。</p>
+<p>这个工具的权限和 <code>cursor</code> 预设一样，是客户端默认的那一套：模型能在工作目录里读写文件。</p>
       </article>
 
       <nav class="pager" aria-label="上下页">
@@ -439,6 +461,7 @@ uv run python job.py member_attribute  # 补成员属性
       <a href="#第四个作业补成员属性">第四个作业：补成员属性</a>
       <a href="#这个案例用到的机制">这个案例用到的机制</a>
       <a href="#怎么跑">怎么跑</a>
+      <a href="#大模型工具minimax">大模型工具：MiniMax</a>
     </aside>
   </div>
 

@@ -175,6 +175,8 @@ quickstart/runs/
 | `DOCORDER_HOMES` | 查找算子 home 的目录列表，在 `add_operator_node` 之前就要设好 |
 | `DOCORDER_LLM` | `PromptToLLM` 没有配置 `tool` 时使用的工具，取 home 里的预设名或一份 JSON 文件路径 |
 
+数据治理示例里的作业还认 `cursor` 和 `minimax` 这两个名字，指向仓库里配好的工具。`minimax` 走本机的 MiniMax Code 客户端，和 `cursor` 预设一样只是一份工具定义：提示词从标准输入进来，客户端在工作目录里自己读文件、改文件，答案回到标准输出。客户端默认在 `~/.minimax-code/bin/mcode`，也可以用 `MCODE_BIN` 指到别处。
+
 ## 示例：同一个 epoch 再跑
 
 在快速开始之后，存一个 `rerun.py`。它沿用 `quickstart/` 里的 home 和输出，先改源文件，再跑两次同一个 epoch：

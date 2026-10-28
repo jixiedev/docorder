@@ -1231,9 +1231,11 @@ def fig_variables(lang: str) -> str:
             [
                 ("code", "name"),
                 ("code", "epoch"),
+                ("code", "staging_path"),
                 ("gap", ""),
                 ("text", T("作业的名字，和这次", "The job's name and the", lang)),
                 ("text", T("运行使用的 epoch", "epoch of this run", lang)),
+                ("text", T("以及 .staging 目录的路径", "and the .staging path", lang)),
             ],
         )
     )

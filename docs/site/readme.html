@@ -221,6 +221,7 @@ if __name__ == &quot;__main__&quot;:
 </tr>
 </tbody>
 </table>
+<p>数据治理示例里的作业还认 <code>cursor</code> 和 <code>minimax</code> 这两个名字，指向仓库里配好的工具。<code>minimax</code> 走本机的 MiniMax Code 客户端，和 <code>cursor</code> 预设一样只是一份工具定义：提示词从标准输入进来，客户端在工作目录里自己读文件、改文件，答案回到标准输出。客户端默认在 <code>~/.minimax-code/bin/mcode</code>，也可以用 <code>MCODE_BIN</code> 指到别处。</p>
 <h2 id="示例同一个-epoch-再跑">示例：同一个 epoch 再跑</h2>
 <p>在快速开始之后，存一个 <code>rerun.py</code>。它沿用 <code>quickstart/</code> 里的 home 和输出，先改源文件，再跑两次同一个 epoch：</p>
 <pre><code class="language-python">import os

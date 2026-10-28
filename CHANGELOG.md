@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+- 数据治理示例支持 MiniMax，走本机的 MiniMax Code 客户端。写法和 `cursor` 预设一样，就是一份工具定义：`mcode exec --input - --cwd {workspace} --permission full --output-format text`。提示词从标准输入进来，客户端在工作目录里自己读文件、改文件，跑完把答案打到标准输出；工具循环、权限和重试都归客户端管。客户端默认在 `~/.minimax-code/bin/mcode`，找不到就找 `PATH` 里的 `mcode`，也可以用 `MCODE_BIN` 指到别处；`MCODE_MODEL` 换模型（默认 `minimax/MiniMax-M3.1-Flash`），`MCODE_TIMEOUT` 换单次调用的超时（默认 `30m`）。`dbt_model/` 和 `semantic_layer/` 两个作业配好了 `minimax` 这个工具名，`DOCORDER_LLM=minimax` 即可选用。
+- 进度条不再先闪一次 0%。map、fanout、reduce 的进度条总数是本段应得的实体个数，本轮跳过的那些要等到条子渲染出来之后再补上，所以第一帧总是 0%，续跑时看着像从头开始。现在直接以跳过的数量作为起点。
+- `DOCORDER_LLM` 在数据治理示例里可以写工具名。写 `cursor` 或 `minimax` 选脚本里配好的工具，写别的仍然当预设名或工具定义文件的路径交给 docorder。
+- 模板变量增加 `job.staging_path`，是作业根目录下 `.staging` 目录的绝对路径。`staging(name)` 给的是某一个已经存在的文件，需要目录本身时用这个。
+- `optimizer_root` 的提示词说清词根表在哪、怎么改，并把「什么算对不上」讲明白：一行是一个词根，指标的量、粒度、过滤和词根的定义对不上（或者词根的「不是」那一列点名的就是它）就要改这个词根。提示词因此是自足的，模型不用再去翻项目里的算子提示词来搞清楚规则。词根表的完整路径直接写进提示词，不再让模型从别的路径推；明确只读一次词根表，读一次就拿到了每一行的原文，不必再逐行回读。提示词里不再有「文件不存在就复制一份出来」那一段：跑这个作业之前把 `.staging/raw_root.csv` 复制成 `.staging/raw_root_patch_log.csv`，每个模型只管在上面原地改自己那几行。
+- `semantic_layer/` 与 `dbt_model/` 的 `.env` 里写上了 `DOCORDER_LLM=minimax`，这两个作业开箱即用 MiniMax，不用在命令行上再带一遍。命令行上的 `DOCORDER_LLM` 优先于 `.env`。
+- `TemplateToLLM` 与 `EntityTemplateToLLM` 的 `header` 参数开始生效。文档里写的「从表头那一行往下取，去掉一层围栏」此前没有实现，回复里的开场白和围栏会原样写进实体正文，下游按 CSV 解析时就会出错。现在正文从表头那一行开始，到围栏结束，模型在表格前后加的话不再混进正文。
+- `semantic_layer/` 与 `dbt_model/` 的 `.env` 不再写死某台机器上的 `DOCORDER_HOMES`。没有写这一项时用本目录的 `.op_home`，要指向别处再在 `.env` 里写，和 `documentation/` 示例的做法一致。
+- `semantic_layer/` 案例的提示词里，正文要走标准输出的地方原来写的是「Write only a pipe-delimited CSV」，模型照着去建了一个文件，在运行目录里留下多余的产物。`taxonomist_root`、`taxonomist_member` 和 `merge_root` 这几处改成「Return」。`optimizer_root` 那一处确实要写文件，保持原样。
+- `semantic_layer/` 的示例输入换成 wish 和 core_data 两个库的全部 dbt 模型，共 48 个实体，按更新后的模型文件重新生成。
+- `optimizer_root` 与 `merge_root` 的提示词说清词根表是怎么一份份改出来的。`raw_root_patch_log.csv` 不是差异清单，是基于初稿生成的那份新词根表：跑作业之前把初稿复制成它，每个模型在上面原地改，只改自己这个模型的指标归类不对的那几个词根，其余行一个字都不动。`merge_root` 以这份文件为准合并同义：描述同一个量的两行并成一行，保留一个 `root_id`，别名取并集，定义合成一条，只在 `kind` 相同时才并；`raw_root.csv` 用来分出一行是新加的还是原有的，新加的并进已有词根，别的行引用的 `root_id` 才不会变。
+- `merge_root` 补上 `header`。它的正文是一份 CSV 词根表，却没有声明表头，模型在表格前加的一句话会原样写进 `final_root.csv`。`taxonomist_root` 和 `taxonomist_member` 一直都有 `header`。
 - 使用指南新增两章。第四章「指纹与哈希」讲清 docorder 里的三种哈希分别算什么、记在哪里：上游快照里的哈希、`fingerprint.depend` 与 `fingerprint.record`。这一章说明 `depend` 与 `record` 的分工与渲染时机、路径模板能用的占位符、节点 `config` 对指纹的整份覆盖规则，以及一个实体每次运行都被重做时该怎么逐条排查。第十一章「数据治理案例」用 `examples/data-governance/` 下的真实作业把这些机制串起来：四个作业接力，从 dbt 模型的指标清单到词根表、归属表与成员表，途中用到 fanout 拆出十四个词根实体。原有章节往后挪一位，最佳实践落到第十二章；README、术语表、贡献指南、文档首页与指南目录里的章号一并更新。
 - 文档站构建前先清空 `docs/site/`。章节改名后不会留下指向旧章号的孤儿页面。
 - 使用指南新增八张内联 SVG 配图，讲解只靠文字说不清的地方：概念之间的层次关系、一个 stage 的经过、再次运行时的判定、一次运行留下的目录、五种算子的输入输出对应、内置模板变量的分组，以及两类哈希如何合成一个判定、数据治理案例的四个作业怎么接力。新增 `scripts/build_figures.py` 生成这些图，图的源码就写在 `docs/guide.md` 与 `docs/guide.en.md` 里，GitHub 上看 Markdown 也能看到图，文档站构建时原样带进网页。配色跟随文档站自己的暖纸底色与青绿主色，中英文各出一套文案。文档站补上配图的样式：图包在带边框的卡片里，图注带「图 N」标记；窄屏下图在卡片内横向滚动，不缩到看不清。

@@ -51,6 +51,7 @@ class Environment:
             "job": {
                 "name": self._operator.run_context.job.name,
                 "epoch": self._operator.run_context.epoch,
+                "staging_path": str(self._operator.run_context.job.staging_path),
             },
             "entity": entity,
         }

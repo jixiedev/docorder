@@ -3,6 +3,7 @@
   "class": "docorder.functions.impl.template_to_llm:TemplateToLLM",
   "output": "final_root",
   "template": "lib/prompt.jinja",
+  "header": "root_id|root_zh|kind|definition|not_a|aliases",
   "fingerprint": {
     "depend": {
       "{staging}/raw_root.csv": "",

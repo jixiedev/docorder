@@ -81,7 +81,7 @@
 <p>The rendering environment is <code>environment.template_env</code>, a nested dictionary that both the template and the command read.</p>
 <pre><code class="language-text">template_env
   operator                        the function parameters, plus this run's name and home
-  job                             name, epoch
+  job                             name, epoch, staging_path
   entity                          the entity being rendered
     source_name, source_data, source_tag, source_data_path
     target_name, target_data_path, output
@@ -129,8 +129,10 @@
   <text x="334" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">job</text>
   <text x="334" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name</text>
   <text x="334" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">epoch</text>
-  <text x="334" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">The job's name and the</text>
-  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">epoch of this run</text>
+  <text x="334" y="237" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">staging_path</text>
+  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">The job's name and the</text>
+  <text x="334" y="281" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">epoch of this run</text>
+  <text x="334" y="299" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">and the .staging path</text>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#f6f1e8"/>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
   <text x="534" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity</text>
@@ -182,8 +184,8 @@
 <td>The parameters of the function, for example <code>operator.template</code></td>
 </tr>
 <tr>
-<td><code>job.name</code>, <code>job.epoch</code></td>
-<td>The job name and the epoch of this run</td>
+<td><code>job.name</code>, <code>job.epoch</code>, <code>job.staging_path</code></td>
+<td>The job name, the epoch of this run, and the absolute path of the <code>.staging</code> directory under the job root</td>
 </tr>
 <tr>
 <td><code>entity.source_name</code>, <code>entity.source_data</code>, <code>entity.source_tag</code>, <code>entity.source_data_path</code></td>

@@ -609,7 +609,7 @@ function 填写完成后，runner 会处理附加信息中的 `global_prop` 和 
 
 最后，runner 按固定顺序写入实体目录：先写 `data`，再写 `tag.json`。每个文件都先写到同一目录下的一个 `.tmp` 临时文件中，写完之后再替换成正式的文件名，所以不会出现一个文件只写了一半的情况。`tag.json` 最后写入，正是为了保证只有在正文和快照都写好之后，这个实体才会被视为完成。目录里若留着旧的 `upstream.json`，写出后会删掉。
 
-每个 stage 在标准错误输出上打印一条进度条，标题是节点名。map、fanout、reduce 的总数是本段应得的实体个数，已经比较通过、本轮跳过的也会计入。apply 的总数是这次调用的上游实体个数。source 在 `emit` 时逐条推进，开始时不知道总数。并行的 map 和 fanout 共用这一条进度条。
+每个 stage 在标准错误输出上打印一条进度条，标题是节点名。map、fanout、reduce 的总数是本段应得的实体个数，已经比较通过、本轮跳过的从第一帧起就计入，所以续跑时条子不会先闪一次 0%。apply 的总数是这次调用的上游实体个数。source 在 `emit` 时逐条推进，开始时不知道总数。并行的 map 和 fanout 共用这一条进度条。
 
 ### 并行与重试
 
@@ -1149,7 +1149,7 @@ execute(job, epoch, start_from_scratch=False)
 
 function 的代码通过 `self.environment.operator_props` 读取参数。它的内容是 `props.json` 去掉 `type`、`class`、`parallelism`、`retry`、`home` 这几个键之后剩下的部分，再用节点的 `config` 覆盖同名的键。function 根据这份参数决定具体怎么运行，例如 `TemplateToPrompt` 从这里读取 `template`，以确定使用哪个模板文件。模板读 `self.environment.template_env`，里面是 `operator`、`job`、`entity`。
 
-模板通过名为 `operator` 的变量读取算子信息。它以 function 读到的那份参数为基础，也就是 `props.json` 中的参数被节点 `config` 覆盖之后的结果；在此之上，runner 还会填入本次运行的几项信息，包括 `name`、`home`、`function_class`、`type` 和 `operator_home`，它们会覆盖同名的参数，具体含义见第八章的变量表。因此，在节点的 `config` 中覆盖了 `template` 之后，实际使用的模板文件和模板里 `{{ operator.template }}` 显示的值会一起改变；只写在节点 `config` 中、`props.json` 里没有的键，在模板里同样可以通过 `operator.<键>` 读到。runner 填入的那几项是唯一的例外：即使在 `config` 中写了 `name`，模板读到的仍然是节点名。`parallelism` 和 `retry` 是 `props.json` 的保留键，不会作为 function 参数传下去，因此 `operator` 里没有这两项；本次运行的 epoch 在 `job.epoch` 中，不在 `operator` 中。
+模板通过名为 `operator` 的变量读取算子信息。它以 function 读到的那份参数为基础，也就是 `props.json` 中的参数被节点 `config` 覆盖之后的结果；在此之上，runner 还会填入本次运行的几项信息，包括 `name`、`home`、`function_class`、`type` 和 `operator_home`，它们会覆盖同名的参数，具体含义见第八章的变量表。因此，在节点的 `config` 中覆盖了 `template` 之后，实际使用的模板文件和模板里 `{{ operator.template }}` 显示的值会一起改变；只写在节点 `config` 中、`props.json` 里没有的键，在模板里同样可以通过 `operator.<键>` 读到。runner 填入的那几项是唯一的例外：即使在 `config` 中写了 `name`，模板读到的仍然是节点名。`parallelism` 和 `retry` 是 `props.json` 的保留键，不会作为 function 参数传下去，因此 `operator` 里没有这两项；本次运行的 epoch 在 `job.epoch` 中，不在 `operator` 中；作业根目录下 `.staging` 目录的绝对路径在 `job.staging_path` 中。
 
 ### 环境变量
 
@@ -1522,7 +1522,7 @@ root_id: {{ source.tag.get('root_id') or source.name }}
 
 reduce 算子把上游在本 epoch 中的全部实体合并成一个输出实体，输出实体的名字由参数 `output` 决定，未设置时为 `result`。function 会收到一个按实体名字排序的上游实体列表，以及这一个目标实体。由于这个输出依赖全部上游实体，上游中任何一个实体的正文发生变化、新增了实体或者删除了实体，都会导致这个输出被重新计算。
 
-内置 function 是 `docorder.functions.impl.template_to_llm:TemplateToLLM`。它把上游全部实体渲染进一份 Jinja 模板，把渲染结果交给大模型工具，再把回复写成那一个输出实体的正文。模板里能看到 `sources`，它是按 reduce 收到的顺序排列的列表，每项有 `name`、`path` 和 `tag`；`path` 是该实体的 `data` 文件路径。模板还可以调用 `staging(name)`，得到作业 `.staging` 目录下一个已存在文件的路径。`header` 有值时，正文从回复里这一行表头开始；`tag_template` 是一段可选的 Jinja 字符串，渲染结果是实体的附加信息；`min_sources` 与 `max_sources` 限制上游个数。
+内置 function 是 `docorder.functions.impl.template_to_llm:TemplateToLLM`。它把上游全部实体渲染进一份 Jinja 模板，把渲染结果交给大模型工具，再把回复写成那一个输出实体的正文。模板里能看到 `sources`，它是按 reduce 收到的顺序排列的列表，每项有 `name`、`path` 和 `tag`；`path` 是该实体的 `data` 文件路径。模板还可以调用 `staging(name)`，得到作业 `.staging` 目录下一个已存在文件的路径。`header` 有值时，正文从回复里这一行表头开始，到围栏结束，模型在表格前后加的话不进来；`tag_template` 是一段可选的 Jinja 字符串，渲染结果是实体的附加信息；`min_sources` 与 `max_sources` 限制上游个数。
 
 其它 reduce 转换可以自己编写，第九章给出了编写方法和示例。
 
@@ -1583,7 +1583,7 @@ apply 算子对上游本 epoch 的每个实体调用一次 function 的 `apply`�
 ```text
 template_env
   operator                        function 参数，外加本次运行的 name、home
-  job                             name、epoch
+  job                             name、epoch、staging_path
   entity                          正在渲染的实体
     source_name, source_data, source_tag, source_data_path
     target_name, target_data_path, output
@@ -1635,8 +1635,10 @@ template_env
   <text x="334" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">job</text>
   <text x="334" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name</text>
   <text x="334" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">epoch</text>
-  <text x="334" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">作业的名字，和这次</text>
-  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">运行使用的 epoch</text>
+  <text x="334" y="237" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">staging_path</text>
+  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">作业的名字，和这次</text>
+  <text x="334" y="281" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">运行使用的 epoch</text>
+  <text x="334" y="299" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">以及 .staging 目录的路径</text>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#f6f1e8"/>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
   <text x="534" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity</text>
@@ -1672,7 +1674,7 @@ template_env
 | `operator.name` | 当前节点的名字 |
 | `operator.home` | 当前算子 home 的绝对路径 |
 | `operator.<参数名>` | function 的参数，例如 `operator.template` |
-| `job.name`、`job.epoch` | 作业名和本次 epoch |
+| `job.name`、`job.epoch`、`job.staging_path` | 作业名、本次 epoch，以及作业根目录下 `.staging` 目录的绝对路径 |
 | `entity.source_name`、`entity.source_data`、`entity.source_tag`、`entity.source_data_path` | 上游实体 |
 | `entity.target_name`、`entity.target_data_path`、`entity.output` | 正在写出的实体 |
 
@@ -2502,8 +2504,8 @@ product_click_count|商品点击次数|count|Count of product click events, one 
 | 节点 | 类型 | 做什么 |
 | --- | --- | --- |
 | `source` | source | 与第一个作业共用同一个节点 |
-| `optimizer_root` | map | 每个模型一次大模型调用，只在词根表盖不住时改 `raw_root_patch_log.csv` |
-| `merge_root` | reduce | 一次大模型调用，把这份文件合进词根表 |
+| `optimizer_root` | map | 每个模型一次大模型调用，在修好的词根表上改自己那几个词根 |
+| `merge_root` | reduce | 一次大模型调用，把这份文件里的同义词根并成一条 |
 | `publish_final` | apply | 写出 `.staging/final_root.csv` |
 
 `optimizer_root` 的算子 home 声明了两段指纹：
@@ -2523,9 +2525,11 @@ product_click_count|商品点击次数|count|Count of product click events, one 
 
 `depend` 指的就是 `.staging/raw_root.csv`，也就是第一个作业的产出。词根表改了，这个算子的每个实体重做；模型定义没变、词根表也没变，就一个都不重做，模型的钱一分不花。
 
-`record` 记的是 `.staging/raw_root_patch_log.csv`。提示词要求大模型对照 `raw_root.csv` 改这份文件：文件不存在就创建，存在就原地修改，词根已经够用的行不要动。
+`record` 记的是 `.staging/raw_root_patch_log.csv`。这份文件不是差异清单，而是基于初稿生成的那份新词根表：跑这个作业之前，先把 `.staging/raw_root.csv` 复制成它，每个模型在上面原地改，只改自己这个模型的指标归类不对的那几个词根，其余行一个字都不动。
 
 `merge_root` 直接读这两份文件，不经过中间实体。它的 `depend` 同时记下 `.staging/raw_root.csv` 和 `.staging/raw_root_patch_log.csv`，所以任一份变了都会重跑。
+
+合并以 `raw_root_patch_log.csv` 为准：里面描述同一个量的两行并成一行，保留一个 `root_id`，别名取并集，定义合成一条；只有在 `kind` 相同时才并，不同 `kind` 的词根永远不是同一个量。`raw_root.csv` 在这里的用处是分出一行是新加的还是原有的——`root_id` 不在初稿里就是新加的，新加的那行要并进已有的词根，这样别的行引用的 `root_id` 才不会变。
 
 ### 第三个作业：给模型分配词根
 
@@ -2582,7 +2586,7 @@ class ExtractRoot(FanoutFunction):
         return sorted(names)
 ```
 
-上游只有一份归属 JSON，输出却是每个词根一个实体。fanout 的输出实体数量和上游实体数量无关，这正是它存在的理由。仓库里这份输入跑出来是十四个词根实体。
+上游只有一份归属 JSON，输出却是每个词根一个实体。fanout 的输出实体数量和上游实体数量无关，这正是它存在的理由。这份输入的词根表有一百一十七条词根，指标归属到哪个词根，fanout 就为那个词根产出一个实体。
 
 ### 第四个作业：补成员属性
 
@@ -2608,9 +2612,38 @@ uv run python job.py assign            # 给模型分配词根
 uv run python job.py member_attribute  # 补成员属性
 ```
 
-`.env` 里只有 `DOCORDER_HOMES` 一项，指向本目录的 `.op_home`。模型文件的位置用环境变量 `SEMANTIC_LAYER_MODELS` 指定，输入目录用 `SEMANTIC_LAYER_INPUT`。大模型工具用 `DOCORDER_LLM` 指定，没写就用脚本里配好的默认工具。
+`.env` 里没有写 `DOCORDER_HOMES` 时，用的是本目录的 `.op_home`；要指向别处，就在 `.env` 里写 `DOCORDER_HOMES="/path/to/homes"`。模型文件的位置用环境变量 `SEMANTIC_LAYER_MODELS` 指定，输入目录用 `SEMANTIC_LAYER_INPUT`。大模型工具用 `DOCORDER_LLM` 指定：写 `cursor` 或 `minimax` 选脚本里配好的工具，写别的就当预设名或工具定义文件的路径交给 docorder；不写就用脚本里的默认工具。
+
+`semantic_layer/` 这个作业的 `.env` 里已经写了 `DOCORDER_LLM=minimax`，所以开箱即用 MiniMax。命令行上的 `DOCORDER_LLM` 优先于 `.env`，写成 `cursor` 就切回 cursor 预设。
 
 这几个作业需要本机装好大模型工具、并且有模型文件可读，因此不在 CI 中运行；CI 跑的是 `documentation/` 那个最小作业。
+
+### 大模型工具：MiniMax
+
+MiniMax 走本机的 MiniMax Code 客户端，写法和 `cursor` 预设一样，就是一份工具定义。提示词从标准输入进来，客户端在工作目录里自己读文件、改文件，跑完把答案打到标准输出。工具循环、权限和重试都归客户端管。
+
+```python
+MINIMAX_TOOL = {
+    "name": "minimax",
+    "run": [
+        MCODE_BIN,
+        "exec",
+        "--input", "-",
+        "--cwd", "{workspace}",
+        "--permission", "full",
+        "--output-format", "text",
+        "--model", MCODE_MODEL,
+        "--timeout", MCODE_TIMEOUT,
+    ],
+    "prompt": "stdin",
+}
+```
+
+`dbt_model/` 和 `semantic_layer/` 两个作业都已经配好了这个工具，`DOCORDER_LLM=minimax` 即可选用。
+
+客户端默认在 `~/.minimax-code/bin/mcode`，找不到就找 `PATH` 里的 `mcode`；也可以用 `MCODE_BIN` 指到别处。另外还有 `MCODE_MODEL` 换模型（默认 `minimax/MiniMax-M3.1-Flash`）、`MCODE_TIMEOUT` 换单次调用的超时（默认 `30m`）。客户端用的凭据是它自己的，docorder 不参与。
+
+这个工具的权限和 `cursor` 预设一样，是客户端默认的那一套：模型能在工作目录里读写文件。
 
 ## 十二、最佳实践
 
@@ -2686,7 +2719,7 @@ docorder 的核心假设是：被处理的对象形状相同、可以放在磁�
 
 **用 `tag_template` 保留元信息。** 大模型返回的正文之外，让 function 顺便把结构化的结果写进 tag，后续步骤就不用再解析正文。
 
-**用 `header` 约束输出格式。** 给 `PromptToLLM` 配上 `header`，模型回复里的表格就能被稳定地截出来当正文，下游不用再处理模型可能加的寒暄。
+**用 `header` 约束输出格式。** 给 `EntityTemplateToLLM` 或 `TemplateToLLM` 配上 `header`，模型回复里的表格就能被稳定地截出来当正文，下游不用再处理模型可能加的寒暄。
 
 **把大模型的输入写成路径而不是内容。** `EntityTemplateToLLM` 和 `TemplateToLLM` 的模板里能拿到上游 `data` 文件的路径，让模型自己去读，比把大段内容塞进提示词更省 token，也更不容易超长。
 

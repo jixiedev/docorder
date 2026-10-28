@@ -258,12 +258,12 @@ product_click_count|商品点击次数|count|Count of product click events, one 
 <tr>
 <td><code>optimizer_root</code></td>
 <td>map</td>
-<td>One model call per model; it edits <code>raw_root_patch_log.csv</code> only when the catalogue does not fit</td>
+<td>One model call per model; it corrects its own roots in the corrected catalogue</td>
 </tr>
 <tr>
 <td><code>merge_root</code></td>
 <td>reduce</td>
-<td>One model call that folds that file into the catalogue</td>
+<td>One model call that merges the synonyms of that file into one root each</td>
 </tr>
 <tr>
 <td><code>publish_final</code></td>
@@ -285,8 +285,9 @@ product_click_count|商品点击次数|count|Count of product click events, one 
 }
 </code></pre>
 <p>The <code>depend</code> points at <code>.staging/raw_root.csv</code>, which is what the first job produced. When the catalogue changes, every entity of this operator is redone; when neither the model definitions nor the catalogue changed, not one of them is redone and not a cent is spent on the model.</p>
-<p>The <code>record</code> names <code>.staging/raw_root_patch_log.csv</code>. The prompt tells the model to change that file from <code>raw_root.csv</code>: create it when it is missing, edit it in place when it exists, and leave a row untouched when the catalogue already fits.</p>
+<p>The <code>record</code> names <code>.staging/raw_root_patch_log.csv</code>. That file is not a list of differences but the new root catalogue derived from the first draft: before running this job, copy <code>.staging/raw_root.csv</code> into it. Every model then corrects it in place — only the roots this model's metrics are classified wrongly, and not one other row.</p>
 <p><code>merge_root</code> reads both files directly. Its <code>depend</code> lists <code>.staging/raw_root.csv</code> and <code>.staging/raw_root_patch_log.csv</code>, so a change to either file makes it run again.</p>
+<p>The merge works from <code>raw_root_patch_log.csv</code>: two rows that describe the same quantity become one row, with one <code>root_id</code> kept, the aliases of both, and one definition. Roots are merged only when <code>kind</code> matches; roots of different kinds are never the same quantity. <code>raw_root.csv</code> is what tells a new row from an old one — a <code>root_id</code> that is not in the first draft is new, and a new row is merged into the root that was already in the catalogue, so the <code>root_id</code> other rows point at does not change.</p>
 <h3 id="the-third-job-assigning-roots-to-models">The third job: assigning roots to models</h3>
 <p>With a final catalogue in hand, the next step is to find the root of every metric of every model.</p>
 <table>
@@ -372,7 +373,7 @@ product_click_count|商品点击次数|count|Count of product click events, one 
                     names.add(root_id)
         return sorted(names)
 </code></pre>
-<p>There is one upstream entity, the assignment JSON, and the output is one entity per root. How many entities a fanout produces has nothing to do with how many entities it has upstream, and that is exactly why it exists. The input in this repository produces fourteen root entities.</p>
+<p>There is one upstream entity, the assignment JSON, and the output is one entity per root. How many entities a fanout produces has nothing to do with how many entities it has upstream, and that is exactly why it exists. The root catalogue of this input holds 117 roots, and the fanout produces one entity for every root a metric was assigned to.</p>
 <h3 id="the-fourth-job-filling-in-member-attributes">The fourth job: filling in member attributes</h3>
 <p>The last job adds descriptions to the members of every root. Its shape is the simplest of the four: <code>source_member</code>, <code>assign_member</code>, <code>combine_assign_member</code> and <code>publish_assign_member</code>, a source, a map, a reduce and an apply.</p>
 <h3 id="the-mechanisms-this-case-uses">The mechanisms this case uses</h3>
@@ -413,8 +414,29 @@ uv run python job.py refine            # correct the root catalogue
 uv run python job.py assign            # assign roots to the models
 uv run python job.py member_attribute  # fill in the member attributes
 </code></pre>
-<p>The <code>.env</code> of the project holds nothing but <code>DOCORDER_HOMES</code>, which points at the <code>.op_home</code> of this directory. The location of the model files is given by the environment variable <code>SEMANTIC_LAYER_MODELS</code>, the input directory by <code>SEMANTIC_LAYER_INPUT</code>. The model tool is chosen with <code>DOCORDER_LLM</code>; without it the default tool configured in the script is used.</p>
+<p>When the <code>.env</code> does not set <code>DOCORDER_HOMES</code>, the <code>.op_home</code> of this directory is used; point it elsewhere with <code>DOCORDER_HOMES="/path/to/homes"</code> in the <code>.env</code>. The location of the model files is given by the environment variable <code>SEMANTIC_LAYER_MODELS</code>, the input directory by <code>SEMANTIC_LAYER_INPUT</code>. The model tool is chosen with <code>DOCORDER_LLM</code>: write <code>cursor</code> or <code>minimax</code> to pick one of the tools configured in the script, write anything else and docorder treats it as a preset name or the path of a tool definition file; without it the default tool configured in the script is used.</p>
+<p>The <code>.env</code> of the <code>semantic_layer/</code> job already says <code>DOCORDER_LLM=minimax</code>, so MiniMax is what you get out of the box. <code>DOCORDER_LLM</code> on the command line takes precedence over the <code>.env</code>, and <code>cursor</code> switches back to the cursor preset.</p>
 <p>These jobs need a model tool installed on the machine and model files to read, so they are not run in CI. CI runs the smallest job, the one under <code>documentation/</code>.</p>
+<h3 id="the-model-tool-minimax">The model tool: MiniMax</h3>
+<p>MiniMax goes through the MiniMax Code client on this machine, and it is written the same way as the <code>cursor</code> preset: one tool definition. The prompt arrives on standard input, the client reads and writes files in the working directory by itself, and it prints the answer to standard output when it is done. The tool loop, the permissions and the retries belong to the client.</p>
+<pre><code class="language-python">MINIMAX_TOOL = {
+    &quot;name&quot;: &quot;minimax&quot;,
+    &quot;run&quot;: [
+        MCODE_BIN,
+        &quot;exec&quot;,
+        &quot;--input&quot;, &quot;-&quot;,
+        &quot;--cwd&quot;, &quot;{workspace}&quot;,
+        &quot;--permission&quot;, &quot;full&quot;,
+        &quot;--output-format&quot;, &quot;text&quot;,
+        &quot;--model&quot;, MCODE_MODEL,
+        &quot;--timeout&quot;, MCODE_TIMEOUT,
+    ],
+    &quot;prompt&quot;: &quot;stdin&quot;,
+}
+</code></pre>
+<p>The <code>dbt_model/</code> and <code>semantic_layer/</code> jobs already have this tool, so <code>DOCORDER_LLM=minimax</code> selects it.</p>
+<p>The client is looked for at <code>~/.minimax-code/bin/mcode</code> first and then on the <code>PATH</code> as <code>mcode</code>; <code>MCODE_BIN</code> points it somewhere else. There are also <code>MCODE_MODEL</code> for the model (default <code>minimax/MiniMax-M3.1-Flash</code>) and <code>MCODE_TIMEOUT</code> for the timeout of one call (default <code>30m</code>). The credential is the client's own; docorder is not part of it.</p>
+<p>This tool has the same rights as the <code>cursor</code> preset, which is the client's own default: the model may read and write files in the working directory.</p>
       </article>
 
       <nav class="pager" aria-label="Previous and next">
@@ -439,6 +461,7 @@ uv run python job.py member_attribute  # fill in the member attributes
       <a href="#the-fourth-job-filling-in-member-attributes">The fourth job: filling in member attributes</a>
       <a href="#the-mechanisms-this-case-uses">The mechanisms this case uses</a>
       <a href="#how-to-run-it">How to run it</a>
+      <a href="#the-model-tool-minimax">The model tool: MiniMax</a>
     </aside>
   </div>
 

@@ -112,7 +112,7 @@
 <p><strong>选对 function。</strong> 一批对象各要一段结果，用 <code>EntityTemplateToLLM</code>（map）；整批对象要一份汇总，用 <code>TemplateToLLM</code>（reduce）；上游已经是一段提示词，直接用 <code>PromptToLLM</code>。</p>
 <p><strong>尽量把调用放在 map 上。</strong> map 的粒度是单个实体，失败只影响一个对象，续跑的成本最低。reduce 的粒度是整批，一次失败整批重来。</p>
 <p><strong>用 <code>tag_template</code> 保留元信息。</strong> 大模型返回的正文之外，让 function 顺便把结构化的结果写进 tag，后续步骤就不用再解析正文。</p>
-<p><strong>用 <code>header</code> 约束输出格式。</strong> 给 <code>PromptToLLM</code> 配上 <code>header</code>，模型回复里的表格就能被稳定地截出来当正文，下游不用再处理模型可能加的寒暄。</p>
+<p><strong>用 <code>header</code> 约束输出格式。</strong> 给 <code>EntityTemplateToLLM</code> 或 <code>TemplateToLLM</code> 配上 <code>header</code>，模型回复里的表格就能被稳定地截出来当正文，下游不用再处理模型可能加的寒暄。</p>
 <p><strong>把大模型的输入写成路径而不是内容。</strong> <code>EntityTemplateToLLM</code> 和 <code>TemplateToLLM</code> 的模板里能拿到上游 <code>data</code> 文件的路径，让模型自己去读，比把大段内容塞进提示词更省 token，也更不容易超长。</p>
 <p><strong>用 <code>fingerprint.depend</code> 跟踪外部文件。</strong> 如果一段结果依赖某个不在上游实体里的文件（例如表定义旁边的 <code>.sql</code>），用 <code>depend</code> 声明它，文件变了对应的实体才会重做。</p>
 <h3 id="常见反模式">常见反模式</h3>

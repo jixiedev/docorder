@@ -221,6 +221,7 @@ The script puts its work in <code>main()</code> and calls it under <code>if __na
 </tr>
 </tbody>
 </table>
+<p>The jobs in the data governance examples also accept the names <code>cursor</code> and <code>minimax</code> for <code>DOCORDER_LLM</code>, pointing at tools the repository configures. The <code>minimax</code> one goes through the MiniMax Code client on this machine and, like the <code>cursor</code> preset, is one tool definition: the prompt arrives on standard input, the client reads and writes files in the working directory by itself, and the answer comes back on standard output. The client is looked for at <code>~/.minimax-code/bin/mcode</code>, and <code>MCODE_BIN</code> points it somewhere else.</p>
 <h2 id="example-running-the-same-epoch-again">Example: running the same epoch again</h2>
 <p>After the quick start, save <code>rerun.py</code>. It reuses the homes and output under <code>quickstart/</code>, edits the source file, and runs the same epoch twice:</p>
 <pre><code class="language-python">import os

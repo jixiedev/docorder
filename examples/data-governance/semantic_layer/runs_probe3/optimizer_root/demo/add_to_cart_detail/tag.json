@@ -1,0 +1,16 @@
+{
+  "fingerprint": {
+    "depend": {
+      "{staging}/raw_root.csv": "57cbb9c9434667a3e9324c33537ab18e4a10a5bddb4ed47a7d764a82dfa523ab"
+    },
+    "record": {
+      "{staging}/raw_root_patch_log.csv": "0382b08fca0d49fbf464f0ad8a4a7148bd2ab12e710e2d0bde33585fda6450da"
+    }
+  },
+  "upstream": {
+    "epoch": "demo",
+    "hash": "04357491671cdb9546480fed7ec53574b0d5051078791fcc4686bcb583632b07",
+    "name": "add_to_cart_detail",
+    "operator": "source"
+  }
+}

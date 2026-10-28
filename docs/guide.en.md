@@ -611,7 +611,7 @@ When the function has finished, the runner takes care of `global_prop` and `upst
 
 Finally, the runner writes the entity directory in a fixed order: first `data`, then `tag.json`. Each file is first written to a `.tmp` temporary file in the same directory and only then replaces the real file name, so a file is never left half written. `tag.json` is written last precisely so that the entity only counts as finished once both the body and the snapshot are in place. If an old `upstream.json` is left in the directory, it is deleted after the write.
 
-Every stage prints one progress bar on standard error, with the node name as its title. For a map, fanout, or reduce the total is the number of entities expected in this stretch, and the ones that passed the comparison and are skipped in this round are counted in as well. For an apply the total is the number of upstream entities of this call. A source advances it record by record in `emit` and does not know the total at the start. A parallel map or fanout shares this one progress bar.
+Every stage prints one progress bar on standard error, with the node name as its title. For a map, fanout, or reduce the total is the number of entities expected in this stretch, and the ones that passed the comparison and are skipped in this round are counted in from the first frame, so a resumed run does not flash zero before the bar reaches the skipped count. For an apply the total is the number of upstream entities of this call. A source advances it record by record in `emit` and does not know the total at the start. A parallel map or fanout shares this one progress bar.
 
 ### Parallelism and retry
 
@@ -1151,7 +1151,7 @@ The same set of parameters is handed to you in two forms: one for the code of th
 
 The code of a function reads the parameters through `self.environment.operator_props`. Its content is what is left of `props.json` after removing the keys `type`, `class`, `parallelism`, `retry`, and `home`, with the same-named keys of the node's `config` applied over it. The function uses these parameters to decide how it runs, for example `TemplateToPrompt` reads `template` from here to know which template file to use. A template reads `self.environment.template_env`, which holds `operator`, `job`, and `entity`.
 
-A template reads the operator information through a variable named `operator`. It is based on the parameters the function reads, that is, the parameters of `props.json` after the node's `config` has overridden them; on top of that the runner fills in a few pieces of information about this run, namely `name`, `home`, `function_class`, `type`, and `operator_home`, which override the parameters of the same name. The meaning of each is in the variable table in chapter 8. So after you override `template` in the node's `config`, the template file that is actually used and the value that `{{ operator.template }}` shows in the template both change; a key that is only in the node's `config` and not in `props.json` can be read in the template the same way, as `operator.<key>`. The pieces the runner fills in are the only exception: even if you write `name` in `config`, the template still reads the node name. `parallelism` and `retry` are reserved keys of `props.json` and are not passed down as function parameters, so `operator` does not have them; the epoch of this run is in `job.epoch`, not in `operator`.
+A template reads the operator information through a variable named `operator`. It is based on the parameters the function reads, that is, the parameters of `props.json` after the node's `config` has overridden them; on top of that the runner fills in a few pieces of information about this run, namely `name`, `home`, `function_class`, `type`, and `operator_home`, which override the parameters of the same name. The meaning of each is in the variable table in chapter 8. So after you override `template` in the node's `config`, the template file that is actually used and the value that `{{ operator.template }}` shows in the template both change; a key that is only in the node's `config` and not in `props.json` can be read in the template the same way, as `operator.<key>`. The pieces the runner fills in are the only exception: even if you write `name` in `config`, the template still reads the node name. `parallelism` and `retry` are reserved keys of `props.json` and are not passed down as function parameters, so `operator` does not have them; the epoch of this run is in `job.epoch`, not in `operator`; the absolute path of the `.staging` directory under the job root is in `job.staging_path`.
 
 ### Environment variables
 
@@ -1524,7 +1524,7 @@ When the template refers to a variable that does not exist, the tool cannot be f
 
 A reduce operator merges all the entities the upstream has in this epoch into one output entity, whose name is decided by the parameter `output`, `result` when it is not set. The function receives the list of upstream entities sorted by entity name, and that one target entity. Because this output depends on all the upstream entities, a change to the body of any upstream entity, a new entity, or a deleted entity makes this output be computed again.
 
-The built-in function is `docorder.functions.impl.template_to_llm:TemplateToLLM`. It renders all the upstream entities into one Jinja template, hands the rendered result to the model tool, and writes the reply as the body of that one output entity. The template sees `sources`, a list in the order the reduce received them, each item with `name`, `path`, and `tag`; `path` is the path of the `data` file of that entity. The template can also call `staging(name)`, which gives the path of one file that already exists in the `.staging` directory of the job. When `header` has a value, the body starts at that header line of the reply; `tag_template` is an optional piece of Jinja whose rendered result is the tag of the entity; `min_sources` and `max_sources` bound the number of upstream entities.
+The built-in function is `docorder.functions.impl.template_to_llm:TemplateToLLM`. It renders all the upstream entities into one Jinja template, hands the rendered result to the model tool, and writes the reply as the body of that one output entity. The template sees `sources`, a list in the order the reduce received them, each item with `name`, `path`, and `tag`; `path` is the path of the `data` file of that entity. The template can also call `staging(name)`, which gives the path of one file that already exists in the `.staging` directory of the job. When `header` has a value, the body starts at that header line of the reply and ends where the fence around the table ends, so what the model says around the table stays out of it; `tag_template` is an optional piece of Jinja whose rendered result is the tag of the entity; `min_sources` and `max_sources` bound the number of upstream entities.
 
 Other reduce transforms can be written by you; chapter 9 shows how and gives examples.
 
@@ -1585,7 +1585,7 @@ The rendering environment is `environment.template_env`, a nested dictionary tha
 ```text
 template_env
   operator                        the function parameters, plus this run's name and home
-  job                             name, epoch
+  job                             name, epoch, staging_path
   entity                          the entity being rendered
     source_name, source_data, source_tag, source_data_path
     target_name, target_data_path, output
@@ -1637,8 +1637,10 @@ The table below lists the variables that the template of `TemplateToPrompt` and 
   <text x="334" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">job</text>
   <text x="334" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name</text>
   <text x="334" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">epoch</text>
-  <text x="334" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">The job's name and the</text>
-  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">epoch of this run</text>
+  <text x="334" y="237" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">staging_path</text>
+  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">The job's name and the</text>
+  <text x="334" y="281" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">epoch of this run</text>
+  <text x="334" y="299" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">and the .staging path</text>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#f6f1e8"/>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
   <text x="534" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity</text>
@@ -1674,7 +1676,7 @@ The table below lists the variables that the template of `TemplateToPrompt` and 
 | `operator.name` | The name of the current node |
 | `operator.home` | The absolute path of the current operator home |
 | `operator.<parameter name>` | The parameters of the function, for example `operator.template` |
-| `job.name`, `job.epoch` | The job name and the epoch of this run |
+| `job.name`, `job.epoch`, `job.staging_path` | The job name, the epoch of this run, and the absolute path of the `.staging` directory under the job root |
 | `entity.source_name`, `entity.source_data`, `entity.source_tag`, `entity.source_data_path` | The upstream entity |
 | `entity.target_name`, `entity.target_data_path`, `entity.output` | The entity being written |
 
@@ -2504,8 +2506,8 @@ A first draft of a root catalogue is rarely perfect: the definition is off, an a
 | Node | Type | What it does |
 | --- | --- | --- |
 | `source` | source | The same node the first job uses |
-| `optimizer_root` | map | One model call per model; it edits `raw_root_patch_log.csv` only when the catalogue does not fit |
-| `merge_root` | reduce | One model call that folds that file into the catalogue |
+| `optimizer_root` | map | One model call per model; it corrects its own roots in the corrected catalogue |
+| `merge_root` | reduce | One model call that merges the synonyms of that file into one root each |
 | `publish_final` | apply | Writes `.staging/final_root.csv` |
 
 The operator home of `optimizer_root` declares two sections of fingerprint:
@@ -2525,9 +2527,11 @@ The operator home of `optimizer_root` declares two sections of fingerprint:
 
 The `depend` points at `.staging/raw_root.csv`, which is what the first job produced. When the catalogue changes, every entity of this operator is redone; when neither the model definitions nor the catalogue changed, not one of them is redone and not a cent is spent on the model.
 
-The `record` names `.staging/raw_root_patch_log.csv`. The prompt tells the model to change that file from `raw_root.csv`: create it when it is missing, edit it in place when it exists, and leave a row untouched when the catalogue already fits.
+The `record` names `.staging/raw_root_patch_log.csv`. That file is not a list of differences but the new root catalogue derived from the first draft: before running this job, copy `.staging/raw_root.csv` into it. Every model then corrects it in place — only the roots this model's metrics are classified wrongly, and not one other row.
 
 `merge_root` reads both files directly. Its `depend` lists `.staging/raw_root.csv` and `.staging/raw_root_patch_log.csv`, so a change to either file makes it run again.
+
+The merge works from `raw_root_patch_log.csv`: two rows that describe the same quantity become one row, with one `root_id` kept, the aliases of both, and one definition. Roots are merged only when `kind` matches; roots of different kinds are never the same quantity. `raw_root.csv` is what tells a new row from an old one — a `root_id` that is not in the first draft is new, and a new row is merged into the root that was already in the catalogue, so the `root_id` other rows point at does not change.
 
 ### The third job: assigning roots to models
 
@@ -2584,7 +2588,7 @@ class ExtractRoot(FanoutFunction):
         return sorted(names)
 ```
 
-There is one upstream entity, the assignment JSON, and the output is one entity per root. How many entities a fanout produces has nothing to do with how many entities it has upstream, and that is exactly why it exists. The input in this repository produces fourteen root entities.
+There is one upstream entity, the assignment JSON, and the output is one entity per root. How many entities a fanout produces has nothing to do with how many entities it has upstream, and that is exactly why it exists. The root catalogue of this input holds 117 roots, and the fanout produces one entity for every root a metric was assigned to.
 
 ### The fourth job: filling in member attributes
 
@@ -2610,9 +2614,38 @@ uv run python job.py assign            # assign roots to the models
 uv run python job.py member_attribute  # fill in the member attributes
 ```
 
-The `.env` of the project holds nothing but `DOCORDER_HOMES`, which points at the `.op_home` of this directory. The location of the model files is given by the environment variable `SEMANTIC_LAYER_MODELS`, the input directory by `SEMANTIC_LAYER_INPUT`. The model tool is chosen with `DOCORDER_LLM`; without it the default tool configured in the script is used.
+When the `.env` does not set `DOCORDER_HOMES`, the `.op_home` of this directory is used; point it elsewhere with `DOCORDER_HOMES="/path/to/homes"` in the `.env`. The location of the model files is given by the environment variable `SEMANTIC_LAYER_MODELS`, the input directory by `SEMANTIC_LAYER_INPUT`. The model tool is chosen with `DOCORDER_LLM`: write `cursor` or `minimax` to pick one of the tools configured in the script, write anything else and docorder treats it as a preset name or the path of a tool definition file; without it the default tool configured in the script is used.
+
+The `.env` of the `semantic_layer/` job already says `DOCORDER_LLM=minimax`, so MiniMax is what you get out of the box. `DOCORDER_LLM` on the command line takes precedence over the `.env`, and `cursor` switches back to the cursor preset.
 
 These jobs need a model tool installed on the machine and model files to read, so they are not run in CI. CI runs the smallest job, the one under `documentation/`.
+
+### The model tool: MiniMax
+
+MiniMax goes through the MiniMax Code client on this machine, and it is written the same way as the `cursor` preset: one tool definition. The prompt arrives on standard input, the client reads and writes files in the working directory by itself, and it prints the answer to standard output when it is done. The tool loop, the permissions and the retries belong to the client.
+
+```python
+MINIMAX_TOOL = {
+    "name": "minimax",
+    "run": [
+        MCODE_BIN,
+        "exec",
+        "--input", "-",
+        "--cwd", "{workspace}",
+        "--permission", "full",
+        "--output-format", "text",
+        "--model", MCODE_MODEL,
+        "--timeout", MCODE_TIMEOUT,
+    ],
+    "prompt": "stdin",
+}
+```
+
+The `dbt_model/` and `semantic_layer/` jobs already have this tool, so `DOCORDER_LLM=minimax` selects it.
+
+The client is looked for at `~/.minimax-code/bin/mcode` first and then on the `PATH` as `mcode`; `MCODE_BIN` points it somewhere else. There are also `MCODE_MODEL` for the model (default `minimax/MiniMax-M3.1-Flash`) and `MCODE_TIMEOUT` for the timeout of one call (default `30m`). The credential is the client's own; docorder is not part of it.
+
+This tool has the same rights as the `cursor` preset, which is the client's own default: the model may read and write files in the working directory.
 
 ## 12. Best practices
 
@@ -2688,7 +2721,7 @@ This is where docorder is easiest to get wrong.
 
 **Use `tag_template` to keep the metadata.** Besides the body that the model returns, let the function write the structured result into the tag as well, and the later steps do not have to parse the body again.
 
-**Use `header` to constrain the output format.** Give `PromptToLLM` a `header`, and the table in the reply of the model can be cut out reliably and used as the body, so the downstream does not have to deal with the small talk the model may have added.
+**Use `header` to constrain the output format.** Give `EntityTemplateToLLM` or `TemplateToLLM` an `header`, and the table in the reply of the model can be cut out reliably and used as the body, so the downstream does not have to deal with the small talk the model may have added.
 
 **Write the input of the model as a path, not as content.** The templates of `EntityTemplateToLLM` and `TemplateToLLM` can get the path of the upstream `data` file; letting the model read it itself saves tokens compared to stuffing a large piece of content into the prompt, and is also less likely to overflow.
 

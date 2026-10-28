@@ -406,10 +406,8 @@ class Operator(ABC):
                 )
             pairs.append((name, sources[0]))
         total = len(self.lineage) if self.lineage else len(pairs)
-        with progress_bar(self.name, total) as bar:
-            skipped = total - len(pairs)
-            if skipped:
-                bar.update(skipped)
+        skipped = total - len(pairs)
+        with progress_bar(self.name, total, initial=skipped) as bar:
             if not pairs:
                 return
             store = self.upstream_store
@@ -625,9 +623,8 @@ class ReduceOperator(Operator):
     def execute(self, pending: list[str]) -> list[str]:
         output_name = self._output_name()
         working = output_name in pending
-        with progress_bar(self.name, 1) as bar:
+        with progress_bar(self.name, 1, initial=0 if working else 1) as bar:
             if not working:
-                bar.update(1)
                 return []
             store = self.upstream_store
             upstream = self.upstream

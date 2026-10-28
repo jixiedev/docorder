@@ -81,7 +81,7 @@
 <p>渲染环境是 <code>environment.template_env</code>，一份嵌套字典，模板和命令都读它。</p>
 <pre><code class="language-text">template_env
   operator                        function 参数，外加本次运行的 name、home
-  job                             name、epoch
+  job                             name、epoch、staging_path
   entity                          正在渲染的实体
     source_name, source_data, source_tag, source_data_path
     target_name, target_data_path, output
@@ -129,8 +129,10 @@
   <text x="334" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">job</text>
   <text x="334" y="201" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">name</text>
   <text x="334" y="219" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">epoch</text>
-  <text x="334" y="245" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">作业的名字，和这次</text>
-  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">运行使用的 epoch</text>
+  <text x="334" y="237" fill="#1c1915" font-size="10" font-family="'IBM Plex Mono', 'SFMono-Regular', ui-monospace, Menlo, Consolas, monospace">staging_path</text>
+  <text x="334" y="263" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">作业的名字，和这次</text>
+  <text x="334" y="281" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">运行使用的 epoch</text>
+  <text x="334" y="299" fill="#5e584e" font-size="10" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">以及 .staging 目录的路径</text>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#f6f1e8"/>
   <rect x="520" y="156" width="350" height="176" rx="6" fill="#fffdf8" stroke="#d8d0c1" stroke-width="1"/>
   <text x="534" y="179" fill="#1c1915" font-size="12" font-weight="600" font-family="'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Segoe UI', sans-serif">entity</text>
@@ -182,8 +184,8 @@
 <td>function 的参数，例如 <code>operator.template</code></td>
 </tr>
 <tr>
-<td><code>job.name</code>、<code>job.epoch</code></td>
-<td>作业名和本次 epoch</td>
+<td><code>job.name</code>、<code>job.epoch</code>、<code>job.staging_path</code></td>
+<td>作业名、本次 epoch，以及作业根目录下 <code>.staging</code> 目录的绝对路径</td>
 </tr>
 <tr>
 <td><code>entity.source_name</code>、<code>entity.source_data</code>、<code>entity.source_tag</code>、<code>entity.source_data_path</code></td>

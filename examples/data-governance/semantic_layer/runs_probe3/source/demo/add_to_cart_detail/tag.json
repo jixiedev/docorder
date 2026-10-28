@@ -1,0 +1,12 @@
+{
+  "db": "wish",
+  "fingerprint": {
+    "record": {
+      "{model_home}/{db}/{table}.sql": "6e55ad6afc5a0b315252e1b623fc04a97b3d0c5d1c5cf22db0990adc966bb342",
+      "{model_home}/{db}/{table}.yml": "e2c00761a78f7a60234ca7b88bb9d71913881c4b240ad2cf98e5a92880a07ab3"
+    }
+  },
+  "sql": "/Users/cdpac/wbox/data-governance/semantic_layer/models/hive/wish/add_to_cart_detail.sql",
+  "table": "add_to_cart_detail",
+  "yml": "/Users/cdpac/wbox/data-governance/semantic_layer/models/hive/wish/add_to_cart_detail.yml"
+}

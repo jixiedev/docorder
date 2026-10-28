@@ -175,6 +175,8 @@ The second argument of `Job(name, root)` is the output root. `add_operator_node(
 | `DOCORDER_HOMES` | Directories searched for operator homes. Set it before `add_operator_node`. |
 | `DOCORDER_LLM` | The tool `PromptToLLM` uses when `tool` is not configured: a preset name in the home, or a path to a JSON file. |
 
+The jobs in the data governance examples also accept the names `cursor` and `minimax` for `DOCORDER_LLM`, pointing at tools the repository configures. The `minimax` one goes through the MiniMax Code client on this machine and, like the `cursor` preset, is one tool definition: the prompt arrives on standard input, the client reads and writes files in the working directory by itself, and the answer comes back on standard output. The client is looked for at `~/.minimax-code/bin/mcode`, and `MCODE_BIN` points it somewhere else.
+
 ## Example: running the same epoch again
 
 After the quick start, save `rerun.py`. It reuses the homes and output under `quickstart/`, edits the source file, and runs the same epoch twice:

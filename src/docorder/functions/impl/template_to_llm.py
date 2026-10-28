@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
@@ -66,8 +65,7 @@ class TemplateToLLM(ReduceFunction):
         prompt = render_template(self, _template_text(self), values, target.name)
         tool = LLMTool.resolve(self.environment.operator_props, self.artifact)
         reply = tool.complete(prompt, workspace(self))
-        header = self.environment.operator_props.get("header")
-        body = reply
+        body = _body(self, reply)
         return body, render_tag(self, values, target.name)
 
 
@@ -198,9 +196,37 @@ class EntityTemplateToLLM(MapFunction):
         prompt = render_template(self, _template_text(self), values, source_entity.name)
         tool = LLMTool.resolve(self.environment.operator_props, self.artifact)
         reply = tool.complete(prompt, workspace(self))
-        header = self.environment.operator_props.get("header")
-        body = reply
+        body = _body(self, reply)
         return body, render_tag(self, values, source_entity.name)
+
+
+def _body(function, reply: str) -> str:
+    """The body of the entity: the reply, trimmed to the header when there is one.
+
+    A model often adds a sentence before the table it was asked for. When
+    ``header`` is set, the body starts at the line that carries the header
+    and ends where the fence around the table ends. Without ``header`` the
+    body is the reply as it came.
+    """
+    raw = function.environment.operator_props.get("header")
+    if raw is None:
+        return reply
+    header = _header(function, raw)
+    lines = reply.splitlines()
+    start = next((index for index, line in enumerate(lines) if line.strip() == header), None)
+    if start is None:
+        raise FatalError(f"{function.operator_name}: the reply has no header line {header!r}")
+    kept = lines[start:]
+    # The table ends where the fence that wraps it ends.
+    for index, line in enumerate(kept):
+        if line.strip().startswith("```"):
+            kept = kept[:index]
+            break
+    while kept and not kept[0].strip():
+        kept.pop(0)
+    while kept and not kept[-1].strip():
+        kept.pop()
+    return "\n".join(kept)
 
 
 def _header(function, raw: Any) -> str:

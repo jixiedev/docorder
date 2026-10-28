@@ -1,22 +1,25 @@
 # Optimizer_ROOT
 
-Review one dbt model against the root catalog in `raw_root.csv`. Write changes to that catalog into `raw_root_patch_log.csv`. That file lists changes to `raw_root.csv`. It is not a copy of the catalog.
+Review one dbt model against the root catalog, and correct the catalog when this model's metrics do not fit it.
 
-`raw_root_patch_log.csv` is in the same directory as `raw_root.csv`.
+The catalog is one file: `{{ job.staging_path }}/raw_root_patch_log.csv`. It is the corrected root catalog, and every model in this job corrects it in turn. One row is one root: `root_id`, the Chinese name, the kind, the definition, what it is explicitly not, and the aliases.
 
-- If `raw_root_patch_log.csv` does not exist, create it.
-- If it exists, edit it in place. Do not replace the file, and do not rewrite lines that do not need a change.
+A metric fits a root when that root's definition covers the metric: the same quantity, the same grain, the same filter. A metric does not fit when the root's definition contradicts it, or when the root's "not" column names that metric. A root that does not fit is corrected: the definition is rewritten to cover the metric, or the "not" column drops it.
 
-Only record a change when this model's metrics cannot be classified without a new or revised root. If the catalog already fits a metric, do not add a row for it, and leave any existing line for it unchanged.
+Correct it in place. Replace the rows this model's metrics need changed and leave every other byte of the file exactly as it is. Do not write the file again.
 
-When you do edit:
+Correct a root only when one of this model's own metrics is classified under a root that does not fit it. If the catalog already fits a metric, leave that root as it is.
 
-- Change only rows for this model.
+When you do correct a row:
+
+- Change only the rows for this model.
 - Leave every other line as it is, including order and spacing.
 - Do not re-sort or reformat the rest of the file.
+- Do not rewrite the whole file. Correct the few rows that change and leave every other byte alone.
 
-Read these files. Their contents are not in this prompt.
+Read the catalog once. That one read gives you the exact text of every row, which is what you need to match on when you replace a row. Do not read the catalog again row by row.
+
+Read these two files, and nothing else in the project. Their contents are not in this prompt.
 
 model: {{ source.tag.table }}
 - {{ source.tag.yml }}
-- {{ staging('raw_root.csv') }}

@@ -11,8 +11,11 @@ from docorder.core.runner import execute
 
 JOB_ROOT = Path(__file__).resolve().parent
 load_dotenv(JOB_ROOT / ".env")
+# .env 里没有写 DOCORDER_HOMES 时，用本目录下的 .op_home。
+os.environ.setdefault("DOCORDER_HOMES", str(JOB_ROOT / ".op_home"))
 
-DEFAULT_MODEL_HOME = "/Users/jixie/wbox/data-governance/semantic_layer/models/hive"
+# DEFAULT_MODEL_HOME = "/Users/jixie/wbox/data-governance/semantic_layer/models/hive"
+DEFAULT_MODEL_HOME = "/Users/cdpac/wbox/data-governance/semantic_layer/models/hive"
 CURSOR_TOOL = {
     "name": "cursor",
     "run": [
@@ -29,6 +32,30 @@ CURSOR_TOOL = {
     ],
     "prompt": "stdin",
 }
+# MiniMax 用本机的 MiniMax Code 客户端：提示词从标准输入进来，客户端在工作目录里
+# 自己读文件、改文件，跑完把答案打到标准输出。工具循环、权限和重试都归客户端管。
+MCODE_BIN = os.environ.get("MCODE_BIN") or ""
+if not MCODE_BIN:
+    installed = Path.home() / ".minimax-code" / "bin" / "mcode"
+    MCODE_BIN = str(installed) if installed.is_file() else "mcode"
+MCODE_MODEL = os.environ.get("MCODE_MODEL", "minimax/MiniMax-M3.1-Flash")
+MCODE_TIMEOUT = os.environ.get("MCODE_TIMEOUT", "30m")
+MINIMAX_TOOL = {
+    "name": "minimax",
+    "run": [
+        MCODE_BIN,
+        "exec",
+        "--input", "-",
+        "--cwd", "{workspace}",
+        "--permission", "full",
+        "--output-format", "text",
+        "--model", MCODE_MODEL,
+        "--timeout", MCODE_TIMEOUT,
+    ],
+    "prompt": "stdin",
+}
+# DOCORDER_LLM 写这里的名字就选这个工具，写别的就当预设名或文件路径交给 docorder。
+TOOLS = {"cursor": CURSOR_TOOL, "minimax": MINIMAX_TOOL}
 
 
 def build_root_job(root: Path | None = None) -> Job:
@@ -222,7 +249,7 @@ def build_member_attribute_job(root: Path | None = None) -> Job:
 def _llm_tool() -> str | dict:
     configured = os.environ.get("DOCORDER_LLM", "").strip()
     if configured:
-        return configured
+        return TOOLS.get(configured, configured)
     return CURSOR_TOOL
 
 

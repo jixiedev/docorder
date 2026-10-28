@@ -2,9 +2,16 @@
 
 ## Merge
 
-Merge `raw_root.csv` and `raw_root_patch_log.csv` into one root catalog. Merge synonyms only when `kind` matches.
+`raw_root_patch_log.csv` is the corrected root catalog: it was derived from `raw_root.csv` and then corrected by the optimizer for each model. Merge it into the final root catalog.
 
-Write only a pipe-delimited CSV with this header:
+Merge the synonyms:
+
+- Two rows that describe the same quantity are one root. Merge them into a single row: keep one `root_id`, take the union of the two rows' `aliases`, and write one `definition` that covers both. When the optimizer introduced one of the two — its `root_id` is not in `raw_root.csv` — merge it into the root that was already in the catalog, so the `root_id` other rows point at does not change.
+- Merge only when `kind` matches. Roots of different kinds are never the same root, however alike their names are.
+
+Keep the catalog's row order. Do not re-sort or reformat it, and do not drop a root.
+
+Your reply is the catalog. Print the whole pipe-delimited CSV, starting with the header line below, and nothing else. Do not save it to a file — only your reply is read.
 
 `root_id|root_zh|kind|definition|not_a|aliases`
 

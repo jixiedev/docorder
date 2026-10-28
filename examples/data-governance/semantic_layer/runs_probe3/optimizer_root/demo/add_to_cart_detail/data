@@ -1,0 +1,30 @@
+The correction is applied cleanly. The file structure, header, row order, and all other rows are untouched.
+
+## Summary
+
+**Created** `raw_root_patch_log.csv` as an exact byte-for-byte file copy of `raw_root.csv` (it did not previously exist), then applied one row-level correction in place.
+
+### The one correction
+
+**Root `add_to_cart_visitors` (加购访客数)** — the only root in this model whose definition contradicted the model's own metric.
+
+- **Model metric:** `add_to_cart_visitors` = `count_distinct visitor_id`, described as "Distinct **guest** visitor count"; the model's `visitor_id` column doc states it is "Null for logged-in users", and the `add_to_cart_users` doc confirms guest sessions "are only visible through `add_to_cart_visitors`".
+- **Catalog root said:** "Distinct visitors (**guest plus logged-in**) behind add-to-cart events in scope." — a scope that contradicts the metric it governs, so this root did not fit.
+- **Fixed definition:** "Distinct guest visitors (logged-out sessions) behind add-to-cart events in scope; logged-in users are excluded and counted by add_to_cart_users." (`root_id`, `root_zh`, `kind`, `not_a`, and `aliases` left unchanged on that row.)
+
+### Metrics left unchanged because their roots already fit
+
+| Model metric | Root | Why it fits |
+|---|---|---|
+| `add_to_cart_events`, `add_to_cart_mapped_events`, `add_to_cart_non_bot_events` | `add_to_cart_events` | "one logged add-to-cart action is one event, not one cart line" — exact grain match (the two filtered variants are the same event grain) |
+| `add_to_cart_users` | `add_to_cart_users` | "Distinct **logged-in** users…; guest sessions are excluded" — exact match |
+| `add_to_cart_products` | `products` | "Distinct products… referenced by events" |
+| `add_to_cart_variations` | `variations` | "Distinct product variations… or **added to cart**" |
+| `add_to_cart_impressions` | `engagement_impressions` | distinct originating-impression count |
+| `add_to_cart_quantity` | `add_to_cart_quantity` | "the per-event add amount, not a cart-line or order quantity" — exact match |
+| `add_to_cart_price`, `add_to_cart_shipping` | `add_to_cart_value` | "Sum of the product price (and separately shipping) logged at add-to-cart time" |
+| `add_to_cart_shipping_cost` | `shipping_cost` | merchant/platform-borne shipping, distinct from buyer-paid |
+| `add_to_cart_merchant_price`, `add_to_cart_merchant_shipping` | `merchant_proceeds` | "merchant-set item price **and merchant shipping** proceeds" |
+| `add_to_cart_cost` | `cost_of_goods` | "merchant-side cost basis" |
+
+Metrics with no root in the catalog (`add_to_cart_collections`, `add_to_cart_avg_price`, `add_to_cart_price_per_event`, `add_to_cart_quantity_per_event`) are not classified under any root, so per the instructions they were not touched — no root was re-mapped onto them (in particular `gmv_per_unit` was rejected for the avg-price metrics, as it is defined on realized GMV and units sold, not at-cart intent price).

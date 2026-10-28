@@ -11,5 +11,5 @@
     }
   },
   "parallelism": 1,
-  "retry": { "max_attempts": 2, "backoff_seconds": 5 }
+  "retry": { "max_attempts": 3, "backoff_seconds": 5 }
 }
