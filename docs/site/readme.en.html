@@ -73,14 +73,15 @@
 
       <article class="doc">
 <h1 id="page-quick-start">Quick start</h1>
-<p><a href="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml/badge.svg" /></a>
+<p><a href="https://github.com/jixiedev/docorder/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jixiedev/docorder/actions/workflows/ci.yml/badge.svg" /></a>
 <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
 <a href="../../pyproject.toml"><img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-blue.svg" /></a></p>
 <p><a href="readme.html">中文</a></p>
 <p>Docorder is a Python library for running several transform steps over a batch of objects that share one shape, for example rendering a prompt for every table and then calling a model on it. Each object is a directory on disk, called an entity. Transforms run stage by stage along a directed acyclic graph: one operator finishes the whole batch before its downstream starts. When a run is interrupted, run the same epoch again. Each entity's <code>tag.json</code> records the upstream it read, and the runner uses it to finish only what is missing, redo what changed upstream, and delete what is no longer expected.</p>
 <p>A job is built in Python and started with <code>execute</code>. The install also provides one command, <code>docorder status &lt;output-root&gt;</code>, which reports which epochs an output root contains, whether each epoch still matches its upstream snapshots, and how many entities each stage has.</p>
+<p>Documentation site: <a href="https://jixiedev.github.io/docorder/">https://jixiedev.github.io/docorder/</a>.</p>
 <h2 id="getting-the-code">Getting the code</h2>
-<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+<pre><code class="language-bash">git clone https://github.com/jixiedev/docorder.git
 cd docorder
 </code></pre>
 <p>The repository has no submodules and does not use Git LFS.</p>
@@ -322,7 +323,7 @@ uv run python scripts/build_docs.py
 </code></pre>
 <p>The result lands in <code>docs/site/</code>. Do not edit those pages by hand. Chinese pages use the same names without the <code>.en</code> suffix, for example <code>README.md</code> and <code>docs/guide.md</code>; the generated English pages carry the same <code>.en</code> suffix.</p>
 <h2 id="contributing">Contributing</h2>
-<p>Report bugs and request features in <a href="https://github.com/jixie-wish/docorder/issues">GitHub Issues</a>. The repository has bug and feature templates. Do not report security issues publicly. See <a href="security.en.html">SECURITY.en.md</a>. Conventions are in <a href="contributing.en.html">CONTRIBUTING.en.md</a>, and the code of conduct is in <a href="code-of-conduct.en.html">CODE_OF_CONDUCT.en.md</a>. The API may change during <code>0.x</code>. Changes are recorded in <a href="changelog.en.html">CHANGELOG.en.md</a>.</p>
+<p>Report bugs and request features in <a href="https://github.com/jixiedev/docorder/issues">GitHub Issues</a>. The repository has bug and feature templates. Do not report security issues publicly. See <a href="security.en.html">SECURITY.en.md</a>. Conventions are in <a href="contributing.en.html">CONTRIBUTING.en.md</a>, and the code of conduct is in <a href="code-of-conduct.en.html">CODE_OF_CONDUCT.en.md</a>. The API may change during <code>0.x</code>. Changes are recorded in <a href="changelog.en.html">CHANGELOG.en.md</a>.</p>
 <blockquote>
 <p>[!WARNING]
 <code>JsonnetToPrompt</code>, <code>Command</code>, and <code>PromptToLLM</code> run content from the job configuration and from entity bodies on the local machine. Run a job only on directories you trust.</p>

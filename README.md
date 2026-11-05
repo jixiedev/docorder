@@ -1,6 +1,6 @@
 # Docorder
 
-[![CI](https://github.com/jixie-wish/docorder/actions/workflows/ci.yml/badge.svg)](https://github.com/jixie-wish/docorder/actions/workflows/ci.yml)
+[![CI](https://github.com/jixiedev/docorder/actions/workflows/ci.yml/badge.svg)](https://github.com/jixiedev/docorder/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
 
@@ -10,10 +10,12 @@ Docorder 是一个 Python 库，用来对一批结构相同的对象做多步转
 
 作业从 Python 里构造并调用 `execute` 启动。安装后另有一个命令 `docorder status <输出根目录>`，用来查看输出目录里有哪些 epoch、每个 epoch 的结果是否与上游快照一致，以及每个 stage 有多少实体。
 
+文档站：<https://jixiedev.github.io/docorder/>。
+
 ## 获取代码
 
 ```bash
-git clone https://github.com/jixie-wish/docorder.git
+git clone https://github.com/jixiedev/docorder.git
 cd docorder
 ```
 
@@ -271,7 +273,7 @@ uv run python scripts/build_docs.py
 
 ## 参与贡献
 
-问题和需求在 [GitHub Issues](https://github.com/jixie-wish/docorder/issues) 提交，仓库带有 bug 和 feature 模板。安全问题不要公开提交，做法见 [SECURITY.md](SECURITY.md)。开发约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，行为准则见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。`0.x` 期间接口可能调整，变更记在 [CHANGELOG.md](CHANGELOG.md)。
+问题和需求在 [GitHub Issues](https://github.com/jixiedev/docorder/issues) 提交，仓库带有 bug 和 feature 模板。安全问题不要公开提交，做法见 [SECURITY.md](SECURITY.md)。开发约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，行为准则见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。`0.x` 期间接口可能调整，变更记在 [CHANGELOG.md](CHANGELOG.md)。
 
 > [!WARNING]
 > `JsonnetToPrompt`、`Command` 和 `PromptToLLM` 会在本机执行作业配置和实体正文里的内容。只对受信任的目录运行作业。

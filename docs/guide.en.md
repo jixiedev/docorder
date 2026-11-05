@@ -1992,7 +1992,7 @@ This chapter uses one complete example to show all the steps of using docorder i
 docorder has not been published to PyPI, so you cannot install it with `pip install docorder`; you have to build the package from the source repository first. The commands below clone the repository and build the package with uv. uv is a tool for Python packages and projects; its website explains how to install it.
 
 ```bash
-git clone https://github.com/jixie-wish/docorder.git
+git clone https://github.com/jixiedev/docorder.git
 cd docorder
 uv build
 ```

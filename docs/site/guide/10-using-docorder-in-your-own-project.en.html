@@ -76,7 +76,7 @@
 <p>This chapter uses one complete example to show all the steps of using docorder in your own project. Suppose the project is called <code>my-docs</code> and holds a batch of data table definitions described in JSON files, and that you want to produce a prompt for each table, hand it to a command line model tool, and have it write a description of that table, and finally collect all the tables into one list. The job has four nodes, in turn a source, a map, a map, and a reduce, and it uses two functions that ship with docorder and two functions you write yourself. All the files and commands in this chapter have actually been run and verified.</p>
 <h3 id="step-1-install-docorder">Step 1: install docorder</h3>
 <p>docorder has not been published to PyPI, so you cannot install it with <code>pip install docorder</code>; you have to build the package from the source repository first. The commands below clone the repository and build the package with uv. uv is a tool for Python packages and projects; its website explains how to install it.</p>
-<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+<pre><code class="language-bash">git clone https://github.com/jixiedev/docorder.git
 cd docorder
 uv build
 </code></pre>

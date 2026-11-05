@@ -73,14 +73,15 @@
 
       <article class="doc">
 <h1 id="page-快速开始">快速开始</h1>
-<p><a href="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jixie-wish/docorder/actions/workflows/ci.yml/badge.svg" /></a>
+<p><a href="https://github.com/jixiedev/docorder/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jixiedev/docorder/actions/workflows/ci.yml/badge.svg" /></a>
 <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
 <a href="../../pyproject.toml"><img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-blue.svg" /></a></p>
 <p><a href="readme.en.html">English</a></p>
 <p>Docorder 是一个 Python 库，用来对一批结构相同的对象做多步转换，例如每张表先渲染提示词、再调用模型。每个对象是磁盘上的一个目录，称为实体。转换沿一张有向无环图逐段执行，一个算子处理完整批实体，下游才开始。运行中断后，用同一个 epoch 再跑一次即可：每个实体的 <code>tag.json</code> 里记着它读过的上游，runner 据此只补没做完的、重做上游变了的、删掉多出来的。</p>
 <p>作业从 Python 里构造并调用 <code>execute</code> 启动。安装后另有一个命令 <code>docorder status &lt;输出根目录&gt;</code>，用来查看输出目录里有哪些 epoch、每个 epoch 的结果是否与上游快照一致，以及每个 stage 有多少实体。</p>
+<p>文档站：<a href="https://jixiedev.github.io/docorder/">https://jixiedev.github.io/docorder/</a>。</p>
 <h2 id="获取代码">获取代码</h2>
-<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+<pre><code class="language-bash">git clone https://github.com/jixiedev/docorder.git
 cd docorder
 </code></pre>
 <p>仓库没有子模块，也不用 Git LFS。</p>
@@ -322,7 +323,7 @@ uv run python scripts/build_docs.py
 </code></pre>
 <p>生成结果在 <code>docs/site/</code> 下，不要手工改那些网页。英文版与中文同名，后缀为 <code>.en</code>，例如 <code>README.en.md</code>、<code>docs/guide.en.md</code>；生成出来的网页同样是英文文件名带 <code>.en</code>。</p>
 <h2 id="参与贡献">参与贡献</h2>
-<p>问题和需求在 <a href="https://github.com/jixie-wish/docorder/issues">GitHub Issues</a> 提交，仓库带有 bug 和 feature 模板。安全问题不要公开提交，做法见 <a href="security.html">SECURITY.md</a>。开发约定见 <a href="contributing.html">CONTRIBUTING.md</a>，行为准则见 <a href="code-of-conduct.html">CODE_OF_CONDUCT.md</a>。<code>0.x</code> 期间接口可能调整，变更记在 <a href="changelog.html">CHANGELOG.md</a>。</p>
+<p>问题和需求在 <a href="https://github.com/jixiedev/docorder/issues">GitHub Issues</a> 提交，仓库带有 bug 和 feature 模板。安全问题不要公开提交，做法见 <a href="security.html">SECURITY.md</a>。开发约定见 <a href="contributing.html">CONTRIBUTING.md</a>，行为准则见 <a href="code-of-conduct.html">CODE_OF_CONDUCT.md</a>。<code>0.x</code> 期间接口可能调整，变更记在 <a href="changelog.html">CHANGELOG.md</a>。</p>
 <blockquote>
 <p>[!WARNING]
 <code>JsonnetToPrompt</code>、<code>Command</code> 和 <code>PromptToLLM</code> 会在本机执行作业配置和实体正文里的内容。只对受信任的目录运行作业。</p>

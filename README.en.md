@@ -1,6 +1,6 @@
 # Docorder
 
-[![CI](https://github.com/jixie-wish/docorder/actions/workflows/ci.yml/badge.svg)](https://github.com/jixie-wish/docorder/actions/workflows/ci.yml)
+[![CI](https://github.com/jixiedev/docorder/actions/workflows/ci.yml/badge.svg)](https://github.com/jixiedev/docorder/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
 
@@ -10,10 +10,12 @@ Docorder is a Python library for running several transform steps over a batch of
 
 A job is built in Python and started with `execute`. The install also provides one command, `docorder status <output-root>`, which reports which epochs an output root contains, whether each epoch still matches its upstream snapshots, and how many entities each stage has.
 
+Documentation site: <https://jixiedev.github.io/docorder/>.
+
 ## Getting the code
 
 ```bash
-git clone https://github.com/jixie-wish/docorder.git
+git clone https://github.com/jixiedev/docorder.git
 cd docorder
 ```
 
@@ -271,7 +273,7 @@ The result lands in `docs/site/`. Do not edit those pages by hand. Chinese pages
 
 ## Contributing
 
-Report bugs and request features in [GitHub Issues](https://github.com/jixie-wish/docorder/issues). The repository has bug and feature templates. Do not report security issues publicly. See [SECURITY.en.md](SECURITY.en.md). Conventions are in [CONTRIBUTING.en.md](CONTRIBUTING.en.md), and the code of conduct is in [CODE_OF_CONDUCT.en.md](CODE_OF_CONDUCT.en.md). The API may change during `0.x`. Changes are recorded in [CHANGELOG.en.md](CHANGELOG.en.md).
+Report bugs and request features in [GitHub Issues](https://github.com/jixiedev/docorder/issues). The repository has bug and feature templates. Do not report security issues publicly. See [SECURITY.en.md](SECURITY.en.md). Conventions are in [CONTRIBUTING.en.md](CONTRIBUTING.en.md), and the code of conduct is in [CODE_OF_CONDUCT.en.md](CODE_OF_CONDUCT.en.md). The API may change during `0.x`. Changes are recorded in [CHANGELOG.en.md](CHANGELOG.en.md).
 
 > [!WARNING]
 > `JsonnetToPrompt`, `Command`, and `PromptToLLM` run content from the job configuration and from entity bodies on the local machine. Run a job only on directories you trust.

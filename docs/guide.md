@@ -1990,7 +1990,7 @@ def test_index_lists_every_table(tmp_path, monkeypatch):
 docorder 目前没有发布到 PyPI，所以不能直接用 `pip install docorder` 安装，需要先从源码仓库构建出安装包。下面的命令会克隆仓库，并用 uv 构建安装包。uv 是一个 Python 的包和项目管理工具，可以在它的官网找到安装方法。
 
 ```bash
-git clone https://github.com/jixie-wish/docorder.git
+git clone https://github.com/jixiedev/docorder.git
 cd docorder
 uv build
 ```

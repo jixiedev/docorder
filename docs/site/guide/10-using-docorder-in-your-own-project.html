@@ -76,7 +76,7 @@
 <p>本章用一个完整的例子，说明在自己的项目中使用 docorder 的全部步骤。假设项目名为 <code>my-docs</code>，其中有一批用 JSON 文件描述的数据表定义，我们希望为每张表生成一段提示词，交给命令行形式的大模型工具，让它写出这张表的说明，最后把所有表汇总成一份表清单。这个作业由四个节点组成，依次是 source、map、map 和 reduce，其中用到了两个 docorder 自带的 function 和两个自己编写的 function。本章的所有文件和命令都已经实际运行验证过。</p>
 <h3 id="第一步安装-docorder">第一步：安装 docorder</h3>
 <p>docorder 目前没有发布到 PyPI，所以不能直接用 <code>pip install docorder</code> 安装，需要先从源码仓库构建出安装包。下面的命令会克隆仓库，并用 uv 构建安装包。uv 是一个 Python 的包和项目管理工具，可以在它的官网找到安装方法。</p>
-<pre><code class="language-bash">git clone https://github.com/jixie-wish/docorder.git
+<pre><code class="language-bash">git clone https://github.com/jixiedev/docorder.git
 cd docorder
 uv build
 </code></pre>
