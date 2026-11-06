@@ -1,5 +1,4 @@
 {
   "type": "apply",
-  "class": "docorder.functions.impl.output:Output",
-  "filename": "raw_root.csv"
+  "class": "docorder.functions.impl.output:Output"
 }

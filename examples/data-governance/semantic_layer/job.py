@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import argparse
 import os
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,8 +14,8 @@ load_dotenv(JOB_ROOT / ".env")
 # .env 里没有写 DOCORDER_HOMES 时，用本目录下的 .op_home。
 os.environ.setdefault("DOCORDER_HOMES", str(JOB_ROOT / ".op_home"))
 
-# DEFAULT_MODEL_HOME = "/Users/jixie/wbox/data-governance/semantic_layer/models/hive"
-DEFAULT_MODEL_HOME = "/Users/cdpac/wbox/data-governance/semantic_layer/models/hive"
+DEFAULT_MODEL_HOME = "/Users/jixie/wbox/data-governance/semantic_layer/models/hive"
+# DEFAULT_MODEL_HOME = "/Users/cdpac/wbox/data-governance/semantic_layer/models/hive"
 CURSOR_TOOL = {
     "name": "cursor",
     "run": [
@@ -56,6 +56,8 @@ MINIMAX_TOOL = {
 }
 # DOCORDER_LLM 写这里的名字就选这个工具，写别的就当预设名或文件路径交给 docorder。
 TOOLS = {"cursor": CURSOR_TOOL, "minimax": MINIMAX_TOOL}
+# map/fanout 上的 LLM 并发。optimizer_root 必须保持 1（多线程会同时改同一份 patch 文件）。
+MAP_PARALLELISM = int(os.environ.get("SEMANTIC_LAYER_PARALLELISM", "8"))
 
 
 def build_root_job(root: Path | None = None) -> Job:
@@ -73,7 +75,12 @@ def build_root_job(root: Path | None = None) -> Job:
     )
 
     # map：每个 model 一份 JSON，里面是 metric 列表。
-    job.add_operator_node("librarian", "librarian", upstream="source")
+    job.add_operator_node(
+        "librarian",
+        "librarian",
+        upstream="source",
+        parallelism=MAP_PARALLELISM,
+    )
 
     # reduce：一次 LLM 调用，根据全部 model JSON 产出 raw_root 正文。
     job.add_operator_node(
@@ -87,8 +94,13 @@ def build_root_job(root: Path | None = None) -> Job:
         },
     )
 
-    # apply：Output.rename 把该实体写成 .staging/raw_root.csv。
-    job.add_operator_node("publish", "publish", upstream="taxonomist_root")
+    # apply：共用 publish home，config.filename 写成 .staging/raw_root.csv。
+    job.add_operator_node(
+        "publish",
+        "publish",
+        upstream="taxonomist_root",
+        config={"filename": "raw_root.csv"},
+    )
     return job
 
 def build_root_refine_job(root: Path | None = None) -> Job:
@@ -127,7 +139,12 @@ def build_root_refine_job(root: Path | None = None) -> Job:
     )
 
     # apply：写成 .staging/final_root.csv，不覆盖 raw_root.csv。
-    job.add_operator_node("publish_final", "publish_final", upstream="merge_root")
+    job.add_operator_node(
+        "publish_final",
+        "publish",
+        upstream="merge_root",
+        config={"filename": "final_root.csv"},
+    )
     return job
 
 def build_root_assigner_job(root: Path | None = None) -> Job:
@@ -165,6 +182,7 @@ def build_root_assigner_job(root: Path | None = None) -> Job:
         "root_assigner",
         "root_assigner",
         upstream="source_assign",
+        parallelism=MAP_PARALLELISM,
         config=llm,
     )
 
@@ -172,17 +190,28 @@ def build_root_assigner_job(root: Path | None = None) -> Job:
     job.add_operator_node("reduce_assigner", "reduce_assigner", upstream="root_assigner")
 
     # apply：写成 .staging/root_assign.json。
-    job.add_operator_node("publish_assigner", "publish_assigner", upstream="reduce_assigner")
+    job.add_operator_node(
+        "publish_assigner",
+        "publish",
+        upstream="reduce_assigner",
+        config={"filename": "root_assign.json"},
+    )
 
     # fanout：按 root_id 拆开，跳过 unassigned。实体正文带上该 root 在词根表里的那一行。
     # final_root.csv 在 fingerprint.depend 里，词根表变了即使归属 JSON 没变也重跑。
-    job.add_operator_node("extract_root", "extract_root", upstream="reduce_assigner")
+    job.add_operator_node(
+        "extract_root",
+        "extract_root",
+        upstream="reduce_assigner",
+        parallelism=MAP_PARALLELISM,
+    )
 
     # map：每个 root 一次 LLM，正文是这个 root 的 member CSV。
     job.add_operator_node(
         "taxonomist_member",
         "taxonomist_member",
         upstream="extract_root",
+        parallelism=MAP_PARALLELISM,
         config=llm,
     )
 
@@ -196,8 +225,9 @@ def build_root_assigner_job(root: Path | None = None) -> Job:
     # apply：写成 .staging/root_member.csv。
     job.add_operator_node(
         "publish_root_member",
-        "publish_root_member",
+        "publish",
         upstream="combine_root_member",
+        config={"filename": "root_member.csv"},
     )
     return job
 
@@ -229,6 +259,7 @@ def build_member_attribute_job(root: Path | None = None) -> Job:
         "assign_member",
         "assign_member",
         upstream="source_member",
+        parallelism=MAP_PARALLELISM,
         config=llm,
     )
 
@@ -240,8 +271,9 @@ def build_member_attribute_job(root: Path | None = None) -> Job:
 
     job.add_operator_node(
         "publish_assign_member",
-        "publish_assign_member",
+        "publish",
         upstream="combine_assign_member",
+        config={"filename": "root_member_assign.json"},
     )
     return job
 
@@ -253,17 +285,30 @@ def _llm_tool() -> str | dict:
     return CURSOR_TOOL
 
 
-def main() -> None:
-    if len(sys.argv) > 1 and sys.argv[1] == "refine":
-        execute(build_root_refine_job(), "demo", start_from_scratch=True)
-        return
-    if len(sys.argv) > 1 and sys.argv[1] == "assign":
-        execute(build_root_assigner_job(), "demo", start_from_scratch=True)
-        return
-    if len(sys.argv) > 1 and sys.argv[1] == "member_attribute":
-        execute(build_member_attribute_job(), "demo", start_from_scratch=True)
-        return
-    execute(build_root_job(), "demo", start_from_scratch=True)
+_JOBS = {
+    "raw_root": build_root_job,
+    "refine": build_root_refine_job,
+    "assign": build_root_assigner_job,
+    "member_attribute": build_member_attribute_job,
+}
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Run semantic layer docorder jobs.")
+    parser.add_argument(
+        "job",
+        choices=tuple(_JOBS),
+        help="Pipeline stage: raw_root → refine → assign → member_attribute.",
+    )
+    parser.add_argument("--epoch", default="demo", help="Epoch name passed to execute.")
+    parser.add_argument(
+        "--from-scratch",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Clear prior outputs for this job before running (default: true).",
+    )
+    args = parser.parse_args(argv)
+    execute(_JOBS[args.job](), args.epoch, start_from_scratch=args.from_scratch)
 
 
 if __name__ == "__main__":
