@@ -6,6 +6,7 @@
 
 ## [Unreleased]
 
+- 文档首页写明这个工具做什么、适合哪些作业。概览页在管道图之下先讲批处理中途失败和输入变化时的麻烦，以及 docorder 如何把每一步的结果和上游哈希留在实体目录里；接着列出五种典型用法：批量生成提示词并调用大模型、从 JSON 生成配置、给每个对象跑命令、汇总或拆分，以及仓库里的数据治理作业。另有一节列出当前版本不适合的形状：两路上游、多机或流水线、二进制正文、对象很少且步骤很快。
 - 数据治理示例支持 MiniMax，走本机的 MiniMax Code 客户端。写法和 `cursor` 预设一样，就是一份工具定义：`mcode exec --input - --cwd {workspace} --permission full --output-format text`。提示词从标准输入进来，客户端在工作目录里自己读文件、改文件，跑完把答案打到标准输出；工具循环、权限和重试都归客户端管。客户端默认在 `~/.minimax-code/bin/mcode`，找不到就找 `PATH` 里的 `mcode`，也可以用 `MCODE_BIN` 指到别处；`MCODE_MODEL` 换模型（默认 `minimax/MiniMax-M3.1-Flash`），`MCODE_TIMEOUT` 换单次调用的超时（默认 `30m`）。`dbt_model/` 和 `semantic_layer/` 两个作业配好了 `minimax` 这个工具名，`DOCORDER_LLM=minimax` 即可选用。
 - 进度条不再先闪一次 0%。map、fanout、reduce 的进度条总数是本段应得的实体个数，本轮跳过的那些要等到条子渲染出来之后再补上，所以第一帧总是 0%，续跑时看着像从头开始。现在直接以跳过的数量作为起点。
 - `DOCORDER_LLM` 在数据治理示例里可以写工具名。写 `cursor` 或 `minimax` 选脚本里配好的工具，写别的仍然当预设名或工具定义文件的路径交给 docorder。

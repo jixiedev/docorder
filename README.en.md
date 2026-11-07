@@ -258,7 +258,7 @@ uv run pytest
 
 The documentation site is generated. The sources are the Markdown files in this repository.
 
-- [docs/site/index.en.html](docs/site/index.en.html): the documentation home page. The left column is the grouped documentation navigation, the body explains what docorder is, its core concepts, the model, the quick start, and running the same epoch again, and the right column is the table of contents of the page.
+- [docs/site/index.en.html](docs/site/index.en.html): the documentation home page. The left column is the grouped documentation navigation, the body explains what docorder does, which jobs it fits, where it does not fit, the core terms, and how to start, and the right column is the table of contents of the page.
 - [docs/guide.en.md](docs/guide.en.md): the only source of the guide. It starts with the background, the concepts, and how a run works, then covers the fingerprints and hashes, configuration, the built-in functions, template variables, writing your own function, a complete example of using docorder in your own project, a data governance case study, and best practices. The build splits it into one page per chapter under `docs/site/guide/`.
 - [glossary.en.md](glossary.en.md): the terms the documents use.
 

@@ -258,7 +258,7 @@ uv run pytest
 
 文档站是生成出来的，源文件是仓库里的 Markdown。
 
-- [docs/site/index.html](docs/site/index.html)：文档首页。左侧是分组的文档导航，正文介绍 docorder 是什么、核心概念、模型、快速开始与再跑，右侧是本页目录。
+- [docs/site/index.html](docs/site/index.html)：文档首页。左侧是分组的文档导航，正文说明 docorder 做什么、适合哪些作业、什么时候不用、核心术语和怎么开始，右侧是本页目录。
 - [docs/guide.md](docs/guide.md)：使用指南的唯一源文件。从背景、概念、工作流程讲到指纹与哈希、配置、内置 function、模板变量、开发自己的 function、在自己的项目中使用 docorder 的完整示例、数据治理案例，以及最佳实践。生成后按章拆成网页，放在 `docs/site/guide/` 下。
 - [glossary.md](glossary.md)：文档里固定使用的术语。
 

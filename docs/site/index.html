@@ -76,7 +76,7 @@
         <div>
           <p class="kicker">Python 库 · stage runner</p>
           <h1>对一批目录按阶段跑同一套转换</h1>
-          <p class="lead">每个对象是一个目录（实体）。算子组成有向无环图，一段做完整批，下游才开始。进度写在磁盘上，同一 epoch 中断后可以接着跑。</p>
+          <p class="lead">对一批相似的对象做同一套多步转换，例如表定义、笔记或配置：先渲染，再调用外部工具或模型，结果按对象留在磁盘上。中断或输入变化之后，用同一个 epoch 再跑，只补没做完的、重做上游变了的。</p>
         </div>
         <figure class="pipeline">
           <div class="pipe">
@@ -136,26 +136,71 @@
 
       <section class="section" id="what">
         <div class="section-head">
-          <h2>一句话</h2>
-          <p>适合对大量相似对象做可中断的多步批处理；不适合每次失败都要从头再来的一次性脚本。</p>
+          <h2>它做什么</h2>
+          <p>把一批相似对象的多步加工做成可中断、可增量的作业。问题从哪来，见 <a href="guide/1-background.html#要解决的问题">第一章</a>。</p>
         </div>
+        <p>典型的输入是几百张表的定义、一批笔记，或一组服务配置。每个对象走同样的几步，例如先渲染成提示词，再交给大模型，最后收成一份清单。这些步骤里常有慢的、贵的、容易失败的：外部命令会超时，模型接口会限流，模板也可能写错。输入还会变，今天改了一张表，明天又多了几张。</p>
+        <p>写成普通循环时，处理到中途失败，修好之后往往只能从头再跑，已经花掉的时间和调用费用都浪费了。自己记「哪些做完了」也不省事：放进数据库就多一个要维护的组件，放在内存里则进程一退出就没了。改了一个输入之后，哪些下游还有效，脚本通常没有依据，只能全部重做，或者靠人记。</p>
+        <p>docorder 把每个对象在每一步的结果写成磁盘上的一个目录，并在目录里记下这一步读过的上游内容的哈希。下次用同一个 epoch 再跑，比较这些哈希即可：没做完的补上，上游变了的重做，没变的留下，多出来的删掉。判断只看文件，不需要数据库，也不依赖上一次进程留在内存里的状态。一个阶段要把这一批全部做完，下游才开始。</p>
         <div class="cards">
           <article class="card">
             <span class="num">1</span>
             <strong>实体在磁盘上</strong>
-            <p>每个目录有 <code>data</code> 与 <code>tag.json</code>。结果和上游快照跟着对象走。</p>
+            <p>每个目录有 <code>data</code> 与 <code>tag.json</code>。这一步的结果和它读过的上游，都跟这个对象走。</p>
           </article>
           <article class="card">
             <span class="num">2</span>
             <strong>算子组成图</strong>
-            <p>五种类型：source、map、reduce、fanout、apply。Home 在 <code>DOCORDER_HOMES</code>；输出路径由作业在这次运行里指定。</p>
+            <p>五种类型：source、map、reduce、fanout、apply。可复用的转换放在 <code>DOCORDER_HOMES</code>；这次运行写到哪里，由作业指定。</p>
           </article>
           <article class="card">
             <span class="num">3</span>
             <strong>按 epoch 续跑</strong>
-            <p>上游未变的保留，变了的重做，多余的删掉。细则见 <a href="guide/3-how-a-run-works.html#三工作流程">工作流程</a>。</p>
+            <p>同一个名字接着上次的目录干。换一个 epoch 则从空目录重算，旧的那批留着。细则见 <a href="guide/3-how-a-run-works.html#三工作流程">工作流程</a>。</p>
           </article>
         </div>
+      </section>
+
+      <section class="section" id="scenarios">
+        <div class="section-head">
+          <h2>可以用在什么场景</h2>
+          <p>一批彼此独立的对象，同一套步骤，其中有的步骤慢、贵或容易失败。作业图的写法见 <a href="guide/5-use-cases.html#五使用场景">第五章</a>。</p>
+        </div>
+        <div class="reads">
+          <article class="read">
+            <strong><a href="guide/5-use-cases.html#批量生成提示词并交给大模型">批量生成提示词，再交给大模型</a></strong>
+            <p>source 读入一批实体目录，map 用模板为每个对象写出提示词，下一步把提示词交给命令行形式的模型工具。还可以再加一个 reduce，把全部回答收成一份清单。接口偶发失败时给该节点配 <code>retry</code>，并用 <code>parallelism</code> 限制同时发出的请求。修好之后用同一个 epoch 再跑，只补那几个没拿到回答的对象，已经成功的不会再次调用模型。<a href="guide/10-using-docorder-in-your-own-project.html#十在自己的项目中使用-docorder">第十章</a>的示例就是这个形状。</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide/5-use-cases.html#从结构化数据生成配置文件">从结构化数据生成配置</a></strong>
+            <p>上游正文是 JSON，例如一张表的字段定义，或一个服务的描述。先用模板把每个键填进一段 jsonnet，再调用本机的 <code>jsonnet</code> 编译成格式统一的配置或文本。适合按一批表或服务，生成同一套配置文件。</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide/5-use-cases.html#为每个实体运行命令行工具">给每个对象跑一条命令</a></strong>
+            <p><code>Command</code> 为每个实体启动一次外部命令。参数可以引用正文、附加信息和输出目录，结果取标准输出，或命令写到磁盘上的文件。命令不经过 shell，参数里的空格不会被再解释一次。适合批量调用格式化工具、格式转换，或团队自己的脚本。</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide/5-use-cases.html#汇总与拆分">汇总，或者拆开</a></strong>
+            <p>reduce 把整批实体收成一个，用来做索引、目录或统计报告。fanout 把一个实体拆成多个，例如把一篇长文档按章节切开，再分别处理。fanout 没有现成的 function，按 <a href="guide/9-writing-your-own-function.html#九开发自己的-function">第九章</a> 自己写，通常十几行。</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide/11-a-data-governance-case-study.html#十一数据治理案例">仓库里的数据治理作业</a></strong>
+            <p><code>examples/data-governance/</code> 里有三组可运行的作业：给表写说明、按表文档生成 dbt 模型、从指标清单建词根表并给模型分配词根。词根那一组是四个作业接力，上一个作业的产物交给下一个。表或模型变了，再跑时只重做受影响的部分。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="limits">
+        <div class="section-head">
+          <h2>什么时候不用</h2>
+          <p>下面是当前版本过不去的形状。详见 <a href="guide/5-use-cases.html#不适合的场景">第五章</a> 与 <a href="guide/1-background.html#本版边界">本版边界</a>。</p>
+        </div>
+        <ul class="concepts">
+          <li><a href="guide/1-background.html#本版边界">要同时看两路上游</a><span>一个节点只能有一个上游。另一路如果在 function 里自己去读文件，那一路变化不会自动触发重做。</span></li>
+          <li><a href="guide/1-background.html#本版边界">要分到多台机器，或做成流水线</a><span>并行只在一台机器的线程池里。上游必须做完这一批，下游才开始，不能做完一个就往下传一个。</span></li>
+          <li><a href="guide/5-use-cases.html#不适合的场景">正文是二进制</a><span>图片、音频不行。实体正文只能是文本。</span></li>
+          <li><a href="guide/5-use-cases.html#不适合的场景">对象很少，步骤也很快</a><span>失败后从头再跑也没什么代价时，普通 Python 脚本更直接。</span></li>
+        </ul>
       </section>
 
       <section class="section" id="concepts">
@@ -220,7 +265,9 @@
 
     <aside class="toc">
       <h2>本页内容</h2>
-      <a href="#what">一句话</a>
+      <a href="#what">它做什么</a>
+      <a href="#scenarios">可以用在什么场景</a>
+      <a href="#limits">什么时候不用</a>
       <a href="#concepts">核心术语</a>
       <a href="#start">开始使用</a>
       <a href="#docs">接下来读什么</a>

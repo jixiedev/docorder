@@ -2,7 +2,7 @@
         <div>
           <p class="kicker">Python library · stage runner</p>
           <h1>Run the same transforms over a batch of directories, stage by stage</h1>
-          <p class="lead">Each object is a directory (an entity). Operators form a DAG. One stage finishes the whole batch before the next starts. Progress lives on disk, so the same epoch can resume after a stop.</p>
+          <p class="lead">Run one set of steps over a batch of similar objects, such as table definitions, notes, or configs: render, then call an external tool or a model, and keep each result on disk with the object. After a stop or a change in the input, the same epoch continues and only redoes what is missing or stale.</p>
         </div>
         <figure class="pipeline">
           <div class="pipe">
@@ -62,26 +62,71 @@
 
       <section class="section" id="what">
         <div class="section-head">
-          <h2>In short</h2>
-          <p>Docorder is for long, interruptible batch work over many similar objects—not for one-off scripts that must start over after every failure.</p>
+          <h2>What it does</h2>
+          <p>Turn a multi-step batch over similar objects into a job that can stop and continue. The problem is set out in <a href="guide.en.md#the-problem-to-solve">chapter 1</a>.</p>
         </div>
+        <p>A typical input is the definitions of hundreds of tables, a batch of notes, or a set of service configs. Every object goes through the same steps: render a prompt, hand it to a model, then collect the answers into one list. Some of those steps are slow, expensive, or prone to failure. An external command times out, a model API rate-limits, a template has a mistake. The input also keeps changing: one table definition today, a few new tables tomorrow.</p>
+        <p>A plain loop usually has to start over after a failure partway through, and the time and the model calls already spent are wasted. Keeping your own record of what finished is its own problem: a database is another component to run, and a record in memory disappears when the process exits. After one input changes, a script also has no basis for deciding which downstream results are still valid, so it recomputes everything, or a person decides by hand.</p>
+        <p>Docorder writes each object's result at each step as a directory on disk, and records in that directory a hash of the upstream content the step read. The next run of the same epoch compares those hashes: it fills in what never finished, redoes what the upstream changed, keeps what still matches, and deletes what is left over. The decision uses only the files. It needs no database, and it does not depend on anything the previous process left in memory. One stage finishes the whole batch before the next stage starts.</p>
         <div class="cards">
           <article class="card">
             <span class="num">1</span>
             <strong>Entities on disk</strong>
-            <p>Each directory holds a <code>data</code> body and a <code>tag.json</code>. Results and upstream snapshots stay with the object.</p>
+            <p>Each directory holds a <code>data</code> body and a <code>tag.json</code>. The result of this step, and the upstream it read, stay with the object.</p>
           </article>
           <article class="card">
             <span class="num">2</span>
             <strong>Operators in a graph</strong>
-            <p>Five types: source, map, reduce, fanout, apply. Homes live under <code>DOCORDER_HOMES</code>; the job picks the output path for a run.</p>
+            <p>Five types: source, map, reduce, fanout, apply. Reusable transforms live under <code>DOCORDER_HOMES</code>; the job picks where this run writes.</p>
           </article>
           <article class="card">
             <span class="num">3</span>
             <strong>Resume by epoch</strong>
-            <p>The runner keeps matching upstreams, redoes changed ones, and deletes leftovers. Details in <a href="guide.en.md#3-how-a-run-works">How a run works</a>.</p>
+            <p>The same name continues in the directories already there. A new epoch starts from empty directories and leaves the old batch in place. Details in <a href="guide.en.md#3-how-a-run-works">How a run works</a>.</p>
           </article>
         </div>
+      </section>
+
+      <section class="section" id="scenarios">
+        <div class="section-head">
+          <h2>Where it fits</h2>
+          <p>A batch of independent objects, the same steps for each, and at least one step that is slow, expensive, or prone to failure. The job graphs are in <a href="guide.en.md#5-use-cases">chapter 5</a>.</p>
+        </div>
+        <div class="reads">
+          <article class="read">
+            <strong><a href="guide.en.md#batch-prompt-generation-and-a-model-call">Generate prompts, then call a model</a></strong>
+            <p>A source reads a batch of entity directories, a map fills a template for each object, and the next map hands each prompt to a command-line model tool. A reduce can then collect every answer into one list. Give the model node a <code>retry</code> for the occasional API error, and a <code>parallelism</code> to cap how many requests are in flight. After a fix, the same epoch redoes only the objects that never got an answer; the ones that already succeeded are not sent to the model again. The example in <a href="guide.en.md#10-using-docorder-in-your-own-project">chapter 10</a> has this shape.</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide.en.md#generating-configuration-files-from-structured-data">Generate config from structured data</a></strong>
+            <p>The upstream body is JSON, for example the fields of a table or the description of a service. A template fills those keys into a jsonnet program, and the local <code>jsonnet</code> program compiles it into config or text of one format. This suits producing one family of config files from a batch of tables or services.</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide.en.md#running-a-command-line-tool-for-each-entity">Run a command for each object</a></strong>
+            <p><code>Command</code> starts an external command once per entity. The arguments can refer to the body, the tag, and the output directory. The result is what the command prints, or a file it writes. The command is not run through a shell, so spaces in the arguments are not interpreted again. This suits formatters, converters, and scripts of your own team, called in bulk.</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide.en.md#gathering-and-splitting">Gather, or split</a></strong>
+            <p>A reduce folds the whole batch into one entity: an index, a table of contents, or a report. A fanout splits one entity into many, for example cutting a long document into chapters and handling each one afterwards. Fanout has no built-in function; you write it as <a href="guide.en.md#9-writing-your-own-function">chapter 9</a> describes, usually in a dozen lines.</p>
+          </article>
+          <article class="read">
+            <strong><a href="guide.en.md#11-a-data-governance-case-study">The data governance jobs in the repo</a></strong>
+            <p><code>examples/data-governance/</code> has three runnable jobs: write descriptions for tables, generate dbt models from table docs, and build a root catalogue from a metric list and assign each model a root. The catalogue work is four jobs in sequence, and each job's output is the next job's input. When a table or a model changes, a later run redoes only the affected part.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="limits">
+        <div class="section-head">
+          <h2>Where it does not fit</h2>
+          <p>Shapes this version cannot express. See <a href="guide.en.md#cases-that-do-not-fit">chapter 5</a> and <a href="guide.en.md#the-boundaries-of-this-version">the boundaries of this version</a>.</p>
+        </div>
+        <ul class="concepts">
+          <li><a href="guide.en.md#the-boundaries-of-this-version">Two upstreams at once</a><span>A node has one upstream. If a function reads a second result from disk itself, a change on that path does not redo the entity.</span></li>
+          <li><a href="guide.en.md#the-boundaries-of-this-version">Several machines, or a pipeline</a><span>Parallelism is a thread pool on one machine. The upstream finishes the whole batch before the downstream starts. One finished entity is not handed on immediately.</span></li>
+          <li><a href="guide.en.md#cases-that-do-not-fit">Binary bodies</a><span>Images and audio do not fit. An entity body is text.</span></li>
+          <li><a href="guide.en.md#cases-that-do-not-fit">Few objects, fast steps</a><span>When starting over after a failure costs nothing, an ordinary Python script is the simpler tool.</span></li>
+        </ul>
       </section>
 
       <section class="section" id="concepts">
